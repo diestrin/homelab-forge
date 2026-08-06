@@ -1,0 +1,6 @@
+# Host config backups (may contain local paths)
+backups/
+# Python
+__pycache__/
+*.pyc
+.venv/

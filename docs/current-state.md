@@ -1,6 +1,6 @@
-# Current host state (planning baseline)
+# Current host state
 
-Captured 2026-08-06 on host `localpower`. Re-verify before applying changes.
+Re-verified 2026-08-06 during Phase 0 on host `localpower`.
 
 ## Hardware / OS
 
@@ -8,41 +8,50 @@ Captured 2026-08-06 on host `localpower`. Re-verify before applying changes.
 | --- | --- |
 | Machine | Intel NUC, `Intel(R) Core(TM) i7-10710U` (6c/12t) |
 | RAM | 62 GiB |
-| Root FS | `/` on `nvme0n1p7` ~130G (≈98G free) |
-| Data FS | `/media/diestrin/data` on `nvme0n1p3` ~562G (≈381G free) |
+| Root FS | `/` on `nvme0n1p7` ~130G |
+| Data FS | `/media/diestrin/data` on `nvme0n1p3` ~562G |
 | OS | Ubuntu 24.04.4 LTS (`noble`), kernel `6.8.0-136-generic` |
 | Virtualization | VT-x available |
-| Primary NIC in use | Wi-Fi `wlp0s20f3` → `192.168.86.123/24` |
-| Ethernet | `eno1` **DOWN** (prefer enabling for server reliability) |
+| Primary NIC (Phase 0 default) | Wi-Fi `wlp0s20f3` → LAN `192.168.86.0/24` |
+| Ethernet | `eno1` **DOWN** (optional future reliability upgrade; not switched in Phase 0) |
+
+## Phase 0 controls (applied)
+
+| Control | Status |
+| --- | --- |
+| SSH | Key-only; `PermitRootLogin no`; `AllowUsers diestrin`; `AllowTcpForwarding yes` (`99-homelab-forge.conf`) |
+| UFW | Active; default deny inbound; `limit 22/tcp`; deny `5050`; **80/443 closed** |
+| fail2ban | Active sshd jail; LAN `ignoreip` |
+| host-watch | In-tree; user timer + linger; ntfy via bootstrap secrets |
+| Bootstrap secrets | age store on data disk (outside git) — [`docs/runbooks/bootstrap-secrets.md`](./runbooks/bootstrap-secrets.md) |
+| Config backups | `backups/phase0_*` (gitignored) |
 
 ## Already present
 
-- **Nix** 2.31.0 via `~/.nix-profile` (no Home Manager / no NixOS).
-- **Docker Engine** 29.4.3 in **rootless** mode, cgroup v2, overlay2. Mostly idle (1 stopped container, many images).
-- **SSH** listening on `:22` (all interfaces). Password auth still **enabled** in `sshd_config.d` hardening snippet (local-network oriented).
-- Projects live under `/media/diestrin/data/Projects/`.
-- Cursor remote server processes active for SSH-based development.
+- **Nix** via `~/.nix-profile` (no Home Manager / no NixOS yet). **age** installed into the Nix profile for bootstrap encryption.
+- **Docker Engine** rootless; no containers publishing host ports after Phase 0 prune of idle test container.
+- Projects under `/media/diestrin/data/Projects/`.
+- Cursor remote server over SSH (session survived hardening).
 
-## Not present / not active
+## Not present / deferred
 
-- `k3s` / `kubectl` not installed.
-- `podman` / `home-manager` not installed.
-- `host-watch` timer/service **not installed** (repo exists; no `~/.config/host-watch`).
-- No listener on public `:80` / `:443` at planning time.
-- UFW / fail2ban status should be re-checked before Phase 0 (prior `local-brain` docs assumed incomplete hardening).
+- `k3s` / `kubectl` / Vault / Argo CD (Phase 3).
+- Home Manager (Phase 1).
+- Opening host `:80` / `:443`.
 
-## Public exposure context
+## Public exposure (redacted)
 
-**Intended (accepted):** No-IP DDNS → home public IP → router port-forward → NUC.
-Preferred app/SSH hostname: `localpower.diegobarahona.com` (verify exact DNS
-spelling/zone in Phase 0; older notes used `diegbarahona.com` without the `o`).
+See [`docs/runbooks/network-exposure.md`](./runbooks/network-exposure.md). Private IPs / router UI notes:
+`/media/diestrin/data/secrets/bootstrap/inventory.private.md`.
 
-Historical `local-brain` docs also mention nonstandard SSH ports. Treat live
-reachability, forwards, and CGNAT status as **unknown until Phase 0 re-audit**.
+- Hostname: `localpower.diegobarahona.com` (CNAME → operator DDNS → home public A).
+- Public IP matches DNS A (not CGNAT on this path).
+- Intended eventual public ports: SSH + 80 + 443; Phase 0 allows **SSH only**.
 
-## Implications for the plan
+## Implications
 
-1. Prefer **incremental Nix on Ubuntu** over a big-bang NixOS reinstall while this box is the daily remote-dev host.
-2. Disk layout already separates OS vs data — keep cluster/state and project sandboxes on the data volume where possible.
-3. Rootless Docker coexists awkwardly with k3s (often needs root/privileged components). Plan networking & runtime coexistence explicitly (ADR-003).
-4. Wi-Fi as uplink is a reliability risk for ingress/HA demos; Phase 0 should prefer ethernet.
+1. Incremental Nix on Ubuntu remains the path (ADR-001).
+2. Keep heavy state on the data volume.
+3. Wi-Fi is the Phase 0 uplink by choice; ethernet stays optional.
+4. Do not open 80/443 until Phase 3 ingress work.
+5. Phase 0 exit criteria met — proceed to Phase 1 when authorized.

@@ -169,6 +169,6 @@ Factory last so it lands on stable rails.
 
 ## Immediate next action (when execution is authorized)
 
-Start **Phase 0** only: re-audit No-IP/router exposure, harden public SSH/firewall,
-**import** `host-watch` into `security/host-watch/` and install from there, confirm ethernet
-preference, establish bootstrap secret location (pre-Vault). Stop and report before any k3s install.
+**Phase 0 complete** (2026-08-06). Next authorized phase: **Phase 1** — Nix foundation
+([`docs/phases/phase-1-nix-foundation.md`](./docs/phases/phase-1-nix-foundation.md)).
+Do not install k3s/ingress until that work is authorized.

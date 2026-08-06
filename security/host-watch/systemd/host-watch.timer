@@ -1,0 +1,13 @@
+[Unit]
+Description=Run host-watch every 10 minutes
+Documentation=file://%h/.local/share/host-watch/README.md
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+AccuracySec=1min
+Persistent=true
+Unit=host-watch.service
+
+[Install]
+WantedBy=timers.target

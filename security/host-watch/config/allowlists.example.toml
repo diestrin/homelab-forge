@@ -1,0 +1,176 @@
+# Allowlists for a Cursor / Claude / Docker / Node development workstation.
+# Copy to ~/.config/host-watch/allowlists.toml and tune.
+
+# Process name (comm) or substring of cmdline that is expected.
+# Matching is case-insensitive substring against "comm" OR full cmdline.
+[processes]
+allow_substrings = [
+  # shells / system
+  "systemd",
+  "sshd",
+  "dbus",
+  "cron",
+  "wpa_supplicant",
+  "NetworkManager",
+  "containerd",
+  "dockerd",
+  "docker-proxy",
+  "rootlesskit",
+  "slirp4netns",
+  "pipewire",
+  "pulseaudio",
+  "Xorg",
+  "gnome-",
+  "gsd-",
+  "fwupd",
+  "thermald",
+  "multipathd",
+  "ModemManager",
+  "udisksd",
+  "polkit",
+  "snapd",
+  "unattended-upgrade",
+  "packagekit",
+  "rsyslog",
+  "agetty",
+  "bash",
+  "zsh",
+  "tmux",
+  "screen",
+  "ssh ",
+  "ssh:",
+  # editors / agents
+  "cursor-server",
+  "cursor-agent",
+  ".cursor-server",
+  "code-server",
+  "vscode",
+  "claude",
+  "codex",
+  "anthropic",
+  "openai.chatgpt",
+  # language tooling
+  "node ",
+  "/node",
+  "nodejs",
+  "npm ",
+  "npx ",
+  "yarn ",
+  "pnpm ",
+  "esbuild",
+  "next ",
+  "jest",
+  "tsc",
+  "tsserver",
+  "python",
+  "pip ",
+  "uv ",
+  "uvx",
+  "nix",
+  "nix-shell",
+  "git ",
+  "rg ",
+  "ripgrep",
+  "fd ",
+  "htop",
+  "top",
+  "ps ",
+  "ss ",
+  "curl ",
+  "wget ",
+  "host-watch",
+  # aws / mcp
+  "mcp-proxy-for-aws",
+  "aws ",
+  "terraform",
+  "serverless",
+  "nodemon",
+  "gunicorn",
+  "pgadmin",
+]
+
+# Exact process names (comm) that are always allowed
+allow_comms = [
+  "systemd",
+  "bash",
+  "zsh",
+  "sshd",
+]
+
+# Paths where running binaries are expected (prefix match on resolved exe)
+[binaries]
+allow_prefixes = [
+  "/usr/",
+  "/bin/",
+  "/sbin/",
+  "/lib/",
+  "/lib64/",
+  "/snap/",
+  "/opt/",
+  "/nix/",
+  "/home/diestrin/.cursor-server/",
+  "/home/diestrin/.nvm/",
+  "/home/diestrin/.local/",
+  "/home/diestrin/.cache/uv/",
+  "/home/diestrin/.claude/",
+]
+
+# Suspicious cmdline patterns (case-insensitive regex). Finding one is always an alert.
+[suspicious]
+cmdline_regexes = [
+  "xmrig",
+  "stratum\\+tcp",
+  "cryptonight",
+  "kinsing",
+  "mirai",
+  "masscan",
+  "(curl|wget).*\\|\\s*(ba)?sh",
+  "base64\\s+-d.*\\|\\s*(ba)?sh",
+  "nc\\s+-[el]",
+  "ncat\\s+-[el]",
+  "socat\\s+.*EXEC",
+  "meterpreter",
+]
+
+# Paths that should never host a running executable
+forbidden_exe_prefixes = [
+  "/tmp/",
+  "/var/tmp/",
+  "/dev/shm/",
+]
+
+[listeners]
+# Ports allowed to bind on non-localhost (0.0.0.0 / ::)
+allow_ports = [
+  22,    # ssh
+  53,    # dns (resolved)
+  68,    # dhcp client
+]
+
+[peers]
+# Org name substrings that are expected (via ipinfo.io when enabled).
+allow_org_substrings = [
+  "Anthropic",
+  "Amazon",
+  "AWS",
+  "Cloudflare",
+  "Google",
+  "Microsoft",
+  "GitHub",
+  "Fastly",
+  "Akamai",
+  "Cursor",
+  "OpenAI",
+]
+
+# Always-allowed peer IPs / CIDRs
+allow_peers = [
+  "127.0.0.1",
+  "::1",
+  "192.168.0.0/16",
+  "10.0.0.0/8",
+  "172.16.0.0/12",
+]
+
+# Do not flag peers connected to these local ports (e.g. inbound SSH)
+ignore_local_ports = [22]

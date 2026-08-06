@@ -1,0 +1,33 @@
+# Copy to ~/.config/host-watch/config.toml and edit.
+
+[notify]
+# ntfy topic URL. Create a private topic, e.g. https://ntfy.sh/your-secret-topic
+# Leave empty to only log findings (no push).
+url = ""
+# Optional auth: "Bearer <token>" or "Basic <user:pass base64>"
+# authorization = ""
+title_prefix = "host-watch"
+# priority: min | low | default | high | urgent
+priority = "high"
+# Only send when there are new findings (recommended)
+only_on_findings = true
+
+[scan]
+# CPU threshold (percent, can exceed 100 on multi-core) for unknown processes
+cpu_percent_threshold = 50.0
+# Memory RSS threshold in MiB for unknown processes
+rss_mib_threshold = 1024.0
+# Require this many consecutive scans above threshold before alerting (reduces noise)
+cpu_consecutive = 2
+# Resolve remote peer orgs via ipinfo.io (needs network; cached)
+resolve_peer_orgs = true
+# Seconds to cache ASN/org lookups
+ipinfo_cache_seconds = 86400
+
+[paths]
+# State + cache live here by default
+state_dir = "~/.local/state/host-watch"
+
+[logging]
+# debug | info | warning | error
+level = "info"

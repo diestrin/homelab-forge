@@ -4,10 +4,10 @@ Declarative, agent-operated home lab platform for a single powerful workstation/
 (Intel NUC class): remote development, sandboxed project execution, local Kubernetes,
 and an agentic software factory.
 
-> **Status:** Planning only. No host changes have been applied from this repository yet.
-> Follow [`PLAN.md`](./PLAN.md) and the phase docs under [`docs/phases/`](./docs/phases/).
+> **Status:** Phase 0 complete — hardened public SSH, UFW, fail2ban, in-tree `security/host-watch/`.
+> Next: Phase 1 (Nix foundation). Follow [`PLAN.md`](./PLAN.md) and [`docs/phases/`](./docs/phases/).
 >
-> **Public from day one** — never commit secrets. Platform secrets go to HashiCorp Vault (Phase 3).
+> **Public from day one** — never commit secrets. Bootstrap age store on the data disk until Vault (Phase 3).
 
 ## Goals
 
@@ -33,7 +33,9 @@ homelab-forge/
   factory/                # (future) agent orchestration contracts & task schemas
   sandbox/                # (future) project sandbox profiles & tooling
   security/
-    host-watch/           # (Phase 0) imported host IDS (from ../host-watch)
+    host-watch/           # imported host IDS (from ../host-watch)
+    scripts/              # install-host-watch + Phase 0 harden/apply helpers
+  docs/runbooks/          # network exposure, restore, bootstrap secrets, docker hygiene
 ```
 
 ## Locked decisions (summary)

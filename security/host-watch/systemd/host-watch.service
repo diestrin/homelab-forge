@@ -1,0 +1,21 @@
+[Unit]
+Description=host-watch security scan
+Documentation=file://%h/.local/share/host-watch/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/share/host-watch/venv/bin/python -m host_watch
+Nice=10
+# Harden a bit — still needs /proc and network for ipinfo/ntfy
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+# State + config need write/read under home; override ProtectHome for those paths
+ReadWritePaths=%h/.local/state/host-watch %h/.config/host-watch
+ProtectSystem=strict
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=default.target

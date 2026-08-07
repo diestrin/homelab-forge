@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: forge-system
+  labels:
+    forge.homelab/plane: platform
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: forge-demo
+  labels:
+    forge.homelab/plane: demo
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: forge-agents
+  labels:
+    forge.homelab/plane: agents

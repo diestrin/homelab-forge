@@ -35,6 +35,7 @@ age -d -i /media/diestrin/data/secrets/bootstrap/age-key.txt \
 
 ## Migration (Phase 3)
 
-1. Deploy Vault on k3s (ADR-007).
-2. Write secrets into Vault KV; update consumers.
-3. Destroy bootstrap plaintext remnants; keep only what is required for unseal.
+1. Deploy Vault on k3s (ADR-007) — done; see [`vault.md`](./vault.md).
+2. Write secrets into Vault KV (`secret/forge/ntfy`); ESO syncs to `forge-system/ntfy`.
+3. Prefer Vault as SoR going forward. Keep age key / inventory for break-glass; avoid new plaintext under bootstrap.
+4. Unseal material lives only at `/media/diestrin/data/secrets/vault/init.json` (offline backup).

@@ -20,7 +20,7 @@ under the same zone if that name must stay SSH-only / No-IP-shaped).
    - Disable components not needed (e.g. local ServiceLB if MetalLB/Traefik host ports suffice).
 2. Bind host ports **80/443** exclusively via k3s/Traefik (or a thin host reverse proxy in front). Do not also bind host nginx/caddy on those ports.
 3. **WAN model:** router **direct port-forward** of TCP 80 and 443 to the NUC. No Cloudflare Tunnel / Tailscale Funnel for v1.
-4. **TLS:** **Let’s Encrypt** via ACME (HTTP-01 is acceptable once 80 is forwarded; DNS-01 if HTTP-01 is impractical). Prefer cert-manager or Traefik ACME — pick one implementation in Phase 3 and document it.
+4. **TLS:** **Let’s Encrypt** via ACME (HTTP-01 is acceptable once 80 is forwarded; DNS-01 if HTTP-01 is impractical). **Phase 3 pick: cert-manager** + Traefik Ingress (`ClusterIssuer` `letsencrypt-prod`).
 5. **Hostname:** prefer `localpower.diegobarahona.com` for HTTPS apps if DNS can point that name at the No-IP target (CNAME/ALIAS) **or** serve HTTPS on that name while keeping A/AAAA via No-IP. If the apex/name conflicts with SSH-only expectations, use e.g. `forge.diegobarahona.com` / `*.localpower.diegobarahona.com` and document the split.
 6. Coexistence with Docker:
    - Short term: keep rootless Docker for L1 sandboxes; k3s uses `containerd`.

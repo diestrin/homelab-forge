@@ -24,7 +24,9 @@
       system = "x86_64-linux";
       pkgs = import nixpkgs {
         inherit system;
-        config.allowUnfree = false;
+        # HashiCorp Vault CLI is BSL (unfree). Image/server still runs in-cluster.
+        config.allowUnfreePredicate =
+          pkg: builtins.elem (nixpkgs.lib.getName pkg) [ "vault" ];
       };
     in
     {

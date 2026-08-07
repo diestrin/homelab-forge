@@ -10,9 +10,10 @@ help:
 	@echo "Targets:"
 	@echo "  make sandbox-list"
 	@echo "  make sandbox-init"
-	@echo "  make sandbox-enter PROJECT=... PROFILE=trusted|devcontainer|agent-cell|incus"
+	@echo "  make sandbox-enter PROJECT=... PROFILE=trusted|devcontainer|agent-cell|incus|k8s-workload"
 	@echo "  make sandbox-smoke"
 	@echo "  make sandbox-build-image"
+	@echo "  Phase 3: ./k8s/bootstrap/apply-phase3-privileged.sh (sudo TTY)"
 
 sandbox-list:
 	@$(FORGE) sandbox list

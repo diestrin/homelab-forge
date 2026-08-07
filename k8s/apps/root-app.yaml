@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: forge-root
+  namespace: forge-system
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/diestrin/homelab-forge.git
+    targetRevision: main
+    path: k8s/overlays/root
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: forge-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false

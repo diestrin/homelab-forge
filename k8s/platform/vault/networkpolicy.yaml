@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vault-allow
+  namespace: forge-system
+spec:
+  podSelector:
+    matchLabels:
+      app: vault
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # ClusterIP-only Service — allow in-cluster clients (ESO may live in default NS).
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8200
+  egress:
+    - {} # Vault needs DNS + outbound for future auth backends; tighten later

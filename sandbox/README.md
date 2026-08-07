@@ -22,7 +22,7 @@ Make wrappers: `make sandbox-enter PROJECT=sandbox/examples/hello-flake PROFILE=
 | `trusted` | L0 | Host + flake/direnv | Full host access; operator trust |
 | `devcontainer` | L1 | Rootless Docker | Project bind only; resource caps; no docker.sock; publish `127.0.0.1` only |
 | `incus` | L2 | Incus | System container; project disk device only; optional install script |
-| `k8s-workload` | L3 | k3s (Phase 3) | Stub until cluster exists |
+| `k8s-workload` | L3 | k3s | Apply project `k8s/` into `forge-agents` (or `FORGE_K8S_NAMESPACE`); NetworkPolicy + quotas on namespace |
 | `agent-cell` | L4 | Ephemeral L1 | Project-only mount; no `$HOME`; no docker.sock; cell metadata under data disk |
 
 ## Filesystem layout

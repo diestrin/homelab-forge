@@ -169,6 +169,5 @@ Factory last so it lands on stable rails.
 
 ## Immediate next action (when execution is authorized)
 
-**Phase 2 complete** (2026-08-06). Next authorized phase: **Phase 3** — k3s platform
-([`docs/phases/phase-3-k3s-platform.md`](./docs/phases/phase-3-k3s-platform.md)).
-Do not open host 80/443 or install k3s until Phase 3 is authorized.
+**Phase 3 complete** (2026-08-07). Next authorized phase: **Phase 4** — agentic factory
+([`docs/phases/phase-4-agentic-factory.md`](./docs/phases/phase-4-agentic-factory.md)).

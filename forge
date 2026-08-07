@@ -28,7 +28,7 @@ Profiles (ADR-002):
   trusted        L0 host workspace (flake/direnv)
   devcontainer   L1 rootless Docker, project bind only
   incus          L2 Incus system container (requires Incus)
-  k8s-workload   L3 stub — Phase 3
+  k8s-workload   L3 k3s apply/enter (forge-agents by default)
   agent-cell     L4 ephemeral cell, no docker.sock, project-only mount
 
 Env:
@@ -37,6 +37,8 @@ Env:
   FORGE_PUBLISH_PORT    host[:container] bound to 127.0.0.1 only
   FORGE_MEM / FORGE_CPUS / FORGE_PIDS   resource limit overrides
   FORGE_AGENT_RW        true|false (agent-cell project mount writable)
+  FORGE_K8S_NAMESPACE   override for k8s-workload (default forge-agents)
+  KUBECONFIG            default ~/.kube/config
 EOF
 }
 
@@ -54,7 +56,14 @@ sandbox_list() {
           echo "L2 Incus (not installed — ./sandbox/scripts/install-incus.sh)"
         fi
         ;;
-      k8s-workload) echo "L3 Phase 3 stub" ;;
+      k8s-workload)
+        if [[ -f "${KUBECONFIG:-$HOME/.kube/config}" ]] && command -v kubectl >/dev/null 2>&1 && \
+          kubectl cluster-info >/dev/null 2>&1; then
+          echo "L3 k3s workload (cluster reachable)"
+        else
+          echo "L3 k3s (cluster not reachable — install via k8s/bootstrap/)"
+        fi
+        ;;
       agent-cell) echo "L4 ephemeral agent cell" ;;
     esac
   done

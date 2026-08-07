@@ -15,6 +15,10 @@ Phase 1 is **additive Nix**. Do not aggressively remove apt packages.
 | Language runtimes (Node via nvm, etc.) | unmanaged / project flakes | Not global HM packages |
 | Project toolchains | per-repo flake + direnv | See `sandbox/templates/flake-direnv/` |
 | L1/L4 image packages | `sandbox/images/Dockerfile` | Nix + direnv inside container |
+| `k3s` | official install script (`k8s/bootstrap/install-k3s.sh`) | Not Nix; data under `/media/diestrin/data/forge/k3s` |
+| `kubectl`, `helm`, `vault` CLI | Nix (Home Manager) | Vault CLI is BSL — flake `allowUnfreePredicate` |
+| Traefik / metrics-server / local-path | embedded in k3s | — |
+| cert-manager / ESO / Argo CD / Vault server | cluster manifests + bootstrap scripts | Argo owns steady-state under `k8s/` |
 
 ## Conflicts
 

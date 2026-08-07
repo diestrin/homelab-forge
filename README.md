@@ -4,10 +4,10 @@ Declarative, agent-operated home lab platform for a single powerful workstation/
 (Intel NUC class): remote development, sandboxed project execution, local Kubernetes,
 and an agentic software factory.
 
-> **Status:** Phase 2 complete — sandbox profiles (`trusted` / `devcontainer` / `agent-cell`) + forge CLI.
-> Next: Phase 3 (k3s platform). Follow [`PLAN.md`](./PLAN.md) and [`docs/phases/`](./docs/phases/).
+> **Status:** Phase 3 complete — k3s + Traefik/LE + Vault + ESO + Argo CD.
+> Next: Phase 4 (agentic factory). Follow [`PLAN.md`](./PLAN.md) and [`docs/phases/`](./docs/phases/).
 >
-> **Public from day one** — never commit secrets. Bootstrap age store on the data disk until Vault (Phase 3).
+> **Public from day one** — never commit secrets. Vault is SoR; see [`docs/runbooks/vault.md`](./docs/runbooks/vault.md).
 
 ## Goals
 
@@ -63,7 +63,7 @@ homelab-forge/
     templates/            # flake+direnv project template
     examples/             # hello-flake sample
     scripts/              # smoke tests, layout, optional Incus install
-  k8s/                    # (future) cluster manifests; Argo CD syncs from main
+  k8s/                    # cluster manifests; Argo CD syncs from main
   factory/                # (future) agent orchestration contracts & task schemas
   security/
     host-watch/           # imported host IDS (from ../host-watch)

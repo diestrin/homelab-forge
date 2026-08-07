@@ -27,9 +27,9 @@ Internet → DDNS hostname → home router port-forward → NUC
 | Port | Phase 0 | Later |
 | --- | --- | --- |
 | SSH (`22` on host) | **Allowed** (UFW rate-limit + fail2ban) | Keep hardened |
-| `80` / `443` | **Closed** on host firewall | Open only with k3s/Traefik (Phase 3) |
+| `80` / `443` | Open with Traefik (Phase 3) | UFW allow + router port-forward; LE HTTP-01 |
 
-Do not open 80/443 until Phase 0 exit criteria pass and Phase 3 ingress is ready.
+Open 80/443 only when Traefik is ready to serve ACME in the same session (`k8s/bootstrap/ufw-k3s.sh`).
 
 ## Controls
 

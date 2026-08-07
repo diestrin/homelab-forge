@@ -1,0 +1,20 @@
+# Child Applications (app-of-apps leaves). Root Application syncs this overlay;
+# these make individual apps visible in the Argo UI with their own sync status.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: forge-demo-hello
+  namespace: forge-system
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/diestrin/homelab-forge.git
+    targetRevision: main
+    path: k8s/apps/forge-demo-hello
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: forge-demo
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

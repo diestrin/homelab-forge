@@ -22,7 +22,7 @@ The repo is **public from day one**, so secrets must never live in git.
    (e.g. age-encrypted file outside the repo, or `pass`/SOPS) only for bootstrap
    secrets needed to stand up Vault + Traefik. Migrate into Vault and delete the bootstrap store.
 4. **Consumers:**
-   - k8s workloads: Vault Agent injector / CSI / External Secrets Operator (pick one in Phase 3; prefer ESO or Vault Agent for clarity).
+   - k8s workloads: **Phase 3 pick: External Secrets Operator** (`ClusterSecretStore` → Vault KV). Vault Agent deferred for short-lived agent tokens in Phase 4.
    - Agents/sandboxes: short-lived Vault tokens or AppRole per task; no long-lived PATs in env files.
    - Humans: Vault CLI/UI over SSH tunnel or authenticated Ingress (UI not anonymously public).
 5. **Never** commit Vault unseal keys, root token, or `.vault-token` to git.

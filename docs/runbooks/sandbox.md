@@ -32,8 +32,16 @@ FORGE_PUBLISH_PORT=8080 ./forge sandbox enter myapp --profile devcontainer
 
 - Default: **no** published ports.
 - If publishing: **always** `127.0.0.1` (never `0.0.0.0`).
-- Outbound allowlists: deferred; rely on host UFW + future k3s NetworkPolicy for L3.
-- Public HTTP(S) only via Phase 3 Ingress — not Docker publishes ([docker-hygiene.md](./docker-hygiene.md)).
+- Outbound allowlists: deferred; rely on host UFW + k3s NetworkPolicy for L3.
+- Public HTTP(S) only via k3s Ingress — not Docker publishes ([docker-hygiene.md](./docker-hygiene.md)).
+
+## k8s-workload (L3)
+
+```bash
+./forge sandbox enter myapp --profile k8s-workload
+# applies myapp/k8s/ into FORGE_K8S_NAMESPACE (default forge-agents)
+```
+
 
 ## Incus (L2, optional)
 

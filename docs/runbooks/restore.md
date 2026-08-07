@@ -14,7 +14,9 @@ One-page recovery notes. Backups are mostly manual until later automation.
 | system-manager state | `/run/system-manager`, `/etc` drop-ins | Re-apply with `./bootstrap --system` |
 | Dotfile backups | `backups/phase1_*`, `~/.zshrc.backup-phase1` | Pre-HM shell |
 | Project data | `/media/diestrin/data/Projects/` | Data disk; largest restore surface |
-| Future cluster / Vault / Argo | data-disk volumes + Vault unseal | Phase 3+ |
+| k3s data + local-path PVCs | `/media/diestrin/data/forge/k3s/` | Reinstall via `k8s/bootstrap/install-k3s.sh` |
+| Vault unseal + root token | `/media/diestrin/data/secrets/vault/init.json` | Offline backup mandatory; never git |
+| Argo CD | re-apply bootstrap + root Application | Syncs `k8s/` from `main` |
 
 ## Break-glass
 
@@ -35,9 +37,12 @@ One-page recovery notes. Backups are mostly manual until later automation.
 4. Reinstall host-watch from this repo: `./security/scripts/install-host-watch.sh`.
 5. Re-apply declarative tooling: `./bootstrap` then `./bootstrap --system`.
 6. Re-clone / remount project data on the data disk.
-7. Later: unseal Vault / re-sync Argo from `main` (Phase 3).
+7. Reinstall k3s (`k8s/bootstrap/README.md`); re-apply cert-manager issuers.
+8. Unseal Vault from offline `init.json`; restore `vault-eso-token` if needed.
+9. Re-apply Argo CD + `kubectl apply -f k8s/apps/root-app.yaml`; wait for sync.
 
 ## Phase 3 secret migration reminder
 
 Bootstrap age store is temporary. After Vault is SoR, migrate ntfy and tokens,
 then destroy or shrink the bootstrap store to unseal materials only (ADR-007).
+See [`vault.md`](./vault.md) and [`gitops.md`](./gitops.md).

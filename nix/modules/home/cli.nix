@@ -9,8 +9,11 @@
     gh
     gnumake
     jq
+    kubectl
+    kubernetes-helm
     ripgrep
     tree
+    vault
     # Phase 2: forge on PATH without cd'ing to the repo.
     (pkgs.writeShellScriptBin "forge" ''
       exec /media/diestrin/data/Projects/homelab-forge/forge "$@"

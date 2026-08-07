@@ -21,6 +21,20 @@ allow_substrings = [
   "incusd",
   "incus ",
   "forge",
+  # Phase 3 k3s platform
+  "k3s",
+  "k3s-server",
+  "k3s-agent",
+  "containerd",
+  "traefik",
+  "vault",
+  "argocd",
+  "cert-manager",
+  "external-secrets",
+  "local-path",
+  "metrics-server",
+  "coredns",
+  "flannel",
   "pipewire",
   "pulseaudio",
   "Xorg",
@@ -149,6 +163,8 @@ allow_ports = [
   22,    # ssh
   53,    # dns (resolved)
   68,    # dhcp client
+  80,    # Traefik Ingress HTTP (LE HTTP-01 + redirect)
+  443,   # Traefik Ingress HTTPS
 ]
 
 [peers]
@@ -176,5 +192,5 @@ allow_peers = [
   "172.16.0.0/12",
 ]
 
-# Do not flag peers connected to these local ports (e.g. inbound SSH)
-ignore_local_ports = [22]
+# Do not flag peers connected to these local ports (e.g. inbound SSH / HTTPS)
+ignore_local_ports = [22, 80, 443]

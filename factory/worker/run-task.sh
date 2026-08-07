@@ -94,17 +94,21 @@ python3 "$TASK_LIB" --repo "$REPO_ROOT" set-status "$TASK_ID" in_progress --assi
 
 PROJECT="$(forge_resolve_project "$TASK_REPO_PATH")"
 
-# Optional Vault secrets (GH token etc.) — never written into git
+# GitHub App installation token from Vault (not personal user PAT)
 if [[ "${FORGE_SKIP_VAULT:-0}" != "1" ]]; then
   if [[ -f "${FORGE_APPROLE_ENV:-/media/diestrin/data/secrets/vault/approle-forge-agent.env}" ]]; then
     if VAULT_TOKEN_VAL="$("$REPO_ROOT/factory/scripts/vault-agent-login.sh" --print-token 2>/dev/null)"; then
       export VAULT_ADDR="${VAULT_ADDR:-http://127.0.0.1:8200}"
       export VAULT_TOKEN="$VAULT_TOKEN_VAL"
-      if GH_TOKEN_FETCHED="$(vault kv get -field=token secret/forge/agents/github 2>/dev/null || true)"; then
+      if GH_TOKEN_FETCHED="$("$REPO_ROOT/factory/scripts/github-app-token.sh")"; then
         if [[ -n "$GH_TOKEN_FETCHED" ]]; then
           export GH_TOKEN="$GH_TOKEN_FETCHED"
-          log "fetched GitHub token from Vault (secret/forge/agents/github)"
+          # Prefer App token over user gh login for API calls
+          export GH_PROMPT_DISABLED=1
+          log "minted GitHub App installation token from Vault"
         fi
+      else
+        log "GitHub App token mint failed — push/PR may fall back to host credentials"
       fi
     else
       log "Vault AppRole login skipped/failed — continuing without GH_TOKEN from Vault"
@@ -226,7 +230,19 @@ fi
 PR_URL=""
 if git remote get-url origin >/dev/null 2>&1; then
   if [[ -n "$(git log "$BASE_REF"..HEAD --oneline 2>/dev/null || true)" ]]; then
-    if git push -u origin "$TASK_BRANCH" 2>&1; then
+    PUSH_OK=0
+    if [[ -n "${GH_TOKEN:-}" ]]; then
+      # Push as the GitHub App (HTTPS), not the operator's SSH user key
+      PUSH_URL="https://x-access-token:${GH_TOKEN}@github.com/diestrin/homelab-forge.git"
+      if git push "$PUSH_URL" "HEAD:refs/heads/$TASK_BRANCH" 2>&1; then
+        git branch --set-upstream-to="origin/$TASK_BRANCH" "$TASK_BRANCH" >/dev/null 2>&1 || true
+        PUSH_OK=1
+      fi
+    elif git push -u origin "$TASK_BRANCH" 2>&1; then
+      log "warning: pushed via host remote credentials (set Vault GitHub App for bot identity)"
+      PUSH_OK=1
+    fi
+    if [[ "$PUSH_OK" -eq 1 ]]; then
       if command -v gh >/dev/null; then
         PR_URL="$(gh pr create --repo diestrin/homelab-forge --base "$DEFAULT_BRANCH" --head "$TASK_BRANCH" \
           --title "factory($TASK_ID): $TASK_TITLE" \

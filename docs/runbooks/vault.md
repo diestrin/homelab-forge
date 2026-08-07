@@ -44,9 +44,11 @@ Phase 3 verified: `vault operator seal` then unseal with the stored key succeeds
 | `agent` | `secret/data/forge/agents/*` | AppRole for Phase 4 workers |
 
 AppRole role: `forge-agent` (short TTL). Worker login helper:
-[`factory/scripts/vault-agent-login.sh`](../../factory/scripts/vault-agent-login.sh)
-(see [`factory.md`](./factory.md)). Example secret: `secret/forge/agents/github`
-field `token` for `gh`/git push from workers.
+[`factory/scripts/vault-agent-login.sh`](../../factory/scripts/vault-agent-login.sh).
+GitHub bot identity: [`factory/scripts/github-app-token.sh`](../../factory/scripts/github-app-token.sh)
+reads `secret/forge/agents/github` (`app_id`, `private_key`, optional `client_id` /
+`client_secret` / `installation_id`) and mints an installation token (see
+[`factory.md`](./factory.md)).
 
 ## ESO
 

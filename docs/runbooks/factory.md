@@ -24,28 +24,54 @@ umask 077
 printf 'ROLE_ID=%s\nSECRET_ID=%s\n' "$ROLE_ID" "$SECRET_ID" \
   >/media/diestrin/data/secrets/vault/approle-forge-agent.env
 chmod 600 /media/diestrin/data/secrets/vault/approle-forge-agent.env
-
-# Worker GitHub token (fine-scoped PAT or github-app install token) — never commit
-vault kv put secret/forge/agents/github token="github_pat_***"
 ```
 
-Login test:
+### 2. GitHub App credentials (bot identity — not a personal PAT)
+
+Workers mint a short-lived **installation access token** and push/open PRs as the App.
+
+| Vault field | Required | Notes |
+| --- | --- | --- |
+| `app_id` | **yes** | Numeric App ID — used as JWT `iss` |
+| `client_id` | recommended | Stored for ops; not used for installation-token mint |
+| `client_secret` | optional | Stored only — **cannot** mint installation tokens |
+| `private_key` | **yes** | PEM from App settings → Generate private key |
+| `installation_id` | recommended | From App → Installations; auto-resolved from repo if omitted |
+
+Create / install the App on `diestrin/homelab-forge` with at least: **Contents: Read & write**, **Pull requests: Read & write**, **Metadata: Read**. For `./forge factory sync` as the App, also **Projects: Read & write** (or keep sync on a user `gh` login).
 
 ```bash
-source factory/scripts/vault-agent-login.sh
-vault token lookup
+# private_key.pem downloaded once from GitHub App settings (never commit)
+python3 - <<'PY' > /tmp/github-app-vault.json
+import json, pathlib
+print(json.dumps({
+  "app_id": "REPLACE_APP_ID",
+  "client_id": "REPLACE_CLIENT_ID",
+  "client_secret": "REPLACE_CLIENT_SECRET",
+  "installation_id": "REPLACE_INSTALLATION_ID",
+  "private_key": pathlib.Path("private_key.pem").read_text(),
+}))
+PY
+vault kv put secret/forge/agents/github @/tmp/github-app-vault.json
+shred -u /tmp/github-app-vault.json private_key.pem 2>/dev/null || rm -f /tmp/github-app-vault.json
 ```
 
-### 2. GitHub Projects
+Verify mint (prints a `ghs_…` token; do not log it):
 
-Board already created for this forge:
+```bash
+./forge factory github-token >/dev/null && echo ok
+```
 
-- https://github.com/users/diestrin/projects/1  
-- Mapping: [`factory/PROJECTS.md`](../../factory/PROJECTS.md)
+Legacy `token=` (PAT / pre-minted install token) still works as a fallback with a warning — migrate to App fields above.
 
-`gh` needs `project` + `read:project` scopes (`gh auth refresh -h github.com -s project,read:project`).
+### 3. GitHub Projects board
 
-### 3. Worker daemon (opt-in always-on)
+Board: https://github.com/users/diestrin/projects/1  
+Mapping: [`factory/PROJECTS.md`](../../factory/PROJECTS.md)
+
+`forge factory sync` prefers a Vault-minted App token when AppRole + App credentials exist; otherwise uses host `gh` auth (`project` + `read:project` scopes).
+
+### 4. Worker daemon (opt-in always-on)
 
 Unit file: `factory/systemd/forge-factory-worker.service`.
 
@@ -60,8 +86,7 @@ journalctl --user -u forge-factory-worker -f
 
 Or foreground: `./forge factory worker` / `./forge factory worker --once`.
 
-Ensure Vault port-forward (or in-cluster addr) is available if workers need AppRole.
-For push/PR without `secret/forge/agents/github`, host `gh` auth is used.
+Ensure Vault is reachable (port-forward) so workers can AppRole-login and mint GitHub App tokens.
 
 ## Daily commands
 
@@ -69,8 +94,9 @@ For push/PR without `secret/forge/agents/github`, host `gh` auth is used.
 ./forge factory validate
 ./forge factory list
 ./forge factory sync
-./forge factory claim              # manual claim next proposed
-./forge factory run TASK-001       # run without daemon
+./forge factory github-token   # mint only (debug)
+./forge factory claim          # manual claim next proposed
+./forge factory run TASK-001   # run without daemon
 ./forge factory worker --once
 ./forge factory demo
 ```
@@ -87,7 +113,8 @@ Argo sync + `curl` for the Phase 4 hello copy.
 
 ## Threat notes
 
-- Daemon runs as your user; it can commit/push if credentials exist — keep
-  `proposed` queue intentional.
+- Daemon runs as your user; with App credentials it pushes/PRs as the **GitHub App**,
+  not your personal account. Keep the `proposed` queue intentional.
 - Cells still lack docker.sock and `$HOME` mounts.
 - Board is a mirror; ignore board-only edits when they disagree with git.
+- Never commit `private_key.pem`, `client_secret`, or installation tokens.

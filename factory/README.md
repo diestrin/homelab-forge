@@ -9,6 +9,7 @@ Git-backed agentic software factory (ADR-004).
 | Projects board mapping | [`PROJECTS.md`](./PROJECTS.md) |
 | Orchestrator playbook | [`orchestrator/PLAYBOOK.md`](./orchestrator/PLAYBOOK.md) |
 | Worker playbook + daemon | [`worker/`](./worker/) |
+| GitHub App token mint | [`scripts/github-app-token.sh`](./scripts/github-app-token.sh) |
 | Review gate | [`review/CHECKLIST.md`](./review/CHECKLIST.md) |
 | Demo script | [`demo/run-demo.sh`](./demo/run-demo.sh) |
 | Operator runbook | [`../docs/runbooks/factory.md`](../docs/runbooks/factory.md) |

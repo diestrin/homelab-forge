@@ -56,7 +56,7 @@ Create once (Vault unsealed, root/operator token):
   printf 'ROLE_ID=%s\nSECRET_ID=%s\n' "\$ROLE_ID" "\$SECRET_ID" > "$APPROLE_ENV"
   chmod 600 "$APPROLE_ENV"
 
-Put worker secrets under secret/forge/agents/* (e.g. github/token).
+Put worker secrets under secret/forge/agents/* (GitHub App: app_id/client_id + private_key).
 EOF
   return 1 2>/dev/null || exit 1
 fi

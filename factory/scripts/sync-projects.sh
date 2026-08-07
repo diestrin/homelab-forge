@@ -26,6 +26,21 @@ command -v gh >/dev/null || die "gh required"
 command -v jq >/dev/null || die "jq required"
 command -v python3 >/dev/null || die "python3 required"
 
+# Prefer GitHub App installation token from Vault when AppRole material is present
+if [[ -z "${GH_TOKEN:-}" && "${FORGE_SKIP_VAULT:-0}" != "1" ]]; then
+  if [[ -f "${FORGE_APPROLE_ENV:-/media/diestrin/data/secrets/vault/approle-forge-agent.env}" ]]; then
+    if VAULT_TOKEN_VAL="$("$REPO_ROOT/factory/scripts/vault-agent-login.sh" --print-token 2>/dev/null)"; then
+      export VAULT_ADDR="${VAULT_ADDR:-http://127.0.0.1:8200}"
+      export VAULT_TOKEN="$VAULT_TOKEN_VAL"
+      if TOK="$("$REPO_ROOT/factory/scripts/github-app-token.sh" 2>/dev/null)"; then
+        export GH_TOKEN="$TOK"
+        export GH_PROMPT_DISABLED=1
+        log "using GitHub App installation token for Projects sync"
+      fi
+    fi
+  fi
+fi
+
 python3 "$TASK_LIB" --repo "$REPO_ROOT" validate >/dev/null
 gh project link "$PROJECT_NUMBER" --owner "$OWNER" --repo diestrin/homelab-forge >/dev/null 2>&1 || true
 

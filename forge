@@ -24,7 +24,7 @@ Usage:
   forge sandbox list
   forge sandbox init
   forge sandbox smoke
-  forge factory validate|list|get|claim|set-status|sync|run|worker|demo|help
+  forge factory validate|list|get|claim|set-status|sync|run|worker|demo|github-token|help
   forge help
 
 Profiles (ADR-002):
@@ -41,6 +41,7 @@ Factory (ADR-004):
   factory claim [--task ID]     claim next (or specific) proposed task
   factory set-status ID STATUS  transition status
   factory sync                  mirror git statuses → GitHub Projects
+  factory github-token          mint GitHub App installation token via Vault
   factory run TASK-NNN          run worker once for a task
   factory worker [--once]       long-running poll loop (or single iteration)
   factory demo                  guided portfolio demo script
@@ -192,6 +193,7 @@ forge factory — task board + worker (Phase 4)
   claim [--task TASK-NNN]
   set-status <TASK-NNN> <proposed|claimed|in_progress|review|done|failed>
   sync [--dry-run]
+  github-token
   run <TASK-NNN>
   worker [--once]
   demo
@@ -238,6 +240,15 @@ cmd_factory() {
       ;;
     sync)
       "$REPO_ROOT/factory/scripts/sync-projects.sh" "$@"
+      ;;
+    github-token)
+      # Mint / print installation token (requires Vault AppRole + App credentials)
+      if [[ -z "${VAULT_TOKEN:-}" ]]; then
+        VAULT_TOKEN_VAL="$("$REPO_ROOT/factory/scripts/vault-agent-login.sh" --print-token)"
+        export VAULT_TOKEN="$VAULT_TOKEN_VAL"
+        export VAULT_ADDR="${VAULT_ADDR:-http://127.0.0.1:8200}"
+      fi
+      "$REPO_ROOT/factory/scripts/github-app-token.sh"
       ;;
     run)
       [[ $# -ge 1 ]] || forge_die "usage: forge factory run TASK-NNN"

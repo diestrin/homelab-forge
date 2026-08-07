@@ -8,7 +8,9 @@ happen only after merge via Argo CD (ADR-008).
 
 1. **Claim** — `status: proposed → claimed` (`./forge factory claim` or daemon).
 2. **Cell** — provision agent-cell / worktree (`factory/worker/run-task.sh`).
-3. **Secrets** — AppRole login; read `secret/forge/agents/*` (e.g. `github` token).
+3. **Secrets** — AppRole login; mint GitHub App **installation token** from
+   `secret/forge/agents/github` (`app_id` / `client_id` + `private_key`;
+   `client_secret` stored but unused for mint). No personal PAT required.
 4. **Implement** — run `worker_hook` if set; else leave branch ready for attach.
 5. **Verify** — tests / acceptance notes; write artifacts under
    `/media/diestrin/data/forge/factory/artifacts/`.

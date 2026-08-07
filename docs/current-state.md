@@ -1,6 +1,6 @@
 # Current host state
 
-Re-verified 2026-08-06 during Phase 0 on host `localpower`.
+Re-verified 2026-08-06 during Phase 1 on host `localpower`.
 
 ## Hardware / OS
 
@@ -26,18 +26,30 @@ Re-verified 2026-08-06 during Phase 0 on host `localpower`.
 | Bootstrap secrets | age store on data disk (outside git) — [`docs/runbooks/bootstrap-secrets.md`](./runbooks/bootstrap-secrets.md) |
 | Config backups | `backups/phase0_*` (gitignored) |
 
+## Phase 1 controls (applied)
+
+| Control | Status |
+| --- | --- |
+| Flake | [`nix/flake.nix`](../nix/flake.nix) — nixpkgs 25.05, Home Manager, system-manager |
+| Home Manager | Active for `diestrin` (zsh/OMZ/Spaceship, git, direnv, CLIs) |
+| Apply UX | [`./bootstrap`](../bootstrap); docs in [`nix/README.md`](../nix/README.md) |
+| L0 sample | [`sandbox/examples/hello-flake/`](../sandbox/examples/hello-flake/) — `use flake` + direnv verified |
+| system-manager | Modules for sysctl/journald; activate with `./bootstrap --system` (sudo TTY) |
+| Package ownership | [`docs/runbooks/package-ownership.md`](./runbooks/package-ownership.md) |
+| Config backups | `backups/phase1_*` + `~/.zshrc.backup-phase1` (gitignored / home) |
+
 ## Already present
 
-- **Nix** via `~/.nix-profile` (no Home Manager / no NixOS yet). **age** installed into the Nix profile for bootstrap encryption.
+- **Nix** single-user + **Home Manager** via repo flake.
 - **Docker Engine** rootless; no containers publishing host ports after Phase 0 prune of idle test container.
 - Projects under `/media/diestrin/data/Projects/`.
-- Cursor remote server over SSH (session survived hardening).
+- Cursor remote server over SSH (session survived hardening + HM switch).
 
 ## Not present / deferred
 
 - `k3s` / `kubectl` / Vault / Argo CD (Phase 3).
-- Home Manager (Phase 1).
 - Opening host `:80` / `:443`.
+- L1/L2 sandbox runtimes (Phase 2); `../dev-machine` still the L1 idea source.
 
 ## Public exposure (redacted)
 
@@ -46,7 +58,7 @@ See [`docs/runbooks/network-exposure.md`](./runbooks/network-exposure.md). Priva
 
 - Hostname: `localpower.diegobarahona.com` (CNAME → operator DDNS → home public A).
 - Public IP matches DNS A (not CGNAT on this path).
-- Intended eventual public ports: SSH + 80 + 443; Phase 0 allows **SSH only**.
+- Intended eventual public ports: SSH + 80 + 443; Phase 0/1 allow **SSH only**.
 
 ## Implications
 
@@ -54,4 +66,4 @@ See [`docs/runbooks/network-exposure.md`](./runbooks/network-exposure.md). Priva
 2. Keep heavy state on the data volume.
 3. Wi-Fi is the Phase 0 uplink by choice; ethernet stays optional.
 4. Do not open 80/443 until Phase 3 ingress work.
-5. Phase 0 exit criteria met — proceed to Phase 1 when authorized.
+5. Phase 1 exit criteria met for HM + sample flake/direnv — proceed to Phase 2 when authorized.

@@ -1,4 +1,4 @@
-# Restore rundown (Phase 0 sketch)
+# Restore rundown
 
 One-page recovery notes. Backups are mostly manual until later automation.
 
@@ -10,7 +10,9 @@ One-page recovery notes. Backups are mostly manual until later automation.
 | User authorized keys | `~/.ssh/authorized_keys` | Keep offline copy of private keys used by Cursor |
 | Bootstrap secrets | `/media/diestrin/data/secrets/bootstrap/` | age identity + `secrets.age` (ntfy, interim tokens) |
 | host-watch runtime config | `~/.config/host-watch/` | Not in git; ntfy URL is secret |
-| Nix profile / flakes | `~/.nix-profile`, future `nix/` in this repo | Phase 1 will formalize |
+| Nix / Home Manager | `nix/` in this repo + HM profile | Re-apply with `./bootstrap` |
+| system-manager state | `/run/system-manager`, `/etc` drop-ins | Re-apply with `./bootstrap --system` |
+| Dotfile backups | `backups/phase1_*`, `~/.zshrc.backup-phase1` | Pre-HM shell |
 | Project data | `/media/diestrin/data/Projects/` | Data disk; largest restore surface |
 | Future cluster / Vault / Argo | data-disk volumes + Vault unseal | Phase 3+ |
 
@@ -31,8 +33,9 @@ One-page recovery notes. Backups are mostly manual until later automation.
 2. Restore SSH access (keys + sshd + UFW allow SSH).
 3. Decrypt bootstrap secrets with age; restore host-watch `notify.url`.
 4. Reinstall host-watch from this repo: `./security/scripts/install-host-watch.sh`.
-5. Re-clone / remount project data on the data disk.
-6. Later: unseal Vault / re-sync Argo from `main` (Phase 3).
+5. Re-apply declarative tooling: `./bootstrap` then `./bootstrap --system`.
+6. Re-clone / remount project data on the data disk.
+7. Later: unseal Vault / re-sync Argo from `main` (Phase 3).
 
 ## Phase 3 secret migration reminder
 

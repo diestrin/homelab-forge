@@ -24,3 +24,9 @@ loop mid-migration. Nix is already installed.
 - Slightly less “pure” than NixOS, but safer for a single production personal server.
 - Portfolio narrative still strong: flakes, modules, reproducible envs.
 - Apt remains the escape hatch for kernel/firmware and some proprietary bits.
+
+## Phase 1 follow-up (2026-08-06)
+
+- Host flake lives at `nix/` with Home Manager for `diestrin` and **system-manager** for
+  narrow `/etc` drop-ins (sysctl, journald). SSH/UFW/fail2ban stay on Phase 0 scripts.
+- system-manager keeps its own nixpkgs pin (does not `follows` nixos-25.05) for eval compatibility.

@@ -4,3 +4,7 @@ backups/
 __pycache__/
 *.pyc
 .venv/
+# Nix / direnv
+result
+result-*
+.direnv/

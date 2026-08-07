@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Idempotent Phase 1+ host bootstrap for homelab-forge.
+# Usage (from repo root, non-interactive enough for agents after flakes are on):
+#   ./bootstrap              # Home Manager only
+#   ./bootstrap --system     # also system-manager (needs sudo TTY)
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FLAKE="$REPO_ROOT/nix"
+APPLY_SYSTEM=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --system) APPLY_SYSTEM=1 ;;
+    -h|--help)
+      sed -n '2,6p' "$0"
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $arg" >&2
+      exit 2
+      ;;
+  esac
+done
+
+mkdir -p "$HOME/.config/nix"
+if ! grep -q 'experimental-features' "$HOME/.config/nix/nix.conf" 2>/dev/null; then
+  printf 'experimental-features = nix-command flakes\n' >"$HOME/.config/nix/nix.conf"
+fi
+
+# Ensure flake inputs are visible to Nix (files must be git-tracked).
+if ! git -C "$REPO_ROOT" ls-files --error-unmatch nix/flake.nix >/dev/null 2>&1; then
+  echo "==> Staging nix/ so the flake is visible to Nix"
+  git -C "$REPO_ROOT" add nix/
+fi
+
+echo "==> Home Manager switch (diestrin@localpower)"
+nix run home-manager/release-25.05 -- switch --flake "$FLAKE#diestrin" -b backup-phase1
+
+if [[ "$APPLY_SYSTEM" -eq 1 ]]; then
+  echo "==> system-manager (privileged)"
+  "$REPO_ROOT/nix/scripts/apply-system-privileged.sh"
+else
+  echo "==> Skipping system-manager (pass --system to apply sysctl/journald)."
+fi
+
+echo
+echo "==> Bootstrap complete. See nix/README.md"

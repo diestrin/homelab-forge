@@ -1,6 +1,6 @@
 # homelab-forge — Master Plan
 
-This document is the handoff for follow-up agents. **Do not implement host changes until the human asks to execute a specific phase.** Planning artifacts only exist today.
+This document is the handoff for follow-up agents. **Do not implement host changes until the human asks to execute a specific phase.**
 
 **Repo posture:** public from day one — treat every commit as world-readable (no secrets, no private ntfy topics, no real tokens).
 
@@ -36,7 +36,7 @@ See [`docs/current-state.md`](./docs/current-state.md).
 
 Highlights:
 
-- Nix present; Home Manager / NixOS not in use.
+- Nix + Home Manager present (Phase 1 flake under `nix/`); NixOS not in use.
 - Rootless Docker present; k3s absent.
 - `host-watch` **built but never installed**.
 - Prior security work in `local-brain` is incomplete (e.g. password SSH still allowed in config snippets).
@@ -169,6 +169,7 @@ Factory last so it lands on stable rails.
 
 ## Immediate next action (when execution is authorized)
 
-**Phase 0 complete** (2026-08-06). Next authorized phase: **Phase 1** — Nix foundation
-([`docs/phases/phase-1-nix-foundation.md`](./docs/phases/phase-1-nix-foundation.md)).
-Do not install k3s/ingress until that work is authorized.
+**Phase 1 complete** (2026-08-06). Next authorized phase: **Phase 2** — sandbox platform
+([`docs/phases/phase-2-sandbox-platform.md`](./docs/phases/phase-2-sandbox-platform.md)).
+Do not install k3s/ingress until Phase 3 is authorized. If system-manager host drop-ins
+were not applied yet, run `./bootstrap --system` once on a sudo TTY.

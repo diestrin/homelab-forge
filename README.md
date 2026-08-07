@@ -4,8 +4,8 @@ Declarative, agent-operated home lab platform for a single powerful workstation/
 (Intel NUC class): remote development, sandboxed project execution, local Kubernetes,
 and an agentic software factory.
 
-> **Status:** Phase 0 complete — hardened public SSH, UFW, fail2ban, in-tree `security/host-watch/`.
-> Next: Phase 1 (Nix foundation). Follow [`PLAN.md`](./PLAN.md) and [`docs/phases/`](./docs/phases/).
+> **Status:** Phase 1 complete — Nix flake + Home Manager + flake/direnv sample.
+> Next: Phase 2 (sandbox platform). Follow [`PLAN.md`](./PLAN.md) and [`docs/phases/`](./docs/phases/).
 >
 > **Public from day one** — never commit secrets. Bootstrap age store on the data disk until Vault (Phase 3).
 
@@ -18,24 +18,36 @@ and an agentic software factory.
 - Store secrets in Vault; continuous deliver with Argo CD from `main`.
 - **Import** `host-watch` in-tree; mine `local-brain` lessons instead of reinventing them.
 
-## Repository layout (planned)
+## Quick start (this host)
+
+```bash
+./bootstrap                 # Home Manager
+./bootstrap --system        # + system-manager sysctl/journald (sudo TTY)
+```
+
+Details: [`nix/README.md`](./nix/README.md). L0 project template: [`sandbox/templates/flake-direnv/`](./sandbox/templates/flake-direnv/).
+
+## Repository layout
 
 ```
 homelab-forge/
   PLAN.md                 # Master plan + agent handoff
   README.md               # This file
+  bootstrap               # Idempotent HM (+ optional system-manager) apply
   docs/
-    current-state.md      # Snapshot of the host when planning started
+    current-state.md      # Snapshot of the host
     decisions/            # Architecture Decision Records (ADRs)
-    phases/               # Ordered implementation phases for follow-up agents
-  nix/                    # (future) flakes, home-manager, system modules
+    phases/               # Ordered implementation phases
+    runbooks/             # network, restore, secrets, docker, package ownership
+  nix/                    # flakes, home-manager, system-manager modules
+  sandbox/
+    templates/            # flake+direnv project template
+    examples/             # hello-flake sample
   k8s/                    # (future) cluster manifests; Argo CD syncs from main
   factory/                # (future) agent orchestration contracts & task schemas
-  sandbox/                # (future) project sandbox profiles & tooling
   security/
     host-watch/           # imported host IDS (from ../host-watch)
     scripts/              # install-host-watch + Phase 0 harden/apply helpers
-  docs/runbooks/          # network exposure, restore, bootstrap secrets, docker hygiene
 ```
 
 ## Locked decisions (summary)
@@ -50,7 +62,7 @@ Vault, in-tree host-watch, Argo CD.
 | --- | --- |
 | [`../host-watch`](../host-watch) | Host IDS — **import** into `security/host-watch/`, then deprecate sibling. |
 | [`../local-brain`](../local-brain) | Earlier security/performance notes for this NUC. **Mine for requirements**, then supersede. |
-| [`../dev-machine`](../dev-machine) | Prototype Nix+direnv Docker image for sandboxed shells. **Reuse ideas**. |
+| [`../dev-machine`](../dev-machine) | Prototype Nix+direnv Docker image for sandboxed shells. **Reuse ideas** (Phase 2 L1). |
 
 ## For follow-up agents
 

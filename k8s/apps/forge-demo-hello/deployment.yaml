@@ -47,6 +47,6 @@ data:
       <head><meta charset="utf-8"><title>homelab-forge</title></head>
       <body>
         <h1>homelab-forge</h1>
-        <p>Phase 3 demo on localpower.diegobarahona.com (Argo-synced tested)</p>
+        <p>Phase 4 factory demo on localpower.diegobarahona.com (task → worker PR → Argo)</p>
       </body>
     </html>

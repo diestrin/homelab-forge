@@ -33,6 +33,8 @@ export VAULT_ADDR=http://127.0.0.1:8200
 vault operator unseal "$(jq -r '.unseal_keys_b64[0]' /media/diestrin/data/secrets/vault/init.json)"
 ```
 
+Phase 3 verified: `vault operator seal` then unseal with the stored key succeeds; Ingress HTTPS continues via Traefik while Vault is sealed (demo app does not depend on Vault for serving).
+
 ## Policies (examples in git)
 
 | Policy | Path | Use |

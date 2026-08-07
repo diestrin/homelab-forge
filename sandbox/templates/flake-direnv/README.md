@@ -14,5 +14,5 @@ direnv allow
 ## Notes
 
 - Uses `use flake` (not legacy `use nix` from `../dev-machine`).
-- Phase 2 may wrap this in an L1 rootless Docker image; keep the flake as the source of the toolchain.
+- L1 wrap: `./forge sandbox enter . --profile devcontainer` ([`../../images/Dockerfile`](../../images/Dockerfile)).
 - Do not put secrets in `.envrc`; use the bootstrap age store / later Vault.

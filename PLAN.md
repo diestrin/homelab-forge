@@ -169,7 +169,6 @@ Factory last so it lands on stable rails.
 
 ## Immediate next action (when execution is authorized)
 
-**Phase 1 complete** (2026-08-06). Next authorized phase: **Phase 2** — sandbox platform
-([`docs/phases/phase-2-sandbox-platform.md`](./docs/phases/phase-2-sandbox-platform.md)).
-Do not install k3s/ingress until Phase 3 is authorized. If system-manager host drop-ins
-were not applied yet, run `./bootstrap --system` once on a sudo TTY.
+**Phase 2 complete** (2026-08-06). Next authorized phase: **Phase 3** — k3s platform
+([`docs/phases/phase-3-k3s-platform.md`](./docs/phases/phase-3-k3s-platform.md)).
+Do not open host 80/443 or install k3s until Phase 3 is authorized.

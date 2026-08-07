@@ -4,8 +4,8 @@ Declarative, agent-operated home lab platform for a single powerful workstation/
 (Intel NUC class): remote development, sandboxed project execution, local Kubernetes,
 and an agentic software factory.
 
-> **Status:** Phase 1 complete — Nix flake + Home Manager + flake/direnv sample.
-> Next: Phase 2 (sandbox platform). Follow [`PLAN.md`](./PLAN.md) and [`docs/phases/`](./docs/phases/).
+> **Status:** Phase 2 complete — sandbox profiles (`trusted` / `devcontainer` / `agent-cell`) + forge CLI.
+> Next: Phase 3 (k3s platform). Follow [`PLAN.md`](./PLAN.md) and [`docs/phases/`](./docs/phases/).
 >
 > **Public from day one** — never commit secrets. Bootstrap age store on the data disk until Vault (Phase 3).
 
@@ -23,9 +23,24 @@ and an agentic software factory.
 ```bash
 ./bootstrap                 # Home Manager
 ./bootstrap --system        # + system-manager sysctl/journald (sudo TTY)
+
+./forge sandbox init
+./forge sandbox enter sandbox/examples/hello-flake --profile trusted
+./forge sandbox smoke
 ```
 
-Details: [`nix/README.md`](./nix/README.md). L0 project template: [`sandbox/templates/flake-direnv/`](./sandbox/templates/flake-direnv/).
+Details: [`nix/README.md`](./nix/README.md), [`sandbox/README.md`](./sandbox/README.md).
+
+## Threat model (sandboxes)
+
+The host is a single-user forge: hardened public SSH, UFW default-deny, and host-watch IDS.
+Projects share one kernel, so isolation is **layered**, not absolute hypervisor multi-tenant security.
+`trusted` (L0) is the operator’s full host session. `devcontainer` (L1) and `agent-cell` (L4) run in
+rootless Docker with **project-only bind mounts**, resource caps, **no Docker socket**, and
+localhost-only publish — so a compromised cell should not reach sibling project trees or the
+host dockerd control plane. `incus` (L2) raises the boundary to a system container when installed.
+`k8s-workload` (L3) waits on Phase 3 NetworkPolicies. Residual risk: container escape / kernel bugs,
+and anything the operator runs under `trusted`. Secrets stay off the git tree and off shared mounts.
 
 ## Repository layout
 
@@ -34,15 +49,20 @@ homelab-forge/
   PLAN.md                 # Master plan + agent handoff
   README.md               # This file
   bootstrap               # Idempotent HM (+ optional system-manager) apply
+  forge                   # Sandbox CLI (Phase 2)
+  Makefile                # sandbox-* convenience targets
   docs/
     current-state.md      # Snapshot of the host
     decisions/            # Architecture Decision Records (ADRs)
     phases/               # Ordered implementation phases
-    runbooks/             # network, restore, secrets, docker, package ownership
+    runbooks/             # network, restore, secrets, docker, sandbox, cursor
   nix/                    # flakes, home-manager, system-manager modules
   sandbox/
+    images/               # L1/L4 Dockerfile (Nix + direnv)
+    profiles/             # trusted, devcontainer, incus, k8s-workload, agent-cell
     templates/            # flake+direnv project template
     examples/             # hello-flake sample
+    scripts/              # smoke tests, layout, optional Incus install
   k8s/                    # (future) cluster manifests; Argo CD syncs from main
   factory/                # (future) agent orchestration contracts & task schemas
   security/
@@ -62,7 +82,7 @@ Vault, in-tree host-watch, Argo CD.
 | --- | --- |
 | [`../host-watch`](../host-watch) | Host IDS — **import** into `security/host-watch/`, then deprecate sibling. |
 | [`../local-brain`](../local-brain) | Earlier security/performance notes for this NUC. **Mine for requirements**, then supersede. |
-| [`../dev-machine`](../dev-machine) | Prototype Nix+direnv Docker image for sandboxed shells. **Reuse ideas** (Phase 2 L1). |
+| [`../dev-machine`](../dev-machine) | Prototype Nix+direnv Docker image — ideas reused in `sandbox/images/Dockerfile`. |
 
 ## For follow-up agents
 

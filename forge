@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+# homelab-forge operator CLI (Phase 2+).
+# Usage:
+#   ./forge sandbox enter <project> --profile <name> [-- command...]
+#   ./forge sandbox list
+#   ./forge sandbox init
+#   ./forge sandbox smoke
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=sandbox/lib/common.sh
+source "$REPO_ROOT/sandbox/lib/common.sh"
+
+PROFILES=(trusted devcontainer incus k8s-workload agent-cell)
+
+usage() {
+  cat <<'EOF'
+forge — homelab-forge operator CLI
+
+Usage:
+  forge sandbox enter <project> --profile <profile> [-- <command>...]
+  forge sandbox list
+  forge sandbox init
+  forge sandbox smoke
+  forge help
+
+Profiles (ADR-002):
+  trusted        L0 host workspace (flake/direnv)
+  devcontainer   L1 rootless Docker, project bind only
+  incus          L2 Incus system container (requires Incus)
+  k8s-workload   L3 stub — Phase 3
+  agent-cell     L4 ephemeral cell, no docker.sock, project-only mount
+
+Env:
+  FORGE_DATA_ROOT       default /media/diestrin/data/forge
+  FORGE_PROJECTS_ROOT   default /media/diestrin/data/Projects
+  FORGE_PUBLISH_PORT    host[:container] bound to 127.0.0.1 only
+  FORGE_MEM / FORGE_CPUS / FORGE_PIDS   resource limit overrides
+  FORGE_AGENT_RW        true|false (agent-cell project mount writable)
+EOF
+}
+
+sandbox_list() {
+  echo "Profiles:"
+  for p in "${PROFILES[@]}"; do
+    printf '  %-14s' "$p"
+    case "$p" in
+      trusted) echo "L0 host + flake/direnv" ;;
+      devcontainer) echo "L1 rootless Docker" ;;
+      incus)
+        if command -v incus >/dev/null 2>&1; then
+          echo "L2 Incus (installed)"
+        else
+          echo "L2 Incus (not installed — ./sandbox/scripts/install-incus.sh)"
+        fi
+        ;;
+      k8s-workload) echo "L3 Phase 3 stub" ;;
+      agent-cell) echo "L4 ephemeral agent cell" ;;
+    esac
+  done
+  echo
+  echo "Projects root: $FORGE_PROJECTS_ROOT"
+  echo "Forge state:   $FORGE_DATA_ROOT"
+  echo "Secrets:       $FORGE_SECRETS_ROOT (never in git)"
+}
+
+sandbox_init() {
+  forge_ensure_layout
+  forge_info "Layout ready under $FORGE_DATA_ROOT"
+  ls -la "$FORGE_DATA_ROOT"
+}
+
+sandbox_enter() {
+  local project_arg="" profile="" 
+  local -a rest=()
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --profile|-p)
+        [[ $# -ge 2 ]] || forge_die "--profile requires a value"
+        profile="$2"
+        shift 2
+        ;;
+      --)
+        shift
+        rest+=("$@")
+        break
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      -*)
+        forge_die "unknown option: $1"
+        ;;
+      *)
+        if [[ -z "$project_arg" ]]; then
+          project_arg="$1"
+          shift
+        else
+          # Allow: forge sandbox enter proj --profile x command...
+          rest+=("$@")
+          break
+        fi
+        ;;
+    esac
+  done
+
+  # Also support: enter <project> --profile x  with profile after project
+  # Re-parse if profile still empty and rest contains --profile
+  if [[ -z "$profile" ]]; then
+    local -a filtered=()
+    local i=0
+    while [[ $i -lt ${#rest[@]} ]]; do
+      if [[ "${rest[$i]}" == "--profile" || "${rest[$i]}" == "-p" ]]; then
+        profile="${rest[$((i + 1))]:-}"
+        i=$((i + 2))
+        continue
+      fi
+      filtered+=("${rest[$i]}")
+      i=$((i + 1))
+    done
+    rest=("${filtered[@]}")
+  fi
+
+  [[ -n "$project_arg" ]] || forge_die "usage: forge sandbox enter <project> --profile <name>"
+  [[ -n "$profile" ]] || forge_die "usage: forge sandbox enter <project> --profile <name>"
+
+  local valid=0
+  for p in "${PROFILES[@]}"; do
+    [[ "$p" == "$profile" ]] && valid=1 && break
+  done
+  [[ "$valid" -eq 1 ]] || forge_die "unknown profile '$profile' (see: forge sandbox list)"
+
+  local project
+  project="$(forge_resolve_project "$project_arg")"
+  export FORGE_PROFILE="$profile"
+
+  # shellcheck source=/dev/null
+  source "$REPO_ROOT/sandbox/profiles/${profile}.sh"
+  profile_enter "$project" "${rest[@]}"
+}
+
+cmd_sandbox() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    enter) sandbox_enter "$@" ;;
+    list) sandbox_list ;;
+    init) sandbox_init ;;
+    smoke)
+      "$REPO_ROOT/sandbox/scripts/smoke-test.sh" "$@"
+      ;;
+    ""|-h|--help) usage; exit 0 ;;
+    *) forge_die "unknown sandbox subcommand: $sub" ;;
+  esac
+}
+
+main() {
+  local cmd="${1:-help}"
+  shift || true
+  case "$cmd" in
+    sandbox) cmd_sandbox "$@" ;;
+    help|-h|--help) usage ;;
+    *)
+      forge_die "unknown command: $cmd (try: forge help)"
+      ;;
+  esac
+}
+
+main "$@"

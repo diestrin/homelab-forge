@@ -49,3 +49,4 @@ Builds the Home Manager activation package and the system-manager toplevel (no h
 - Imperative `nix-env -i` packages (e.g. older `gh` / `age`) conflict with HM; remove them before switch (`nix-env -e <pkg>`). Keep the installer `nix` package.
 - `system-manager` uses its own nixpkgs pin (not `follows` 25.05) for evaluation compatibility.
 - Project environments: copy [`../sandbox/templates/flake-direnv/`](../sandbox/templates/flake-direnv/) and `direnv allow`.
+- Sandboxes (Phase 2): [`../forge`](../forge) / [`../sandbox/README.md`](../sandbox/README.md).

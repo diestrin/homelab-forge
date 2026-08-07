@@ -1,6 +1,6 @@
 # Current host state
 
-Re-verified 2026-08-06 during Phase 1 on host `localpower`.
+Re-verified 2026-08-06 during Phase 2 on host `localpower`.
 
 ## Hardware / OS
 
@@ -36,20 +36,32 @@ Re-verified 2026-08-06 during Phase 1 on host `localpower`.
 | L0 sample | [`sandbox/examples/hello-flake/`](../sandbox/examples/hello-flake/) — `use flake` + direnv verified |
 | system-manager | Modules for sysctl/journald; activate with `./bootstrap --system` (sudo TTY) |
 | Package ownership | [`docs/runbooks/package-ownership.md`](./runbooks/package-ownership.md) |
-| Config backups | `backups/phase1_*` + `~/.zshrc.backup-phase1` (gitignored / home) |
+
+## Phase 2 controls (applied)
+
+| Control | Status |
+| --- | --- |
+| CLI | [`./forge`](../forge) + [`Makefile`](../Makefile) `sandbox-*` targets |
+| Profiles | `trusted`, `devcontainer`, `agent-cell` live; `incus` optional; `k8s-workload` Phase 3 stub |
+| L1 image | [`sandbox/images/Dockerfile`](../sandbox/images/Dockerfile) (Nix + direnv; from `dev-machine` ideas) |
+| Data layout | `/media/diestrin/data/forge/` (state/volumes/agent-cells); secrets remain under `/media/diestrin/data/secrets/` |
+| Guardrails | No docker.sock in cells; publish `127.0.0.1` only; `./forge sandbox smoke` |
+| Docs | [`docs/runbooks/sandbox.md`](./runbooks/sandbox.md), [`cursor-remote.md`](./runbooks/cursor-remote.md); threat model in README |
+| host-watch | Allowlist example + live config include `incusd` / `incus` / `forge` |
 
 ## Already present
 
 - **Nix** single-user + **Home Manager** via repo flake.
-- **Docker Engine** rootless; no containers publishing host ports after Phase 0 prune of idle test container.
+- **Docker Engine** rootless; L1/L4 sandboxes use it without mounting the socket into cells.
 - Projects under `/media/diestrin/data/Projects/`.
-- Cursor remote server over SSH (session survived hardening + HM switch).
+- Cursor remote server over SSH (edit-on-host for L0/L1; see cursor-remote runbook).
+- LXD snap installed but **inactive**; Incus is the L2 path when installed.
 
 ## Not present / deferred
 
 - `k3s` / `kubectl` / Vault / Argo CD (Phase 3).
 - Opening host `:80` / `:443`.
-- L1/L2 sandbox runtimes (Phase 2); `../dev-machine` still the L1 idea source.
+- Incus daemon (optional; `./sandbox/scripts/install-incus.sh`).
 
 ## Public exposure (redacted)
 
@@ -58,12 +70,12 @@ See [`docs/runbooks/network-exposure.md`](./runbooks/network-exposure.md). Priva
 
 - Hostname: `localpower.diegobarahona.com` (CNAME → operator DDNS → home public A).
 - Public IP matches DNS A (not CGNAT on this path).
-- Intended eventual public ports: SSH + 80 + 443; Phase 0/1 allow **SSH only**.
+- Intended eventual public ports: SSH + 80 + 443; Phase 0–2 allow **SSH only**.
 
 ## Implications
 
 1. Incremental Nix on Ubuntu remains the path (ADR-001).
-2. Keep heavy state on the data volume.
+2. Keep heavy state on the data volume (`Projects/`, `forge/`, `secrets/`).
 3. Wi-Fi is the Phase 0 uplink by choice; ethernet stays optional.
 4. Do not open 80/443 until Phase 3 ingress work.
-5. Phase 1 exit criteria met for HM + sample flake/direnv — proceed to Phase 2 when authorized.
+5. Phase 2 exit criteria met for trusted + devcontainer + agent-cell — proceed to Phase 3 when authorized.

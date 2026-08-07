@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (2026-08-06) — layered model confirmed; concrete runtimes may still be swapped in Phase 2
+Accepted (2026-08-06) — layered model confirmed; Phase 2 runtimes locked below
 
 ## Context
 
@@ -14,13 +14,15 @@ strong enough for confidence, light enough for a NUC.
 
 Use **layered isolation**, pick the layer per risk:
 
-| Layer | Mechanism | Use when |
-| --- | --- | --- |
-| L0 Workspace | Project on data disk + Nix flake/`direnv` | Trusted personal code, shared tooling |
-| L1 Devcontainer | Rootless Docker / Dev Containers + bind mount of project only | Language/runtime isolation, CI-like parity |
-| L2 System container / microVM | Incus (LXC or VM) or Firecracker-class microVM | Higher risk deps, different OS, noisy neighbors |
-| L3 Cluster workload | k3s Deployment + NetworkPolicy + ResourceQuota + non-root | Long-running services, public ingress apps |
-| L4 Agent task cell | Ephemeral L1/L2 + no host Docker socket + secrets via short-lived tokens | Factory worker agents |
+| Layer | Profile | Mechanism (Phase 2) | Use when |
+| --- | --- | --- | --- |
+| L0 Workspace | `trusted` | Project on data disk + Nix flake/`direnv` | Trusted personal code, shared tooling |
+| L1 Devcontainer | `devcontainer` | Rootless Docker + `sandbox/images/Dockerfile` + project bind only | Language/runtime isolation, CI-like parity |
+| L2 System container / microVM | `incus` | Incus (optional install); Firecracker deferred | Higher risk deps, different OS, noisy neighbors |
+| L3 Cluster workload | `k8s-workload` | k3s Deployment + NetworkPolicy + ResourceQuota (Phase 3) | Long-running services, public ingress apps |
+| L4 Agent task cell | `agent-cell` | Ephemeral L1 + no host Docker socket + project-only mount | Factory worker agents |
+
+CLI: `./forge sandbox enter <project> --profile <name>` (see [`sandbox/README.md`](../../sandbox/README.md)).
 
 Hard rules:
 

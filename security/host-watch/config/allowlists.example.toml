@@ -17,6 +17,10 @@ allow_substrings = [
   "docker-proxy",
   "rootlesskit",
   "slirp4netns",
+  # Phase 2 sandboxes (Incus L2 when installed)
+  "incusd",
+  "incus ",
+  "forge",
   "pipewire",
   "pulseaudio",
   "Xorg",

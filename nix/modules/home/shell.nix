@@ -26,9 +26,11 @@
     };
 
     shellAliases = {
-      # Preserve existing L1 prototype helpers (Phase 2 may supersede).
-      dev-machine = "docker run -it --rm -v \"$PWD\":/workspace -v \"$HOME\"/.ssh:/root/.ssh -w /workspace dev-machine";
-      dev-machine-build = "docker build -t dev-machine /media/diestrin/data/Projects/dev-machine";
+      # Phase 2 forge CLI (supersedes ad-hoc dev-machine helpers).
+      forge = "/media/diestrin/data/Projects/homelab-forge/forge";
+      # Legacy L1 prototype (prefer: forge sandbox enter . --profile devcontainer).
+      dev-machine = "docker run -it --rm -v \"$PWD\":/workspace -w /workspace forge-devcontainer:phase2";
+      dev-machine-build = "docker build -t forge-devcontainer:phase2 /media/diestrin/data/Projects/homelab-forge/sandbox/images";
     };
 
     initContent = ''

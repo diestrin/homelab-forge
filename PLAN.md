@@ -37,12 +37,10 @@ See [`docs/current-state.md`](./docs/current-state.md).
 Highlights:
 
 - Nix + Home Manager present (Phase 1 flake under `nix/`); NixOS not in use.
-- Rootless Docker present; k3s absent.
-- `host-watch` **built but never installed**.
-- Prior security work in `local-brain` is incomplete (e.g. password SSH still allowed in config snippets).
+- Phases 0–4 applied on host (see [`docs/current-state.md`](./docs/current-state.md)).
 - Wi-Fi is the active uplink; ethernet is down.
 - Data disk has ample space; root disk is smaller — put heavy state on `/media/diestrin/data`.
-- WAN path intended: No-IP → home IP → router forward → NUC; hostname preference `localpower.diegobarahona.com`.
+- WAN: No-IP → home IP → router forward → NUC; `localpower.diegobarahona.com`.
 
 ## Architecture (target)
 
@@ -169,5 +167,5 @@ Factory last so it lands on stable rails.
 
 ## Immediate next action (when execution is authorized)
 
-**Phase 3 complete** (2026-08-07). Next authorized phase: **Phase 4** — agentic factory
-([`docs/phases/phase-4-agentic-factory.md`](./docs/phases/phase-4-agentic-factory.md)).
+**Phase 4 complete** (2026-08-07). Next authorized phase: **Phase 5** — portfolio hardening
+([`docs/phases/phase-5-portfolio-hardening.md`](./docs/phases/phase-5-portfolio-hardening.md)).

@@ -1,6 +1,6 @@
 # Current host state
 
-Re-verified 2026-08-07 during Phase 3 on host `localpower`.
+Re-verified 2026-08-07 during Phase 4 on host `localpower`.
 
 ## Hardware / OS
 
@@ -15,33 +15,33 @@ Re-verified 2026-08-07 during Phase 3 on host `localpower`.
 | Primary NIC (Phase 0 default) | Wi-Fi `wlp0s20f3` → LAN `192.168.86.0/24` |
 | Ethernet | `eno1` **DOWN** (optional future reliability upgrade; not switched in Phase 0) |
 
-## Phase 0–2 controls
+## Phase 0–3 controls
 
-See prior snapshots. SSH key-only, UFW default-deny, fail2ban, host-watch, Nix HM, forge sandbox CLI remain in effect.
+SSH key-only, UFW default-deny, fail2ban, host-watch, Nix HM, forge sandbox CLI, k3s + Traefik/LE,
+Vault, ESO, Argo CD remain in effect (see prior snapshots).
 
-## Phase 3 controls (applied)
+## Phase 4 controls (applied)
 
 | Control | Status |
 | --- | --- |
-| k3s | `v1.36.3+k3s1`; data-dir `/media/diestrin/data/forge/k3s` |
-| Traefik | Host `:80`/`:443` via ServiceLB; LE cert for `localpower.diegobarahona.com` |
-| UFW | `80`/`443` allowed; CNI/flannel rules; API `6443` localhost+LAN only |
-| Namespaces | `forge-system`, `forge-demo`, `forge-agents` + NetworkPolicies/quotas |
-| cert-manager | `v1.21.1` + `letsencrypt-prod` ClusterIssuer |
-| Vault | File storage PVC; Shamir 1/1; secrets under `/media/diestrin/data/secrets/vault/` |
-| ESO | `v2.8.0`; `ClusterSecretStore/vault-backend`; ntfy ExternalSecret |
-| Argo CD | `v3.5.0` in `forge-system`; root Application `forge-root` → `k8s/overlays/root` on `main` |
-| Tooling | `kubectl` / `helm` / `vault` via Nix HM |
-| L3 profile | `k8s-workload` applies project manifests into `forge-agents` |
-| host-watch | `allow_ports` includes 80/443; k3s process substrings |
+| Task schema | `factory/schema/task.schema.json` + YAML tasks under `factory/tasks/` |
+| GitHub Projects | Public board [homelab-forge factory](https://github.com/users/diestrin/projects/1); git → board via `./forge factory sync` |
+| Orchestrator / worker playbooks | `factory/orchestrator/PLAYBOOK.md`, `factory/worker/PLAYBOOK.md` |
+| Worker runtime | `forge factory worker` daemon; isolated git worktree + `agent-cell`; budget watchdog |
+| Vault AppRole | `forge-agent`; host file `/media/diestrin/data/secrets/vault/approle-forge-agent.env` (mode 600, not in git) |
+| Review gate | `factory/review/CHECKLIST.md`; demo PR [#2](https://github.com/diestrin/homelab-forge/pull/2) at `review` |
+| systemd unit | `factory/systemd/forge-factory-worker.service` installed under user units; **disabled** until explicitly started |
+| Artifacts | `/media/diestrin/data/forge/factory/artifacts/` (logs, diffs, PR urls) |
 
 ## Public exposure (redacted)
 
-- Hostname: `localpower.diegobarahona.com` — HTTPS demo hello-app.
+- Hostname: `localpower.diegobarahona.com` — HTTPS demo hello-app (Phase 3 copy until PR #2 merges).
 - SSH remains hardened; Vault/Argo UIs ClusterIP only (port-forward / SSH tunnel).
+- Factory Projects board is public; task YAML contains no secrets.
 
 ## Implications
 
-1. After reboot: unseal Vault ([vault.md](./runbooks/vault.md)); Argo reconnects to git automatically.
+1. After reboot: unseal Vault ([vault.md](./runbooks/vault.md)); start Vault port-forward if workers need AppRole; Argo reconnects to git automatically.
 2. Steady-state cluster changes: merge to `main` ([gitops.md](./runbooks/gitops.md)).
-3. Next phase: Phase 4 agentic factory.
+3. Factory: keep `proposed` queue intentional before `systemctl --user start forge-factory-worker`.
+4. Next phase: Phase 5 portfolio hardening.

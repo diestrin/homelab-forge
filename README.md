@@ -4,8 +4,8 @@ Declarative, agent-operated home lab platform for a single powerful workstation/
 (Intel NUC class): remote development, sandboxed project execution, local Kubernetes,
 and an agentic software factory.
 
-> **Status:** Phase 3 complete — k3s + Traefik/LE + Vault + ESO + Argo CD.
-> Next: Phase 4 (agentic factory). Follow [`PLAN.md`](./PLAN.md) and [`docs/phases/`](./docs/phases/).
+> **Status:** Phase 4 complete — git tasks + GitHub Projects + worker daemon + Vault AppRole.
+> Next: Phase 5 (portfolio hardening). Follow [`PLAN.md`](./PLAN.md) and [`docs/phases/`](./docs/phases/).
 >
 > **Public from day one** — never commit secrets. Vault is SoR; see [`docs/runbooks/vault.md`](./docs/runbooks/vault.md).
 
@@ -18,6 +18,31 @@ and an agentic software factory.
 - Store secrets in Vault; continuous deliver with Argo CD from `main`.
 - **Import** `host-watch` in-tree; mine `local-brain` lessons instead of reinventing them.
 
+## Architecture
+
+```text
+                         Internet
+                             |
+              No-IP DDNS → home router forwards
+                     22/tcp, 80/tcp, 443/tcp
+                             |
+          +------------------+-------------------+
+          |         Ubuntu host (Nix+HM)         |
+          |  public SSH (keys) | UFW | host-watch |
+          +----------+--------------+------------+
+                     |              |
+            sandboxes (L1/L4)    k3s (containerd)
+             agent cells           Traefik :80/:443
+                     |              | Let's Encrypt
+         factory/tasks (git SoT)    forge-system:
+         GitHub Projects mirror       Vault + Argo CD
+                     |                    ^
+         worker daemon → PR → review → merge main ─┘
+```
+
+Factory details: [`factory/README.md`](./factory/README.md) · board:
+[homelab-forge factory](https://github.com/users/diestrin/projects/1).
+
 ## Quick start (this host)
 
 ```bash
@@ -27,20 +52,33 @@ and an agentic software factory.
 ./forge sandbox init
 ./forge sandbox enter sandbox/examples/hello-flake --profile trusted
 ./forge sandbox smoke
+
+./forge factory validate
+./forge factory sync
+./forge factory demo        # guided task → worker PR → Argo path
 ```
 
-Details: [`nix/README.md`](./nix/README.md), [`sandbox/README.md`](./sandbox/README.md).
+Details: [`nix/README.md`](./nix/README.md), [`sandbox/README.md`](./sandbox/README.md),
+[`docs/runbooks/factory.md`](./docs/runbooks/factory.md).
 
-## Threat model (sandboxes)
+## Threat model
 
 The host is a single-user forge: hardened public SSH, UFW default-deny, and host-watch IDS.
 Projects share one kernel, so isolation is **layered**, not absolute hypervisor multi-tenant security.
-`trusted` (L0) is the operator’s full host session. `devcontainer` (L1) and `agent-cell` (L4) run in
-rootless Docker with **project-only bind mounts**, resource caps, **no Docker socket**, and
-localhost-only publish — so a compromised cell should not reach sibling project trees or the
-host dockerd control plane. `incus` (L2) raises the boundary to a system container when installed.
-`k8s-workload` (L3) waits on Phase 3 NetworkPolicies. Residual risk: container escape / kernel bugs,
-and anything the operator runs under `trusted`. Secrets stay off the git tree and off shared mounts.
+
+**Sandboxes:** `trusted` (L0) is the operator’s full host session. `devcontainer` (L1) and
+`agent-cell` (L4) run in rootless Docker with **project-only bind mounts**, resource caps,
+**no Docker socket**, and localhost-only publish — so a compromised cell should not reach
+sibling project trees or the host dockerd control plane. Writable agent-cells run as root
+*inside* the container (rootless uid remap); isolation is the mount set, not the container uid.
+`incus` (L2) raises the boundary to a system container when installed. `k8s-workload` (L3)
+uses NetworkPolicies in `forge-agents`.
+
+**Factory:** Orchestrator writes git tasks only. Workers claim one task, use Vault AppRole
+short-lived tokens, and stop at `review`. Merge to `main` is a human gate; Argo CD is the only
+steady-state deploy path. The opt-in worker daemon can push branches if credentials exist —
+keep the `proposed` queue intentional. Residual risk: container escape / kernel bugs, and
+anything the operator runs under `trusted`. Secrets stay off the git tree and off shared mounts.
 
 ## Repository layout
 
@@ -49,13 +87,13 @@ homelab-forge/
   PLAN.md                 # Master plan + agent handoff
   README.md               # This file
   bootstrap               # Idempotent HM (+ optional system-manager) apply
-  forge                   # Sandbox CLI (Phase 2)
-  Makefile                # sandbox-* convenience targets
+  forge                   # Sandbox + factory CLI
+  Makefile                # sandbox-* / factory-* convenience targets
   docs/
     current-state.md      # Snapshot of the host
     decisions/            # Architecture Decision Records (ADRs)
     phases/               # Ordered implementation phases
-    runbooks/             # network, restore, secrets, docker, sandbox, cursor
+    runbooks/             # network, restore, secrets, docker, sandbox, factory, cursor
   nix/                    # flakes, home-manager, system-manager modules
   sandbox/
     images/               # L1/L4 Dockerfile (Nix + direnv)
@@ -64,7 +102,7 @@ homelab-forge/
     examples/             # hello-flake sample
     scripts/              # smoke tests, layout, optional Incus install
   k8s/                    # cluster manifests; Argo CD syncs from main
-  factory/                # (future) agent orchestration contracts & task schemas
+  factory/                # task schema, tasks, worker daemon, playbooks
   security/
     host-watch/           # imported host IDS (from ../host-watch)
     scripts/              # install-host-watch + Phase 0 harden/apply helpers

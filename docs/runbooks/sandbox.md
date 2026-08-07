@@ -58,6 +58,9 @@ LXD snap may remain installed but inactive; do not dual-run LXD + Incus for forg
 - Metadata: `/media/diestrin/data/forge/agent-cells/<id>/`
 - `agent-workspace.path` — host path operators/Cursor can open alongside the project
 - Container sees **only** `/workspace` (the project). No Docker socket. No sibling projects.
+- Writable mounts (`FORGE_AGENT_RW=true`, default): cell runs as root inside the
+  container because rootless Docker remaps host uid binds to `root:root`. Isolation
+  still comes from mount + no docker.sock, not from an unprivileged container uid.
 
 ## Smoke tests
 

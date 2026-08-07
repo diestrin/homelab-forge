@@ -38,6 +38,13 @@ profile_enter() {
     "${DOCKER_LIMIT_ARGS[@]}"
   )
 
+  # Rootless Docker remaps host uid binds to root:root inside the container.
+  # When the project mount is writable, run as root *inside the cell* so hooks can
+  # edit files. Still no docker.sock / $HOME / sibling project mounts (ADR-002).
+  if [[ "${FORGE_AGENT_RW:-true}" == "true" ]]; then
+    run_args+=(--user=0:0)
+  fi
+
   if [[ ${#DOCKER_PUBLISH_ARGS[@]} -gt 0 ]]; then
     run_args+=("${DOCKER_PUBLISH_ARGS[@]}")
   fi

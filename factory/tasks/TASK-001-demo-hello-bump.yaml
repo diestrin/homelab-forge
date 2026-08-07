@@ -1,0 +1,36 @@
+id: TASK-001
+title: Bump forge-demo hello copy (portfolio demo)
+goal: 'Small web-service change: update the forge-demo hello ConfigMap copy so a follow-up
+  agent can demo task → worker PR → merge → Argo → public HTTPS.
+
+  '
+acceptance_criteria:
+- PR opened against main that changes k8s/apps/forge-demo-hello hello-html copy
+- Review checklist completed before merge
+- After merge, Argo Application forge-demo-hello Healthy/Synced
+- curl -fsS https://localpower.diegobarahona.com | grep -q "Phase 4"
+sandbox_profile: agent-cell
+repo_path: .
+status: review
+assignee_agent: worker-localpower-3743162
+artifacts:
+- kind: log
+  path: /media/diestrin/data/forge/factory/artifacts/logs/TASK-001.log
+- kind: other
+  path: /media/diestrin/data/forge/factory/artifacts/TASK-001-git.diff
+- kind: pr
+  path: artifacts/TASK-001-pr.txt
+  url: https://github.com/diestrin/homelab-forge/pull/2
+- kind: kubectl_diff
+  path: /media/diestrin/data/forge/factory/artifacts/TASK-001-kubectl.diff
+risk_level: low
+github_project_item_id: PVTI_lAHOAA3gD84Bfo-Bzg1n5eM
+budget_minutes: 30
+branch: factory/task-001-demo-hello-bump
+worker_hook: factory/worker/hooks/demo-hello-bump.sh
+notes: 'Demo task for Phase 4. Worker runs the scripted hook inside an agent-cell;
+  humans still merge. Deploy path is merge-to-main → Argo CD only.
+
+  '
+claimed_at: '2026-08-07T04:58:45Z'
+updated_at: '2026-08-07T04:58:51Z'

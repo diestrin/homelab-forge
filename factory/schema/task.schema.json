@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://homelab-forge.local/factory/schema/task.schema.json",
+  "title": "ForgeFactoryTask",
+  "description": "Git-backed factory task (ADR-004). Git is source of truth; GitHub Projects mirrors status.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "title",
+    "goal",
+    "acceptance_criteria",
+    "sandbox_profile",
+    "repo_path",
+    "status",
+    "risk_level"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^TASK-[0-9]{3,}$",
+      "description": "Stable task id (filename should match)."
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "goal": { "type": "string", "minLength": 1 },
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "sandbox_profile": {
+      "type": "string",
+      "enum": ["trusted", "devcontainer", "incus", "k8s-workload", "agent-cell"]
+    },
+    "repo_path": {
+      "type": "string",
+      "description": "Repo-relative or absolute path the worker mounts/works in."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["proposed", "claimed", "in_progress", "review", "done", "failed"]
+    },
+    "assignee_agent": {
+      "type": ["string", "null"],
+      "description": "Worker id that claimed the task (e.g. worker-local-1)."
+    },
+    "artifacts": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "path"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["pr", "log", "screenshot", "kubectl_diff", "note", "other"]
+          },
+          "path": { "type": "string" },
+          "url": { "type": "string" }
+        }
+      }
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "github_project_item_id": {
+      "type": ["string", "null"],
+      "description": "Projects v2 item node id when synced."
+    },
+    "budget_minutes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 240,
+      "default": 30,
+      "description": "Wall-clock budget; worker auto-fails and cleans up on expiry."
+    },
+    "branch": {
+      "type": ["string", "null"],
+      "description": "Working branch; default factory/<id-lowercase>."
+    },
+    "worker_hook": {
+      "type": ["string", "null"],
+      "description": "Optional repo-relative script the worker runs inside the cell (implement step)."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Conversation-derived decisions and operator notes."
+    },
+    "claimed_at": { "type": ["string", "null"], "format": "date-time" },
+    "updated_at": { "type": ["string", "null"], "format": "date-time" }
+  }
+}

@@ -43,7 +43,10 @@ Phase 3 verified: `vault operator seal` then unseal with the stored key succeeds
 | `ci-deployer` | `secret/data/forge/ci/*` | CI read |
 | `agent` | `secret/data/forge/agents/*` | AppRole for Phase 4 workers |
 
-AppRole role: `forge-agent` (short TTL).
+AppRole role: `forge-agent` (short TTL). Worker login helper:
+[`factory/scripts/vault-agent-login.sh`](../../factory/scripts/vault-agent-login.sh)
+(see [`factory.md`](./factory.md)). Example secret: `secret/forge/agents/github`
+field `token` for `gh`/git push from workers.
 
 ## ESO
 

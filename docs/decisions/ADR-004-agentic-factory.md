@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted (2026-08-06)
+Accepted (2026-08-06) — implemented in Phase 4 (2026-08-07): git tasks + Projects board
+`diestrin/projects/1` + opt-in worker daemon (`forge factory worker`)
 
 ## Context
 

@@ -1,6 +1,6 @@
 # Current host state
 
-Re-verified 2026-08-07 during Phase 4 on host `localpower`.
+Re-verified 2026-08-08 during Phase 5 on host `localpower`.
 
 ## Hardware / OS
 
@@ -33,15 +33,26 @@ Vault, ESO, Argo CD remain in effect (see prior snapshots).
 | systemd unit | `factory/systemd/forge-factory-worker.service` installed under user units; **disabled** until explicitly started |
 | Artifacts | `/media/diestrin/data/forge/factory/artifacts/` (logs, diffs, PR urls) |
 
+## Phase 5 controls (applied)
+
+| Control | Status |
+| --- | --- |
+| License | MIT at repo root (host-watch keeps its own MIT notice) |
+| CI | `.github/workflows/ci.yml`: flake check (eval), markdownlint, kustomize+kubeconform, task schema, shellcheck |
+| Secret scan | Full-history gitleaks clean (2026-08-08); enforced in CI (`gitleaks.yml`) |
+| Release | `CHANGELOG.md`; tag `v0.1.0` + GitHub release |
+| Runbooks | `operations.md` (cold start), `bootstrap-clean-host.md` (verified in clean `ubuntu:24.04` container) |
+| Demo | `docs/demo/factory-demo.cast` (TASK-003 → PR #4, awaiting review) |
+
 ## Public exposure (redacted)
 
-- Hostname: `localpower.diegobarahona.com` — HTTPS demo hello-app (Phase 3 copy until PR #2 merges).
+- Hostname: `localpower.diegobarahona.com` — HTTPS demo hello-app (Phase 4 copy until PR #4 merges).
 - SSH remains hardened; Vault/Argo UIs ClusterIP only (port-forward / SSH tunnel).
 - Factory Projects board is public; task YAML contains no secrets.
 
 ## Implications
 
-1. After reboot: unseal Vault ([vault.md](./runbooks/vault.md)); start Vault port-forward if workers need AppRole; Argo reconnects to git automatically.
+1. After reboot: follow [operations.md](./runbooks/operations.md) (unseal Vault, verify certs/Argo).
 2. Steady-state cluster changes: merge to `main` ([gitops.md](./runbooks/gitops.md)).
-3. Factory: keep `proposed` queue intentional before `systemctl --user start forge-factory-worker`.
-4. Next phase: Phase 5 portfolio hardening.
+3. Factory: worker daemon is **running**; keep the `proposed` queue intentional.
+4. All planned phases complete — new scope needs a new phase doc + human sign-off.

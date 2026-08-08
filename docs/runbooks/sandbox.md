@@ -42,7 +42,6 @@ FORGE_PUBLISH_PORT=8080 ./forge sandbox enter myapp --profile devcontainer
 # applies myapp/k8s/ into FORGE_K8S_NAMESPACE (default forge-agents)
 ```
 
-
 ## Incus (L2, optional)
 
 ```bash

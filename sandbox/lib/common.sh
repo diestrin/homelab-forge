@@ -118,10 +118,13 @@ forge_docker_limit_args() {
   [[ -n "${FORGE_MEM:-}" ]] && args+=(--memory="$FORGE_MEM")
   [[ -n "${FORGE_CPUS:-}" ]] && args+=(--cpus="$FORGE_CPUS")
   [[ -n "${FORGE_PIDS:-}" ]] && args+=(--pids-limit="$FORGE_PIDS")
-  # shellcheck disable=SC2206
+  # Consumed by sourcing profiles after this call.
+  # shellcheck disable=SC2034,SC2206
   DOCKER_LIMIT_ARGS=("${args[@]}")
 }
 
+# DOCKER_PUBLISH_ARGS is consumed by sourcing profiles after this call.
+# shellcheck disable=SC2034
 forge_publish_args() {
   # Inbound localhost-only. Opt-in via FORGE_PUBLISH_PORT=hostPort[:containerPort]
   DOCKER_PUBLISH_ARGS=()

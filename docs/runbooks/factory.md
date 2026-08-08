@@ -66,7 +66,7 @@ Legacy `token=` (PAT / pre-minted install token) still works as a fallback with 
 
 ### 3. GitHub Projects board
 
-Board: https://github.com/users/diestrin/projects/1  
+Board: <https://github.com/users/diestrin/projects/1>  
 Mapping: [`factory/PROJECTS.md`](../../factory/PROJECTS.md)
 
 `forge factory sync` prefers a Vault-minted App token when AppRole + App credentials exist; otherwise uses host `gh` auth (`project` + `read:project` scopes).
@@ -107,7 +107,7 @@ TASK-002 is an illustrative `proposed` docs task (left proposed on purpose). Pre
 scripted hooks only for demo/low-risk chores; real implementation usually omits
 `worker_hook` and uses Cursor inside the prepared `agent-cell`.
 
-Demo worker PR (TASK-001): https://github.com/diestrin/homelab-forge/pull/2 — merge
+Demo worker PR (TASK-001): <https://github.com/diestrin/homelab-forge/pull/2> — merge
 after [`factory/review/CHECKLIST.md`](../../factory/review/CHECKLIST.md), then confirm
 Argo sync + `curl` for the Phase 4 hello copy.
 

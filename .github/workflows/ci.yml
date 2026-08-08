@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  nix-flake-check:
+    name: nix flake check (eval)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: DeterminateSystems/nix-installer-action@v22
+      # Eval-only: building the full Home Manager closure on every run is
+      # wasteful on hosted runners; evaluation catches config/module errors.
+      - name: Evaluate flake checks
+        run: nix flake check ./nix --no-build
+
+  markdown-lint:
+    name: markdown lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: DavidAnson/markdownlint-cli2-action@v24
+        with:
+          globs: "**/*.md"
+
+  kube-manifests:
+    name: kustomize build + kubeconform
+    runs-on: ubuntu-latest
+    env:
+      KUBECONFORM_VERSION: v0.8.0
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install kubeconform
+        run: |
+          curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | tar xz kubeconform
+      - name: Validate all kustomizations
+        run: |
+          set -euo pipefail
+          status=0
+          for dir in $(git ls-files 'k8s/**/kustomization.yaml' | xargs -n1 dirname | sort); do
+            echo "==> $dir"
+            # -ignore-missing-schemas: CRDs (Argo CD, ESO, cert-manager) have no upstream JSON schema.
+            kubectl kustomize "$dir" \
+              | ./kubeconform -strict -ignore-missing-schemas -summary || status=1
+          done
+          exit "$status"
+
+  factory-schema:
+    name: factory task schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate factory tasks
+        run: ./forge factory validate
+
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Lint shell scripts
+        run: |
+          { git ls-files '*.sh'; echo forge; echo bootstrap; } \
+            | xargs shellcheck --severity=warning

@@ -37,7 +37,7 @@ See [`docs/current-state.md`](./docs/current-state.md).
 Highlights:
 
 - Nix + Home Manager present (Phase 1 flake under `nix/`); NixOS not in use.
-- Phases 0–4 applied on host (see [`docs/current-state.md`](./docs/current-state.md)).
+- Phases 0–5 applied (see [`docs/current-state.md`](./docs/current-state.md)); `v0.1.0` tagged.
 - Wi-Fi is the active uplink; ethernet is down.
 - Data disk has ample space; root disk is smaller — put heavy state on `/media/diestrin/data`.
 - WAN: No-IP → home IP → router forward → NUC; `localpower.diegobarahona.com`.
@@ -167,5 +167,6 @@ Factory last so it lands on stable rails.
 
 ## Immediate next action (when execution is authorized)
 
-**Phase 4 complete** (2026-08-07). Next authorized phase: **Phase 5** — portfolio hardening
-([`docs/phases/phase-5-portfolio-hardening.md`](./docs/phases/phase-5-portfolio-hardening.md)).
+**Phase 5 complete** (2026-08-08) — all planned phases done; `v0.1.0` released.
+Steady state: merge PRs to `main` for Argo CD, keep host-watch allowlists current,
+and queue factory tasks intentionally. New scope requires a new phase doc + human sign-off.

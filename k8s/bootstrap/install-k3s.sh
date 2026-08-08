@@ -44,7 +44,7 @@ fi
 
 echo "==> Waiting for node Ready"
 export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-for i in $(seq 1 60); do
+for _ in $(seq 1 60); do
   if kubectl get nodes --no-headers 2>/dev/null | grep -q ' Ready'; then
     break
   fi

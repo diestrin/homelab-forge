@@ -1,0 +1,37 @@
+id: TASK-003
+title: Bump forge-demo hello copy for Phase 5 release
+goal: 'Small web-service change: update the forge-demo hello copy to the Phase 5 release
+  message, recorded as the Phase 5 asciinema demo of the factory flow (task → worker
+  PR → review → merge → Argo).
+
+  '
+acceptance_criteria:
+- PR opened against main that changes k8s/apps/forge-demo-hello hello-html copy
+- Review checklist completed before merge
+- After merge, Argo Application forge-demo-hello Healthy/Synced
+- curl -fsS https://localpower.diegobarahona.com | grep -q "Phase 5"
+sandbox_profile: agent-cell
+repo_path: .
+status: review
+assignee_agent: worker-localpower-182768
+artifacts:
+- kind: log
+  path: /media/diestrin/data/forge/factory/artifacts/logs/TASK-003.log
+- kind: other
+  path: /media/diestrin/data/forge/factory/artifacts/TASK-003-git.diff
+- kind: pr
+  path: artifacts/TASK-003-pr.txt
+  url: https://github.com/diestrin/homelab-forge/pull/4
+- kind: kubectl_diff
+  path: /media/diestrin/data/forge/factory/artifacts/TASK-003-kubectl.diff
+risk_level: low
+budget_minutes: 15
+branch: factory/task-003-phase5-hello-bump
+worker_hook: factory/worker/hooks/phase5-hello-bump.sh
+notes: 'Phase 5 demo task. Worker runs the scripted hook inside an agent-cell; humans
+  still merge. Deploy path is merge-to-main → Argo CD only.
+
+  '
+claimed_at: '2026-08-08T03:31:18Z'
+updated_at: '2026-08-08T03:31:24Z'
+github_project_item_id: PVTI_lAHOAA3gD84Bfo-Bzg1v_pM

@@ -4,6 +4,7 @@ backups/
 __pycache__/
 *.pyc
 .venv/
+*.egg-info/
 # Nix / direnv
 result
 result-*

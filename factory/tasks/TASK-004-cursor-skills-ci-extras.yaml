@@ -15,7 +15,10 @@ sandbox_profile: trusted
 repo_path: .
 status: review
 assignee_agent: cursor-operator
-artifacts: []
+artifacts:
+- kind: pr
+  path: factory/tasks/TASK-004-cursor-skills-ci-extras.yaml
+  url: https://github.com/diestrin/homelab-forge/pull/5
 risk_level: low
 budget_minutes: 60
 branch: factory/task-004-cursor-skills-ci-extras

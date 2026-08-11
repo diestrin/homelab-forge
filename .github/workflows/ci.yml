@@ -13,7 +13,7 @@ jobs:
     name: nix flake check (eval)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: DeterminateSystems/nix-installer-action@v22
       # Eval-only: building the full Home Manager closure on every run is
       # wasteful on hosted runners; evaluation catches config/module errors.
@@ -24,7 +24,7 @@ jobs:
     name: markdown lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: DavidAnson/markdownlint-cli2-action@v24
         with:
           globs: "**/*.md"
@@ -35,7 +35,7 @@ jobs:
     env:
       KUBECONFORM_VERSION: v0.8.0
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install kubeconform
         run: |
           curl -sSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
@@ -56,7 +56,7 @@ jobs:
     name: factory task schema
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Validate factory tasks
         run: ./forge factory validate
 
@@ -64,7 +64,7 @@ jobs:
     name: shellcheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Lint shell scripts
         run: |
           { git ls-files '*.sh'; echo forge; echo bootstrap; } \
@@ -76,7 +76,7 @@ jobs:
     env:
       ACTIONLINT_VERSION: 1.7.10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Install actionlint
         run: |
           curl -sSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \

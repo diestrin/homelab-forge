@@ -69,3 +69,17 @@ jobs:
         run: |
           { git ls-files '*.sh'; echo forge; echo bootstrap; } \
             | xargs shellcheck --severity=warning
+
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    env:
+      ACTIONLINT_VERSION: 1.7.10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install actionlint
+        run: |
+          curl -sSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            | tar xz actionlint
+      - name: Lint workflows
+        run: ./actionlint -color

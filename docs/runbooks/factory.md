@@ -71,7 +71,63 @@ Mapping: [`factory/PROJECTS.md`](../../factory/PROJECTS.md)
 
 `forge factory sync` prefers a Vault-minted App token when AppRole + App credentials exist; otherwise uses host `gh` auth (`project` + `read:project` scopes).
 
-### 4. Worker daemon (opt-in always-on)
+### 4. Cursor SDK + Python venv (ADR-009)
+
+```bash
+python3 -m venv /media/diestrin/data/forge/factory/venv
+/media/diestrin/data/forge/factory/venv/bin/pip install -r factory/orchestrator/requirements.txt
+```
+
+Store the Cursor API key in Vault (never git):
+
+```bash
+vault kv put secret/forge/agents/cursor api_key="cursor_…"
+```
+
+Workers load it via `factory/scripts/fetch-cursor-key.sh` after AppRole login.
+
+### 5. Slack Socket Mode orchestrator (ADR-009)
+
+Create a Slack app with **Socket Mode** enabled (no Request URL / no Ingress). Bot
+scopes typically include `chat:write`, `channels:history`, `groups:history` (private
+channel), and app-level token (`xapp-…`) for Socket Mode.
+
+```bash
+vault kv put secret/forge/agents/slack \
+  bot_token="xoxb-…" \
+  app_token="xapp-…" \
+  signing_secret="…" \
+  allowlist_user_ids="U0XXXX,U0YYYY"
+```
+
+Write a host env file (mode 600) for systemd — placeholders shown; paste real values
+from Vault, never commit the file:
+
+```bash
+umask 077
+cat >/media/diestrin/data/secrets/forge/slack-orchestrator.env <<'EOF'
+SLACK_BOT_TOKEN=xoxb-REPLACE
+SLACK_APP_TOKEN=xapp-REPLACE
+FORGE_SLACK_ALLOWLIST=U0REPLACE
+EOF
+chmod 600 /media/diestrin/data/secrets/forge/slack-orchestrator.env
+```
+
+Unit: `factory/systemd/forge-factory-orchestrator.service`.
+
+```bash
+cp factory/systemd/forge-factory-orchestrator.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user start forge-factory-orchestrator.service
+journalctl --user -u forge-factory-orchestrator -f
+```
+
+Or foreground: `./forge factory orchestrator` (venv `python` on `PATH`).
+
+Smoke-test: post in the private channel → plan PR (`planning`) → thread reply →
+`approve` → task `proposed` → worker updates the same PR → human merges.
+
+### 6. Worker daemon (opt-in always-on)
 
 Unit file: `factory/systemd/forge-factory-worker.service`.
 
@@ -86,7 +142,7 @@ journalctl --user -u forge-factory-worker -f
 
 Or foreground: `./forge factory worker` / `./forge factory worker --once`.
 
-Ensure Vault is reachable (port-forward) so workers can AppRole-login and mint GitHub App tokens.
+Ensure Vault is reachable (port-forward) so workers can AppRole-login and mint GitHub App + Cursor tokens.
 
 ## Daily commands
 
@@ -94,18 +150,20 @@ Ensure Vault is reachable (port-forward) so workers can AppRole-login and mint G
 ./forge factory validate
 ./forge factory list
 ./forge factory sync
-./forge factory github-token   # mint only (debug)
-./forge factory claim          # manual claim next proposed
-./forge factory run TASK-001   # run without daemon
+./forge factory approve TASK-NNN   # planning → proposed
+./forge factory github-token       # mint only (debug)
+./forge factory claim              # manual claim next proposed
+./forge factory run TASK-001       # run without daemon
 ./forge factory worker --once
+./forge factory orchestrator
 ./forge factory demo
 ```
 
 ## Examples
 
-TASK-002 is an illustrative `proposed` docs task (left proposed on purpose). Prefer
-scripted hooks only for demo/low-risk chores; real implementation usually omits
-`worker_hook` and uses Cursor inside the prepared `agent-cell`.
+TASK-002 is an illustrative docs task. Prefer scripted hooks only for demo/low-risk
+chores; real implementation omits `worker_hook` so the Cursor SDK worker runs
+(`factory/worker/cursor_implement.py`).
 
 Demo worker PR (TASK-001): <https://github.com/diestrin/homelab-forge/pull/2> — merge
 after [`factory/review/CHECKLIST.md`](../../factory/review/CHECKLIST.md), then confirm
@@ -114,7 +172,11 @@ Argo sync + `curl` for the Phase 4 hello copy.
 ## Threat notes
 
 - Daemon runs as your user; with App credentials it pushes/PRs as the **GitHub App**,
-  not your personal account. Keep the `proposed` queue intentional.
-- Cells still lack docker.sock and `$HOME` mounts.
+  not your personal account. Keep the `proposed` queue intentional — `planning` is
+  not claimable until Slack/CLI approve.
+- Slack allowlist is mandatory; thread replies from others are ignored.
+- Cells still lack docker.sock and `$HOME` mounts; Cursor SDK runs on the host with
+  worktree `cwd`.
 - Board is a mirror; ignore board-only edits when they disagree with git.
-- Never commit `private_key.pem`, `client_secret`, or installation tokens.
+- Never commit `private_key.pem`, `client_secret`, Slack tokens, Cursor API keys, or
+  real Slack user IDs.

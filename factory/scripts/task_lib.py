@@ -14,14 +14,24 @@ try:
 except ImportError:
     yaml = None  # type: ignore
 
-STATUSES = ("proposed", "claimed", "in_progress", "review", "done", "failed")
+STATUSES = (
+    "planning",
+    "proposed",
+    "claimed",
+    "in_progress",
+    "review",
+    "done",
+    "failed",
+)
 TRANSITIONS = {
-    "proposed": {"claimed", "failed"},
+    # planning = plan PR open; not claimable until Slack/CLI approve → proposed
+    "planning": {"proposed", "failed"},
+    "proposed": {"claimed", "failed", "planning"},  # planning = send back to plan
     "claimed": {"in_progress", "failed", "proposed"},  # proposed = release lease
     "in_progress": {"review", "failed"},
     "review": {"done", "failed", "in_progress"},
     "done": set(),
-    "failed": {"proposed"},
+    "failed": {"proposed", "planning"},
 }
 
 REQUIRED = (
@@ -39,6 +49,7 @@ PROFILES = ("trusted", "devcontainer", "incus", "k8s-workload", "agent-cell")
 RISKS = ("low", "medium", "high")
 
 STATUS_TO_PROJECT_COLUMN = {
+    "planning": "Planning",
     "proposed": "Proposed",
     "claimed": "Claimed",
     "in_progress": "In Progress",
@@ -288,7 +299,7 @@ def cmd_set_status(repo: Path, task_id: str, status: str, assignee: str | None) 
             data["assignee_agent"] = assignee or None
         if status == "claimed":
             data["claimed_at"] = utcnow()
-        if status == "proposed":
+        if status in ("proposed", "planning"):
             data["assignee_agent"] = None
             data["claimed_at"] = None
         save(path, data)
@@ -296,6 +307,11 @@ def cmd_set_status(repo: Path, task_id: str, status: str, assignee: str | None) 
         return 0
     print(f"task not found: {task_id}", file=sys.stderr)
     return 1
+
+
+def cmd_approve(repo: Path, task_id: str) -> int:
+    """Slack/CLI gate: planning → proposed (worker-claimable)."""
+    return cmd_set_status(repo, task_id, "proposed", assignee=None)
 
 
 def cmd_claim(repo: Path, task_id: str | None, worker: str) -> int:
@@ -315,6 +331,17 @@ def cmd_claim(repo: Path, task_id: str | None, worker: str) -> int:
     save(path, data)
     print(data["id"])
     print(path)
+    return 0
+
+
+def cmd_next_id(repo: Path) -> int:
+    max_n = 0
+    for _path, data in iter_tasks(repo):
+        tid = str(data.get("id") or "")
+        m = re.match(r"^TASK-(\d+)$", tid)
+        if m:
+            max_n = max(max_n, int(m.group(1)))
+    print(f"TASK-{max_n + 1:03d}")
     return 0
 
 
@@ -356,9 +383,12 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("task_id")
     s.add_argument("status")
     s.add_argument("--assignee", default=None)
+    ap = sub.add_parser("approve")
+    ap.add_argument("task_id")
     c = sub.add_parser("claim")
     c.add_argument("--task", default=None)
     c.add_argument("--worker", required=True)
+    sub.add_parser("next-id")
     a = sub.add_parser("add-artifact")
     a.add_argument("task_id")
     a.add_argument("kind")
@@ -379,8 +409,12 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_get(repo, args.task_id)
     if args.cmd == "set-status":
         return cmd_set_status(repo, args.task_id, args.status, args.assignee)
+    if args.cmd == "approve":
+        return cmd_approve(repo, args.task_id)
     if args.cmd == "claim":
         return cmd_claim(repo, args.task, args.worker)
+    if args.cmd == "next-id":
+        return cmd_next_id(repo)
     if args.cmd == "add-artifact":
         return cmd_add_artifact(repo, args.task_id, args.kind, args.path, args.url)
     if args.cmd == "column":

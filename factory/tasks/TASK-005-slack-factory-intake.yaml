@@ -1,0 +1,87 @@
+id: TASK-005
+title: Slack orchestrator + Cursor SDK worker (plan PR gate)
+goal: 'Wire Slack as the away-from-keyboard factory front door and Cursor SDK as the
+  agent runtime on both sides: (1) an orchestrator that turns a Slack prompt into a
+  plan PR (task YAML + plan), iterates that plan from Slack thread replies, and only
+  after explicit Slack approval marks the task claimable; (2) a worker that claims
+  approved tasks, implements them with Cursor SDK against the worktree, and updates
+  the same PR. No public Ingress; no Slack/Cursor tokens in git; merge to main remains
+  human-gated (ADR-008).
+
+  '
+acceptance_criteria:
+- >-
+  ADR-009 (or equivalent) extends ADR-004: Slack is an orchestrator intake + plan
+  approval channel; Cursor SDK is the programmatic agent runtime for orchestrator
+  planning and worker implementation; git remains task SoT; GitHub Projects remains
+  the board mirror; humans still merge (Slack is not a merge/deploy console)
+- >-
+  End-to-end operator flow: Slack prompt in a dedicated private channel →
+  orchestrator (Cursor SDK, local cwd on host) writes/updates factory/tasks/
+  TASK-NNN-*.yaml and opens a plan PR (task YAML + plan notes; no feature
+  implementation yet) → posts PR link + summary in the Slack thread → operator
+  replies in that thread → orchestrator resumes/updates the plan and the PR →
+  operator explicitly approves in Slack (button or documented keyword) → task
+  becomes worker-claimable → worker claims → Cursor SDK implements against
+  goal/acceptance_criteria in the task worktree → pushes commits to the same PR
+  → Slack thread notified → status review. Human merges; Argo deploys if applicable
+- >-
+  State machine / schema: workers must not claim tasks still in plan/feedback.
+  Prefer a new non-claimable status (e.g. planning) with legal transitions into
+  proposed only after Slack approval; update factory/schema, task_lib transitions,
+  PROJECTS.md column mapping, and forge factory sync. Document the approve action
+- >-
+  Worker updated to invoke Cursor SDK (not shell-only hooks / attach-and-stop as
+  the primary path for Slack-approved tasks). run-task.sh / daemon prepare the
+  worktree and sandbox, mint secrets via AppRole, run Agent.prompt or
+  Agent.create+send with the task goal/AC/plan as the prompt, push to the plan PR,
+  write artifacts, set status review. Scripted worker_hook remains for demo tasks
+  only. Budget watchdog still applies
+- >-
+  Slack uses Socket Mode only (outbound WebSocket). No Events/slash Request URL on
+  Ingress, no new Traefik route, no UFW change. Host systemd user unit(s) for
+  orchestrator intake (and worker already present); install/enable is human-gated
+- >-
+  Secrets in Vault only: secret/forge/agents/slack (bot token, app token, signing
+  secret, allowlisted Slack user IDs) and secret/forge/agents/cursor (API key /
+  whatever Cursor SDK needs). forge-agent AppRole can read both; placeholders only
+  in git; docs/runbooks/factory.md and vault.md updated
+- >-
+  Allowlisted Slack user IDs only; thread replies from non-allowlisted users are
+  ignored. High-risk / human-only intents (SSH, UFW, Vault unseal, disable
+  host-watch, force-push, kubectl apply to Argo apps) stay non-claimable and are
+  flagged in Slack for a human — never auto-approved into the worker queue.
+  Default sandbox_profile/risk_level follow factory/orchestrator/PLAYBOOK.md
+- >-
+  Orchestrator and worker playbooks updated for this flow (Slack thread = plan
+  feedback channel; approval gate; Cursor SDK invocation layer). Public-repo
+  hygiene: no real tokens, user IDs, workspace secrets, or ntfy topics in git.
+  CI gitleaks green
+- >-
+  Operator runbook: create Slack app (Socket Mode), vault kv put for Slack +
+  Cursor, allowlist, enable units, smoke-test prompt → plan PR → thread edit →
+  approve → SDK worker updates PR → review. Human still merges
+sandbox_profile: agent-cell
+repo_path: .
+status: review
+assignee_agent: cursor-worker
+artifacts: []
+risk_level: high
+budget_minutes: 240
+branch: factory/task-005-slack-factory-intake
+worker_hook: null
+notes: 'Implemented 2026-08-11 by Cursor worker on branch
+  factory/task-005-slack-factory-intake.
+
+  Delivered: ADR-009; planning status + approve CLI; Projects Planning column;
+  Slack Socket Mode orchestrator; Cursor SDK plan + implement helpers; worker
+  run-task SDK path; systemd unit; runbooks.
+
+  Operator still must: create Slack app, vault kv put slack+cursor, host venv,
+  slack-orchestrator.env, enable units, then smoke-test. Live Slack/Cursor smoke
+  is human-gated (secrets outside git).
+
+  '
+claimed_at: '2026-08-11T12:23:49Z'
+updated_at: '2026-08-11T23:10:00Z'
+github_project_item_id: PVTI_lAHOAA3gD84Bfo-Bzg2GO0c

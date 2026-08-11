@@ -1,20 +1,26 @@
 # Worker playbook
 
-Workers execute **one task at a time** inside sandboxes (ADR-002 L4 `agent-cell` by
-default). Secrets come from Vault AppRole `forge-agent` (ADR-007). Cluster deploys
-happen only after merge via Argo CD (ADR-008).
+Workers execute **one task at a time**. Secrets come from Vault AppRole
+`forge-agent` (ADR-007). Cluster deploys happen only after merge via Argo CD
+(ADR-008). Implementation runtime is **Cursor SDK** by default (ADR-009);
+scripted `worker_hook` remains for demos.
 
 ## Lifecycle
 
 1. **Claim** — `status: proposed → claimed` (`./forge factory claim` or daemon).
-2. **Cell** — provision agent-cell / worktree (`factory/worker/run-task.sh`).
+   Tasks in `planning` are **not** claimable (Slack plan gate).
+2. **Cell / worktree** — provision worktree (`factory/worker/run-task.sh`).
 3. **Secrets** — AppRole login; mint GitHub App **installation token** from
-   `secret/forge/agents/github` (`app_id` / `client_id` + `private_key`;
-   `client_secret` stored but unused for mint). No personal PAT required.
-4. **Implement** — run `worker_hook` if set; else leave branch ready for attach.
+   `secret/forge/agents/github`; load Cursor API key from
+   `secret/forge/agents/cursor` (`factory/scripts/fetch-cursor-key.sh`).
+4. **Implement** — if `worker_hook` set, run it (optionally in `agent-cell`);
+   else run `factory/worker/cursor_implement.py` (Cursor SDK local agent against
+   the worktree). If no SDK key and `FORGE_SKIP_CURSOR_SDK=1`, leave branch ready
+   for attach (legacy).
 5. **Verify** — tests / acceptance notes; write artifacts under
    `/media/diestrin/data/forge/factory/artifacts/`.
-6. **Hand off** — `status: review` + PR link; never merge autonomously.
+6. **Hand off** — push to the existing plan branch/PR when present; `status: review`
+   + PR link; never merge autonomously. Slack orchestrator may notify the thread.
 7. **Cleanup** — remove cell; budget watchdog auto-fails and cleans up.
 
 ## Artifact conventions
@@ -48,12 +54,17 @@ Env:
 | `FORGE_WORKER_ID` | `worker-<host>` | assignee stamp |
 | `FORGE_WORKER_POLL_SECONDS` | `30` | idle poll |
 | `FORGE_SKIP_VAULT` | `0` | set `1` to skip AppRole |
+| `FORGE_SKIP_CURSOR_SDK` | `0` | set `1` to force attach-only when no hook |
+| `FORGE_CURSOR_MODEL` | `composer-2.5` | Cursor SDK model id |
 | `VAULT_ADDR` | `http://127.0.0.1:8200` | requires port-forward / local access |
 | `FORGE_APPROLE_ENV` | `…/approle-forge-agent.env` | role_id + secret_id |
+
+Host venv should include `cursor-sdk` (see `factory/orchestrator/requirements.txt`).
 
 ## Isolation rules
 
 - No host Docker socket in agent-cells.
 - No bind-mount of `$HOME` or sibling project trees.
+- Cursor SDK runs **on the host** with `cwd` = task worktree (local runtime).
 - Do not `kubectl apply` Argo-managed apps; `kubectl diff` only for artifacts.
 - Time budget from `budget_minutes` → auto `failed` + cleanup.

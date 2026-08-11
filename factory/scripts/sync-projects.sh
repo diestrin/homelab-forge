@@ -10,13 +10,15 @@ PROJECT_NUMBER="${FORGE_PROJECT_NUMBER:-1}"
 STATUS_FIELD_ID="${FORGE_PROJECT_STATUS_FIELD_ID:-PVTSSF_lAHOAA3gD84Bfo-BzhZ6dSI}"
 PROJECT_ID="${FORGE_PROJECT_ID:-PVT_kwHOAA3gD84Bfo-B}"
 
+# Option ids must match factory/PROJECTS.md (refreshed when Planning was added).
 declare -A COLUMN_IDS=(
-  [Proposed]=f75ad846
-  [Claimed]=ce587ea2
-  [In Progress]=47fc9ee4
-  [Review]=db289240
-  [Done]=98236657
-  [Failed]=7e7241b8
+  [Planning]=9d0b2c46
+  [Proposed]=a5a9735c
+  [Claimed]=654955ca
+  [In Progress]=acd648e9
+  [Review]=2ec5fd72
+  [Done]=f4ef9446
+  [Failed]=8ccee8f2
 )
 
 log() { echo "==> $*"; }

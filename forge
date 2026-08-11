@@ -185,17 +185,20 @@ cmd_sandbox() {
 
 factory_usage() {
   cat <<'EOF'
-forge factory — task board + worker (Phase 4)
+forge factory — task board + worker (Phase 4 / ADR-009)
 
   validate
   list
   get <TASK-NNN>
   claim [--task TASK-NNN]
-  set-status <TASK-NNN> <proposed|claimed|in_progress|review|done|failed>
+  set-status <TASK-NNN> <planning|proposed|claimed|in_progress|review|done|failed>
+  approve <TASK-NNN>            planning → proposed (Slack/CLI gate)
+  next-id
   sync [--dry-run]
   github-token
   run <TASK-NNN>
   worker [--once]
+  orchestrator                  Slack Socket Mode intake (foreground)
   demo
 EOF
 }
@@ -238,6 +241,13 @@ cmd_factory() {
         python3 "$TASK_LIB" --repo "$REPO_ROOT" set-status "$1" "$2"
       fi
       ;;
+    approve)
+      [[ $# -ge 1 ]] || forge_die "usage: forge factory approve TASK-NNN"
+      python3 "$TASK_LIB" --repo "$REPO_ROOT" approve "$1"
+      ;;
+    next-id)
+      python3 "$TASK_LIB" --repo "$REPO_ROOT" next-id
+      ;;
     sync)
       "$REPO_ROOT/factory/scripts/sync-projects.sh" "$@"
       ;;
@@ -256,6 +266,9 @@ cmd_factory() {
       ;;
     worker)
       "$REPO_ROOT/factory/worker/daemon.sh" "$@"
+      ;;
+    orchestrator)
+      exec python3 "$REPO_ROOT/factory/orchestrator/slack_intake.py" "$@"
       ;;
     demo)
       "$REPO_ROOT/factory/demo/run-demo.sh" "$@"

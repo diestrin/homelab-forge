@@ -38,7 +38,7 @@
     },
     "status": {
       "type": "string",
-      "enum": ["proposed", "claimed", "in_progress", "review", "done", "failed"]
+      "enum": ["planning", "proposed", "claimed", "in_progress", "review", "done", "failed"]
     },
     "assignee_agent": {
       "type": ["string", "null"],

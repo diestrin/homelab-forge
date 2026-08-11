@@ -1,0 +1,7 @@
+# Runtime deps for Slack orchestrator + Cursor SDK worker (host venv; not committed lock).
+# Install: python3 -m venv /media/diestrin/data/forge/factory/venv
+#          /media/diestrin/data/forge/factory/venv/bin/pip install -r factory/orchestrator/requirements.txt
+slack-bolt>=1.21.0
+slack-sdk>=3.33.0
+cursor-sdk>=0.1.0
+PyYAML>=6.0

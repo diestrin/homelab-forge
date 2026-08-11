@@ -1,0 +1,30 @@
+id: TASK-004
+title: Add project Cursor skills and CI extras (actionlint, Dependabot)
+goal: 'Make the factory playbooks and ops runbooks discoverable to Cursor agents via
+  project skills under .cursor/skills/, and round out Phase 5 CI with actionlint and
+  Dependabot for Actions version bumps.
+
+  '
+acceptance_criteria:
+- Skills factory-orchestrator, factory-worker, factory-reviewer, public-repo-hygiene,
+  sandbox-operator, gitops-k8s-change exist under .cursor/skills/ and link playbooks/runbooks
+  instead of duplicating them
+- ci.yml gains an actionlint job; .github/dependabot.yml covers github-actions
+- CI green including gitleaks; no cluster-deploy steps added to Actions (ADR-008)
+sandbox_profile: trusted
+repo_path: .
+status: review
+assignee_agent: cursor-operator
+artifacts: []
+risk_level: low
+budget_minutes: 60
+branch: factory/task-004-cursor-skills-ci-extras
+worker_hook: null
+notes: 'Implemented directly in the operator''s Cursor session (trusted profile) rather
+  than by a worker cell; task recorded for the audit trail per docs/current-state.md
+  ("new scope needs a new phase doc + human sign-off"). Skills are the discovery layer;
+  factory/*/PLAYBOOK.md and docs/runbooks/ remain the source of truth.
+
+  '
+claimed_at: null
+updated_at: '2026-08-10T06:40:00Z'

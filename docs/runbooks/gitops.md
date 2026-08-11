@@ -14,6 +14,15 @@ Argo CD syncs cluster desired state from branch **`main`** (ADR-008).
 
 Steady-state: **merge to `main` → Argo syncs**. Do not `kubectl apply` managed apps by hand.
 
+## Merge gates on `main`
+
+The repository ruleset `main` requires a PR with one approval **and** green status
+checks before merge: all `ci.yml` jobs (flake check, markdown lint,
+kustomize+kubeconform, factory task schema, shellcheck, actionlint) plus the
+full-history gitleaks scan. Workers cannot merge around these gates; repo admins
+retain bypass for emergencies. GitHub Actions never deploys to the cluster —
+Argo CD is the only deploy path (ADR-008).
+
 ## Root Application
 
 ```bash

@@ -19,8 +19,9 @@ scripted `worker_hook` remains for demos.
    for attach (legacy).
 5. **Verify** — tests / acceptance notes; write artifacts under
    `/media/diestrin/data/forge/factory/artifacts/`.
-6. **Hand off** — push to the existing plan branch/PR when present; `status: review`
-   + PR link; never merge autonomously. Slack orchestrator may notify the thread.
+6. **Hand off** — push to the existing plan branch/PR when present; set
+   `status: review` with the PR link; never merge autonomously. Slack orchestrator
+   may notify the thread.
 7. **Cleanup** — remove cell; budget watchdog auto-fails and cleans up.
 
 ## Artifact conventions

@@ -28,6 +28,7 @@ assignee_agent: cursor-worker
 artifacts:
 - kind: pr
   path: artifacts/TASK-007-pr.txt
+  url: https://github.com/diestrin/homelab-forge/pull/10
 risk_level: high
 budget_minutes: 120
 branch: factory/task-007-let-s-plan-to-build-a-multi-phase-projec

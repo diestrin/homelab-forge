@@ -3,14 +3,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: forge-demo-hello
+  name: forge-site
   namespace: forge-system
 spec:
   project: default
   source:
     repoURL: https://github.com/diestrin/homelab-forge.git
     targetRevision: main
-    path: k8s/apps/forge-demo-hello
+    path: k8s/apps/forge-site
   destination:
     server: https://kubernetes.default.svc
     namespace: forge-demo

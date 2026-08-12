@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: hello
+  name: forge-site
   namespace: forge-demo
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
@@ -11,7 +11,7 @@ spec:
   tls:
     - hosts:
         - localpower.diegobarahona.com
-      secretName: hello-tls
+      secretName: forge-site-tls
   rules:
     - host: localpower.diegobarahona.com
       http:
@@ -20,6 +20,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: hello
+                name: forge-site
                 port:
                   number: 80

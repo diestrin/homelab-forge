@@ -338,7 +338,7 @@ fi
 if git diff --name-only "$BASE_REF...HEAD" 2>/dev/null | grep -q '^k8s/'; then
   if command -v kubectl >/dev/null && [[ -f "${KUBECONFIG:-$HOME/.kube/config}" ]]; then
     KDIFF="$ART_ROOT/${TASK_ID}-kubectl.diff"
-    kubectl -n forge-demo diff -k "$WORK_REPO/k8s/apps/forge-demo-hello" >"$KDIFF" 2>&1 || true
+    kubectl -n forge-demo diff -k "$WORK_REPO/k8s/apps/forge-site" >"$KDIFF" 2>&1 || true
     python3 "$TASK_LIB" --repo "$REPO_ROOT" add-artifact "$TASK_ID" kubectl_diff "$KDIFF"
   fi
 fi

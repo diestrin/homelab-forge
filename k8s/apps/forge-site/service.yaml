@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: hello
+  name: forge-site
   namespace: forge-demo
 spec:
   selector:
-    app: hello
+    app: forge-site
   ports:
     - port: 80
-      targetPort: 80
+      targetPort: 3000

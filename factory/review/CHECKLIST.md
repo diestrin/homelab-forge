@@ -15,7 +15,7 @@ default for v1 (ADR-004).
 
 - [ ] Cluster changes are manifests under `k8s/` only — **no** instructions to
       `kubectl apply` around Argo.
-- [ ] After merge: watch `kubectl -n forge-system get application forge-demo-hello`
+- [ ] After merge: watch `kubectl -n forge-system get application forge-site`
       (or relevant app) → Synced/Healthy.
 - [ ] Public demo: `curl -fsSI https://localpower.diegobarahona.com` still OK.
 

@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: forge-demo
+resources:
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+configMapGenerator:
+  - name: factory-tasks
+    files:
+      - tasks/TASK-001-demo-hello-bump.yaml
+      - tasks/TASK-002-example-docs-nudge.yaml
+      - tasks/TASK-003-phase5-hello-bump.yaml
+      - tasks/TASK-004-cursor-skills-ci-extras.yaml
+      - tasks/TASK-005-slack-factory-intake.yaml
+      - tasks/TASK-006-let-s-update-forge-demo-hello-html-to-sa.yaml
+      - tasks/TASK-007-let-s-plan-to-build-a-multi-phase-projec.yaml

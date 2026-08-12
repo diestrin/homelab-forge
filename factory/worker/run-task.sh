@@ -62,6 +62,8 @@ cleanup_cell() {
 }
 fail_task() {
   local reason="$1"
+  trap - EXIT INT TERM
+  clear_watchdog 2>/dev/null || true
   log "FAIL: $reason"
   python3 "$TASK_LIB" --repo "$REPO_ROOT" set-status "$TASK_ID" failed --assignee "$WORKER_ID" || true
   python3 "$TASK_LIB" --repo "$REPO_ROOT" add-artifact "$TASK_ID" log "$LOG" || true
@@ -69,7 +71,11 @@ fail_task() {
   exit 1
 }
 
+clear_watchdog() { kill "${WATCHDOG_PID:-}" 2>/dev/null || true; }
+
 trap 'fail_task "interrupted or budget exceeded"' INT TERM
+# set -e failures (e.g. worktree add) must fail the task, not leave it in_progress.
+trap 'rc=$?; clear_watchdog || true; cleanup_cell || true; if [[ "${FORGE_TASK_OK:-0}" != "1" ]]; then fail_task "exited uncleanly (rc=${rc})"; fi' EXIT
 
 BUDGET_SEC=$((TASK_BUDGET * 60))
 (
@@ -78,8 +84,6 @@ BUDGET_SEC=$((TASK_BUDGET * 60))
   kill -TERM $$ 2>/dev/null || true
 ) &
 WATCHDOG_PID=$!
-clear_watchdog() { kill "$WATCHDOG_PID" 2>/dev/null || true; }
-trap 'clear_watchdog; cleanup_cell' EXIT
 
 case "$TASK_STATUS" in
   proposed)
@@ -130,13 +134,13 @@ chmod 700 "${FORGE_DATA_ROOT:-/media/diestrin/data/forge}/factory" 2>/dev/null |
 
 BASE_REF="origin/${DEFAULT_BRANCH}"
 git rev-parse --verify "$BASE_REF" >/dev/null 2>&1 || BASE_REF="$DEFAULT_BRANCH"
-
-if [[ -d "$WT" ]]; then
-  log "reusing worktree $WT"
-else
-  log "creating worktree $WT (branch $TASK_BRANCH from $BASE_REF)"
-  git -C "$PROJECT" worktree add -B "$TASK_BRANCH" "$WT" "$BASE_REF"
+if git rev-parse --verify "origin/${TASK_BRANCH}" >/dev/null 2>&1; then
+  BASE_REF="origin/${TASK_BRANCH}"
 fi
+
+log "creating/reusing worktree $WT (branch $TASK_BRANCH start $BASE_REF)"
+ADD_OUT="$("$REPO_ROOT/factory/scripts/add-task-worktree.sh" "$PROJECT" "$WT" "$TASK_BRANCH" "$BASE_REF")" || fail_task "worktree add failed"
+log "worktree: $ADD_OUT"
 
 WORK_REPO="$WT"
 export FORGE_TASK_REPO="$WORK_REPO"
@@ -203,6 +207,10 @@ else
   fi
   if [[ "$USE_SDK" -eq 1 && -n "${CURSOR_API_KEY:-}" ]]; then
     log "running Cursor SDK implementer (cwd=$WORK_REPO)"
+    FORGE_PY="${FORGE_PYTHON:-/media/diestrin/data/forge/factory/venv/bin/python3}"
+    if [[ ! -x "$FORGE_PY" ]]; then
+      FORGE_PY="$(command -v python3)"
+    fi
     export FORGE_TASK_ID="$TASK_ID"
     export FORGE_TASK_TITLE="$TASK_TITLE"
     export FORGE_TASK_GOAL
@@ -212,7 +220,8 @@ else
     export FORGE_TASK_BRANCH="$TASK_BRANCH"
     export FORGE_TASK_REPO="$WORK_REPO"
     set +e
-    python3 "$REPO_ROOT/factory/worker/cursor_implement.py"
+    log "using python $FORGE_PY"
+    "$FORGE_PY" "$REPO_ROOT/factory/worker/cursor_implement.py"
     sdk_rc=$?
     set -e
     [[ "$sdk_rc" -eq 0 ]] || fail_task "Cursor SDK implement failed (rc=$sdk_rc)"
@@ -235,6 +244,7 @@ EOF
     python3 "$TASK_LIB" --repo "$REPO_ROOT" add-artifact "$TASK_ID" note "$NOTE"
     python3 "$TASK_LIB" --repo "$REPO_ROOT" set-status "$TASK_ID" review --assignee "$WORKER_ID"
     python3 "$TASK_LIB" --repo "$REPO_ROOT" add-artifact "$TASK_ID" log "$LOG"
+    FORGE_TASK_OK=1
     clear_watchdog
     trap - EXIT INT TERM
     cleanup_cell
@@ -279,7 +289,7 @@ if git remote get-url origin >/dev/null 2>&1; then
         git branch --set-upstream-to="origin/$TASK_BRANCH" "$TASK_BRANCH" >/dev/null 2>&1 || true
         PUSH_OK=1
       fi
-    elif git push -u origin "$TASK_BRANCH" 2>&1; then
+    elif git push -u origin "HEAD:refs/heads/$TASK_BRANCH" 2>&1; then
       log "warning: pushed via host remote credentials (set Vault GitHub App for bot identity)"
       PUSH_OK=1
     fi
@@ -334,6 +344,7 @@ if git diff --name-only "$BASE_REF...HEAD" 2>/dev/null | grep -q '^k8s/'; then
 fi
 
 python3 "$TASK_LIB" --repo "$REPO_ROOT" set-status "$TASK_ID" review --assignee "$WORKER_ID"
+FORGE_TASK_OK=1
 clear_watchdog
 trap - EXIT INT TERM
 cleanup_cell

@@ -67,5 +67,8 @@ Host venv should include `cursor-sdk` (see `factory/orchestrator/requirements.tx
 - No host Docker socket in agent-cells.
 - No bind-mount of `$HOME` or sibling project trees.
 - Cursor SDK runs **on the host** with `cwd` = task worktree (local runtime).
+- If the task branch is already checked out (operator Cursor clone), the worker
+  uses a detached worktree and pushes with `HEAD:refs/heads/<branch>`. The
+  orchestrator must not `git checkout` plan branches in the operator clone.
 - Do not `kubectl apply` Argo-managed apps; `kubectl diff` only for artifacts.
 - Time budget from `budget_minutes` → auto `failed` + cleanup.

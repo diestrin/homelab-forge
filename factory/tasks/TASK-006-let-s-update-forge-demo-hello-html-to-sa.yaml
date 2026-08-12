@@ -16,7 +16,7 @@ acceptance_criteria:
 - curl -fsS https://localpower.diegobarahona.com | grep -q "Forge Software Factory"
 sandbox_profile: agent-cell
 repo_path: .
-status: review
+status: done
 assignee_agent: cursor-sdk-task-006
 artifacts:
 - kind: pr
@@ -44,5 +44,5 @@ notes: 'Slack operator request: update forge-demo-hello HTML to say hi from "For
 
   '
 claimed_at: '2026-08-12T01:13:35Z'
-updated_at: '2026-08-12T01:13:35Z'
+updated_at: '2026-08-12T04:45:30Z'
 github_project_item_id: PVTI_lAHOAA3gD84Bfo-Bzg2Lmz8

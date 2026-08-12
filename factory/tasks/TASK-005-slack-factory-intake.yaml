@@ -53,7 +53,7 @@ acceptance_criteria:
   worker updates PR → review. Human still merges'
 sandbox_profile: agent-cell
 repo_path: .
-status: review
+status: done
 assignee_agent: cursor-worker
 artifacts:
 - kind: pr
@@ -75,5 +75,5 @@ notes: 'Implemented 2026-08-11 by Cursor worker on branch factory/task-005-slack
 
   '
 claimed_at: '2026-08-11T12:23:49Z'
-updated_at: '2026-08-11T23:06:48Z'
+updated_at: '2026-08-12T04:45:26Z'
 github_project_item_id: PVTI_lAHOAA3gD84Bfo-Bzg2GO0c

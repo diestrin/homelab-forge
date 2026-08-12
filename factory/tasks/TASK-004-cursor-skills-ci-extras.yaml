@@ -13,7 +13,7 @@ acceptance_criteria:
 - CI green including gitleaks; no cluster-deploy steps added to Actions (ADR-008)
 sandbox_profile: trusted
 repo_path: .
-status: review
+status: done
 assignee_agent: cursor-operator
 artifacts:
 - kind: pr
@@ -30,4 +30,5 @@ notes: 'Implemented directly in the operator''s Cursor session (trusted profile)
 
   '
 claimed_at: null
-updated_at: '2026-08-10T06:40:00Z'
+updated_at: '2026-08-11T12:32:34Z'
+github_project_item_id: PVTI_lAHOAA3gD84Bfo-Bzg2GOzU

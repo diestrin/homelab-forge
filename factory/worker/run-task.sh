@@ -179,27 +179,68 @@ run_hook() {
 if [[ -n "$TASK_HOOK" ]]; then
   run_hook "$TASK_HOOK" || fail_task "worker_hook failed"
 else
-  log "no worker_hook — preparing worktree only (attach Cursor/agent to continue)"
-  NOTE="$ART_ROOT/${TASK_ID}-awaiting-agent.md"
-  cat >"$NOTE" <<EOF
+  # Primary path (ADR-009): Cursor SDK implementation against the worktree.
+  # Legacy attach-only when FORGE_SKIP_CURSOR_SDK=1 or no API key and no fallback force.
+  USE_SDK=1
+  if [[ "${FORGE_SKIP_CURSOR_SDK:-0}" == "1" ]]; then
+    USE_SDK=0
+  fi
+  if [[ "$USE_SDK" -eq 1 && -z "${CURSOR_API_KEY:-}" && "${FORGE_SKIP_VAULT:-0}" != "1" ]]; then
+    if [[ -n "${VAULT_TOKEN:-}" ]] || [[ -f "${FORGE_APPROLE_ENV:-/media/diestrin/data/secrets/vault/approle-forge-agent.env}" ]]; then
+      if [[ -z "${VAULT_TOKEN:-}" ]]; then
+        if VAULT_TOKEN_VAL="$("$REPO_ROOT/factory/scripts/vault-agent-login.sh" --print-token 2>/dev/null)"; then
+          export VAULT_TOKEN="$VAULT_TOKEN_VAL"
+          export VAULT_ADDR="${VAULT_ADDR:-http://127.0.0.1:8200}"
+        fi
+      fi
+      if [[ -n "${VAULT_TOKEN:-}" ]]; then
+        if CURSOR_KEY="$("$REPO_ROOT/factory/scripts/fetch-cursor-key.sh" 2>/dev/null)"; then
+          export CURSOR_API_KEY="$CURSOR_KEY"
+          log "loaded CURSOR_API_KEY from Vault"
+        fi
+      fi
+    fi
+  fi
+  if [[ "$USE_SDK" -eq 1 && -n "${CURSOR_API_KEY:-}" ]]; then
+    log "running Cursor SDK implementer (cwd=$WORK_REPO)"
+    export FORGE_TASK_ID="$TASK_ID"
+    export FORGE_TASK_TITLE="$TASK_TITLE"
+    export FORGE_TASK_GOAL
+    FORGE_TASK_GOAL="$(python3 -c "import yaml;print(yaml.safe_load(open('$TASK_FILE'))['goal'])")"
+    export FORGE_TASK_AC
+    FORGE_TASK_AC="$(python3 -c "import yaml;d=yaml.safe_load(open('$TASK_FILE'));print('\n'.join('- '+x for x in d.get('acceptance_criteria') or []))")"
+    export FORGE_TASK_BRANCH="$TASK_BRANCH"
+    export FORGE_TASK_REPO="$WORK_REPO"
+    set +e
+    python3 "$REPO_ROOT/factory/worker/cursor_implement.py"
+    sdk_rc=$?
+    set -e
+    [[ "$sdk_rc" -eq 0 ]] || fail_task "Cursor SDK implement failed (rc=$sdk_rc)"
+  else
+    log "no worker_hook and no Cursor SDK key — preparing worktree only (attach Cursor/agent to continue)"
+    NOTE="$ART_ROOT/${TASK_ID}-awaiting-agent.md"
+    cat >"$NOTE" <<EOF
 # $TASK_ID awaiting implementer
 
 Branch: \`$TASK_BRANCH\`
 Worktree: \`$WORK_REPO\`
 Profile: \`$TASK_PROFILE\`
-Worker: \`$WORKER_ID\` prepared worktree then stopped (no worker_hook).
+Worker: \`$WORKER_ID\` prepared worktree then stopped (no worker_hook / no CURSOR_API_KEY).
 
 Attach with:
   ./forge sandbox enter $WORK_REPO --profile agent-cell
+
+Or put api_key in Vault secret/forge/agents/cursor and re-run.
 EOF
-  python3 "$TASK_LIB" --repo "$REPO_ROOT" add-artifact "$TASK_ID" note "$NOTE"
-  python3 "$TASK_LIB" --repo "$REPO_ROOT" set-status "$TASK_ID" review --assignee "$WORKER_ID"
-  python3 "$TASK_LIB" --repo "$REPO_ROOT" add-artifact "$TASK_ID" log "$LOG"
-  clear_watchdog
-  trap - EXIT INT TERM
-  cleanup_cell
-  log "moved to review (manual implement expected)"
-  exit 0
+    python3 "$TASK_LIB" --repo "$REPO_ROOT" add-artifact "$TASK_ID" note "$NOTE"
+    python3 "$TASK_LIB" --repo "$REPO_ROOT" set-status "$TASK_ID" review --assignee "$WORKER_ID"
+    python3 "$TASK_LIB" --repo "$REPO_ROOT" add-artifact "$TASK_ID" log "$LOG"
+    clear_watchdog
+    trap - EXIT INT TERM
+    cleanup_cell
+    log "moved to review (manual implement expected)"
+    exit 0
+  fi
 fi
 
 cd "$WORK_REPO"

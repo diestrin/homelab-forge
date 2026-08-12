@@ -1,0 +1,23 @@
+[Unit]
+Description=homelab-forge Slack factory orchestrator (ADR-009 Socket Mode)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/media/diestrin/data/Projects/homelab-forge
+Environment=FORGE_REPO_ROOT=/media/diestrin/data/Projects/homelab-forge
+Environment=FORGE_DATA_ROOT=/media/diestrin/data/forge
+Environment=FORGE_SECRETS_ROOT=/media/diestrin/data/secrets
+Environment=VAULT_ADDR=http://127.0.0.1:8200
+Environment=PATH=/media/diestrin/data/forge/factory/venv/bin:/home/diestrin/.nix-profile/bin:/home/diestrin/.local/bin:/usr/local/bin:/usr/bin:/bin
+# Load Slack + allowlist from a host env file written by operator after Vault fetch
+# (mode 600). Example keys: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, FORGE_SLACK_ALLOWLIST,
+# optional CURSOR_API_KEY / GH_TOKEN if not fetched at runtime.
+EnvironmentFile=-/media/diestrin/data/secrets/forge/slack-orchestrator.env
+ExecStart=/media/diestrin/data/forge/factory/venv/bin/python /media/diestrin/data/Projects/homelab-forge/factory/orchestrator/slack_intake.py
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=default.target

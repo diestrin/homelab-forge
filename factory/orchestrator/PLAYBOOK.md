@@ -1,17 +1,24 @@
 # Orchestrator playbook
 
-The orchestrator is the chat-facing agent (Cursor today). It **creates tasks**; it
-does not mutate production or merge to `main` by default (ADR-004).
+The orchestrator turns operator intent into git-backed tasks. Surfaces:
+
+- **Cursor chat** (interactive) — this playbook in a Cursor session
+- **Slack Socket Mode** (ADR-009) — `factory/orchestrator/slack_intake.py` on the host
+
+It **creates/revises plans**; it does not mutate production or merge to `main`
+(ADR-004 / ADR-008).
 
 ## Hard rules
 
-1. Write a structured task under `factory/tasks/TASK-NNN-*.yaml` (schema in
+1. Write structured tasks under `factory/tasks/TASK-NNN-*.yaml` (schema in
    [`../schema/`](../schema/)).
-2. Never silent-prod-deploy: no `kubectl apply` to Argo-managed apps; no force-push;
+2. New Slack-originated tasks start as **`planning`** (not claimable). Open a plan
+   PR; iterate via the Slack thread; only after explicit approve → `proposed`.
+3. Never silent-prod-deploy: no `kubectl apply` to Argo-managed apps; no force-push;
    no disabling UFW/host-watch.
-3. Prefer **git** as source of truth; sync the board with
+4. Prefer **git** as source of truth; sync the board with
    `./forge factory sync` after creating/updating tasks.
-4. Capture conversation decisions in `notes:` or a short ADR when they outlive the task.
+5. Capture conversation decisions in `notes:` or a short ADR when they outlive the task.
 
 ## Intent → profile / risk
 
@@ -21,27 +28,38 @@ does not mutate production or merge to `main` by default (ADR-004).
 | App code, no public ingress | `agent-cell` or `devcontainer` | `low`/`medium` | |
 | New dependency / system packages | `incus` if installed else `devcontainer` | `medium` | |
 | Long-running service / Ingress | `k8s-workload` for dry-runs; manifests land via PR | `high` | Deploy only after merge → Argo |
-| Touch SSH/UFW/Vault unseal | *(human only)* | `high` | Do **not** auto-assign workers |
+| Touch SSH/UFW/Vault unseal | *(human only)* | `high` | Keep `planning`; do **not** approve into worker queue without care |
 | Secrets / tokens | never commit; document Vault path in `notes` | `high` | Worker fetches via AppRole |
 
 ## Task authoring checklist
 
-- [ ] `id` next free `TASK-NNN`; filename `TASK-NNN-slug.yaml`
+- [ ] `id` next free `TASK-NNN` (`./forge factory` / `task_lib next-id`); filename `TASK-NNN-slug.yaml`
 - [ ] Clear `goal` + measurable `acceptance_criteria`
 - [ ] `repo_path` (usually `.` for this repo)
-- [ ] `status: proposed`
+- [ ] Slack path: `status: planning` until approve; interactive Cursor may use `proposed` when the operator is ready for workers immediately
 - [ ] `budget_minutes` set (default 30)
-- [ ] `worker_hook` only for scripted/demo tasks; omit to prepare branch for a human/Cursor implementer
+- [ ] `worker_hook` only for scripted/demo tasks; omit so Cursor SDK worker implements
 - [ ] `branch: factory/task-NNN-…`
 - [ ] Run `./forge factory validate` then `./forge factory sync`
 
-## Prompt skeleton
+## Slack flow (ADR-009)
+
+```text
+prompt → planning task + plan PR → thread feedback → approve → proposed
+                                                      ↓
+                                              worker (Cursor SDK) updates same PR
+```
+
+Approve in-thread with `approve` / `lgtm` / `/forge approve`, or
+`./forge factory approve TASK-NNN`.
+
+## Prompt skeleton (Cursor chat)
 
 ```text
 You are the homelab-forge orchestrator. Given my request:
 1. Clarify acceptance criteria if ambiguous.
 2. Choose sandbox_profile + risk_level from the playbook table.
-3. Add factory/tasks/TASK-NNN-*.yaml with status proposed.
+3. Add factory/tasks/TASK-NNN-*.yaml (planning if Slack-bound; else proposed when I want workers now).
 4. Do not implement the change yourself unless I ask; leave it for a worker.
 5. Remind me that merge to main → Argo CD is the only steady-state deploy path.
 ```

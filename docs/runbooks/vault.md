@@ -50,6 +50,16 @@ reads `secret/forge/agents/github` (`app_id`, `private_key`, optional `client_id
 `client_secret` / `installation_id`) and mints an installation token (see
 [`factory.md`](./factory.md)).
 
+Slack + Cursor SDK (ADR-009):
+
+| Vault path | Fields (examples) | Use |
+| --- | --- | --- |
+| `secret/forge/agents/slack` | `bot_token`, `app_token`, `signing_secret`, `allowlist_user_ids` | Socket Mode orchestrator |
+| `secret/forge/agents/cursor` | `api_key` | Cursor SDK orchestrator + worker |
+
+`forge-agent` AppRole already covers `secret/data/forge/agents/*`. Fetch Cursor key:
+[`factory/scripts/fetch-cursor-key.sh`](../../factory/scripts/fetch-cursor-key.sh).
+
 ## ESO
 
 `ClusterSecretStore/vault-backend` uses Secret `forge-system/vault-eso-token`.

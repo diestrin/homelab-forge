@@ -89,6 +89,7 @@ Highlights:
 | [ADR-006](./docs/decisions/ADR-006-public-ssh.md) | Hardened public SSH | Accepted |
 | [ADR-007](./docs/decisions/ADR-007-secrets-vault.md) | HashiCorp Vault | Accepted |
 | [ADR-008](./docs/decisions/ADR-008-gitops-argocd.md) | Argo CD GitOps on `main` | Accepted |
+| [ADR-009](./docs/decisions/ADR-009-slack-cursor-factory.md) | Slack intake + Cursor SDK agents | Accepted |
 
 ## Accepted answers (formerly open questions)
 
@@ -103,6 +104,7 @@ Highlights:
 | — | Secrets | **HashiCorp Vault** on k3s after cluster exists — ADR-007 |
 | — | Host IDS | **Import `host-watch`** into `security/host-watch/` — ADR-005 |
 | — | CD | **Argo CD** syncs from `main` — ADR-008 |
+| — | Slack / unattended factory | **Socket Mode + plan PR gate + Cursor SDK** — ADR-009 |
 
 ## What to take from prior work
 

@@ -11,12 +11,17 @@ Linked to repo `diestrin/homelab-forge`. Visibility: **public**.
 
 | Git status | Projects Status option | Option id |
 | --- | --- | --- |
-| `proposed` | Proposed | `f75ad846` |
-| `claimed` | Claimed | `ce587ea2` |
-| `in_progress` | In Progress | `47fc9ee4` |
-| `review` | Review | `db289240` |
-| `done` | Done | `98236657` |
-| `failed` | Failed | `7e7241b8` |
+| `planning` | Planning | `9d0b2c46` |
+| `proposed` | Proposed | `a5a9735c` |
+| `claimed` | Claimed | `654955ca` |
+| `in_progress` | In Progress | `acd648e9` |
+| `review` | Review | `2ec5fd72` |
+| `done` | Done | `f4ef9446` |
+| `failed` | Failed | `8ccee8f2` |
+
+Option ids were refreshed when the **Planning** column was added (ADR-009). If sync
+fails with `no column id`, re-list options and update this table +
+`factory/scripts/sync-projects.sh`.
 
 ## Sync convention
 
@@ -27,4 +32,5 @@ Linked to repo `diestrin/homelab-forge`. Visibility: **public**.
 - If the board drifts, re-run sync; do **not** edit task status only on the board.
 
 Manual v1 is fine: editing YAML + sync is the supported path. The worker daemon
-also best-effort syncs after each run.
+also best-effort syncs after each run. The Slack orchestrator syncs after plan
+create/update and after approve (`planning` → `proposed`).

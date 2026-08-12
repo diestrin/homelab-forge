@@ -17,15 +17,15 @@ PR: [homelab-forge#10](https://github.com/diestrin/homelab-forge/pull/10) (TASK-
 
 - [x] Cluster changes are manifests under `k8s/` only — **no** instructions to
       `kubectl apply` around Argo.
-- [ ] After merge: watch `kubectl -n forge-system get application forge-site`
+- [x] After merge: watch `kubectl -n forge-system get application forge-site`
       (or relevant app) → Synced/Healthy.
-- [ ] Public demo: `curl -fsSI https://localpower.diegobarahona.com` still OK.
+- [x] Public demo: `curl -fsSI https://localpower.diegobarahona.com` still OK.
 
 ## Audit
 
 - [x] Git history on `main` is the durable audit log for code.
 - [x] Argo Application status / sync history is the durable audit log for cluster converge.
-- [ ] Task YAML moved to `done` (or `failed`) and `./forge factory sync` refreshed the board.
+- [x] Task YAML moved to `done` (or `failed`) and `./forge factory sync` refreshed the board.
 
 ## Merge
 

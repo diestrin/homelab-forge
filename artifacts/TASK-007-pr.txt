@@ -1,0 +1,5 @@
+https://github.com/diestrin/homelab-forge/pull/10
+
+Merged 2026-08-12. CI green (ci.yml, forge-site-image.yml, gitleaks).
+Deploy: merge → ghcr.io forge-site image → Argo Application forge-site.
+Live: https://localpower.diegobarahona.com/ and /dashboard verified.

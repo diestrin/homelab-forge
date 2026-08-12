@@ -24,8 +24,8 @@ acceptance_criteria:
   not kubectl apply to Argo-managed apps
 sandbox_profile: k8s-workload
 repo_path: .
-status: proposed
-assignee_agent: null
+status: done
+assignee_agent: worker-localpower
 artifacts:
 - kind: pr
   path: artifacts/TASK-007-pr.txt
@@ -36,10 +36,11 @@ branch: factory/task-007-let-s-plan-to-build-a-multi-phase-projec
 worker_hook: null
 notes: 'Implementation complete on branch factory/task-007-let-s-plan-to-build-a-multi-phase-projec
   (apps/forge-site, k8s/apps/forge-site, ghcr.io image workflow). Markdown lint fixed
-  (k8s/apps/forge-site/tasks/README.md, factory/review/CHECKLIST.md). Deploy path: merge
-  to main → CI publishes forge-site image → Argo Application forge-site syncs. Human
-  merge required; no kubectl apply to Argo-managed apps.
+  (k8s/apps/forge-site/tasks/README.md, factory/review/CHECKLIST.md). Deploy path:
+  merge to main → CI publishes forge-site image → Argo Application forge-site syncs.
+  Human merge required; no kubectl apply to Argo-managed apps.
 
   '
-claimed_at: null
-updated_at: '2026-08-12T02:27:13Z'
+claimed_at: '2026-08-12T04:39:49Z'
+updated_at: '2026-08-12T04:40:19Z'
+github_project_item_id: PVTI_lAHOAA3gD84Bfo-Bzg2MsaA

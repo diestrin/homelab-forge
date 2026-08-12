@@ -11,4 +11,11 @@ mkdir -p "$DEST"
 rm -f "$DEST"/*.yaml
 cp "$SRC"/*.yaml "$DEST"/
 
+cat >"$DEST/README.md" <<'EOF'
+# Task YAML copies
+
+Copies of `factory/tasks/*.yaml` used by the `factory-tasks` ConfigMap. Regenerate with
+`../sync-tasks.sh` when tasks are added or updated.
+EOF
+
 echo "Synced $(find "$DEST" -maxdepth 1 -name '*.yaml' | wc -l) task file(s) to $DEST"

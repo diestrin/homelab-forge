@@ -1,2 +1,4 @@
-# Task YAML copies for ConfigMap generation (source: factory/tasks/).
-# Regenerate with ../sync-tasks.sh when tasks are added or updated.
+# Task YAML copies
+
+Copies of `factory/tasks/*.yaml` used by the `factory-tasks` ConfigMap. Regenerate with
+`../sync-tasks.sh` when tasks are added or updated.

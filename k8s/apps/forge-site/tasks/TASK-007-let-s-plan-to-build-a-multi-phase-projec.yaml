@@ -16,6 +16,7 @@ acceptance_criteria:
 - K8s manifests in PR replace forge-demo-hello as the public demo workload on the
   existing demo hostname (localpower.diegobarahona.com root path)
 - PR opened against main; factory/review/CHECKLIST.md completed before merge
+- All CI checks green on the implementation PR (ci.yml, forge-site-image.yml, gitleaks)
 - After human merge to main, Argo Application for the demo app is Healthy/Synced;
   HTTPS `/` serves the landing page and `/dashboard` shows current task rows from
   git-backed YAML
@@ -23,8 +24,8 @@ acceptance_criteria:
   not kubectl apply to Argo-managed apps
 sandbox_profile: k8s-workload
 repo_path: .
-status: review
-assignee_agent: cursor-worker
+status: proposed
+assignee_agent: null
 artifacts:
 - kind: pr
   path: artifacts/TASK-007-pr.txt
@@ -33,13 +34,12 @@ risk_level: high
 budget_minutes: 120
 branch: factory/task-007-let-s-plan-to-build-a-multi-phase-projec
 worker_hook: null
-notes: 'Implemented 2026-08-12 by Cursor worker: Next.js app at apps/forge-site,
-  ghcr.io image workflow, k8s/apps/forge-site replaces forge-demo-hello. Task YAML
-  mounted via ConfigMap; sync-tasks.sh keeps k8s bundle aligned with factory/tasks/.
-
-  Deploy path: merge to main → CI publishes forge-site image → Argo Application
-  forge-site syncs. Human merge required; no kubectl apply to Argo-managed apps.
+notes: 'Implementation complete on branch factory/task-007-let-s-plan-to-build-a-multi-phase-projec
+  (apps/forge-site, k8s/apps/forge-site, ghcr.io image workflow). Markdown lint fixed
+  (k8s/apps/forge-site/tasks/README.md, factory/review/CHECKLIST.md). Deploy path: merge
+  to main → CI publishes forge-site image → Argo Application forge-site syncs. Human
+  merge required; no kubectl apply to Argo-managed apps.
 
   '
-claimed_at: '2026-08-12T02:08:00Z'
-updated_at: '2026-08-12T02:15:00Z'
+claimed_at: null
+updated_at: '2026-08-12T02:27:13Z'

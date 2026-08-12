@@ -34,16 +34,9 @@ risk_level: high
 budget_minutes: 120
 branch: factory/task-007-let-s-plan-to-build-a-multi-phase-projec
 worker_hook: null
-notes: 'Slack operator feedback (2026-08-12): CI checks failing on draft implementation
-  PR #10. Only markdown lint fails — k8s/apps/forge-site/tasks/README.md hits MD022,
-  MD025, and MD026 (two # headings with trailing periods, no blank lines). Other CI
-  jobs pass (nix flake eval, kubeconform, factory schema, shellcheck, actionlint,
-  forge-site Next.js/container build, gitleaks). Plan revised; status back to planning
-  until operator re-approves. Worker must fix markdown lint and confirm all checks
-  green before merge.
-
-  Draft implementation exists on branch factory/task-007-let-s-plan-to-build-a-multi-phase-projec
-  (apps/forge-site, k8s/apps/forge-site, ghcr.io image workflow). Deploy path: merge
+notes: 'Implementation complete on branch factory/task-007-let-s-plan-to-build-a-multi-phase-projec
+  (apps/forge-site, k8s/apps/forge-site, ghcr.io image workflow). Markdown lint fixed
+  (k8s/apps/forge-site/tasks/README.md, factory/review/CHECKLIST.md). Deploy path: merge
   to main → CI publishes forge-site image → Argo Application forge-site syncs. Human
   merge required; no kubectl apply to Argo-managed apps.
 

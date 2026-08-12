@@ -205,7 +205,6 @@ cmd_factory() {
   local sub="${1:-}"
   shift || true
   forge_require_cmd python3
-  local CP="$REPO_ROOT/factory/scripts/control_plane_client.py"
   case "$sub" in
     validate)
       python3 "$TASK_LIB" --repo "$REPO_ROOT" validate

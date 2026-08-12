@@ -6,7 +6,6 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 POLL_SECONDS="${FORGE_WORKER_POLL_SECONDS:-30}"
 WORKER_ID="${FORGE_WORKER_ID:-worker-$(hostname)}"
 STATE_DIR="${FORGE_DATA_ROOT:-/media/diestrin/data/forge}/factory/worker"
-CLIENT="$REPO_ROOT/factory/scripts/control_plane_client.py"
 mkdir -p "$STATE_DIR"
 chmod 700 "${FORGE_DATA_ROOT:-/media/diestrin/data/forge}/factory" 2>/dev/null || true
 PIDFILE="$STATE_DIR/${WORKER_ID}.pid"

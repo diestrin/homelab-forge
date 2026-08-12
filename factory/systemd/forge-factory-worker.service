@@ -8,6 +8,9 @@ Type=simple
 WorkingDirectory=/media/diestrin/data/Projects/homelab-forge
 Environment=FORGE_WORKER_ID=worker-%H
 Environment=FORGE_DATA_ROOT=/media/diestrin/data/forge
+Environment=FORGE_CONTROL_PLANE_URL=https://localpower.diegobarahona.com
+# FORGE_API_TOKEN via EnvironmentFile below
+EnvironmentFile=-/media/diestrin/data/secrets/forge/control-plane.env
 Environment=FORGE_SECRETS_ROOT=/media/diestrin/data/secrets
 Environment=VAULT_ADDR=http://127.0.0.1:8200
 Environment=FORGE_WORKER_POLL_SECONDS=30

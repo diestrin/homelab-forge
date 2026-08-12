@@ -8,5 +8,6 @@ resources:
   - ../../platform/network-policies
   - ../../platform/vault
   - ../../platform/external-secrets
+  - ../../platform/postgres
   - ../../platform/metrics
   - applications.yaml

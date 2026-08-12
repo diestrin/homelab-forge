@@ -5,3 +5,4 @@ slack-bolt>=1.21.0
 slack-sdk>=3.33.0
 cursor-sdk>=0.1.0
 PyYAML>=6.0
+PyJWT>=2.8.0

@@ -10,7 +10,9 @@ Flow:
 Secrets from env (loaded by systemd after Vault fetch — never from git):
   SLACK_BOT_TOKEN, SLACK_APP_TOKEN, FORGE_SLACK_ALLOWLIST (comma user ids)
   CURSOR_API_KEY (optional if --allow-fallback)
-  FORGE_REPO_ROOT — checkout the orchestrator mutates (usually host clone of main)
+  FORGE_REPO_ROOT — git common repo the orchestrator reads (do not checkout
+  plan branches here; that steals the operator Cursor worktree). Plan commits
+  happen in factory/worktrees/TASK-NNN.
 
 No Ingress / Events Request URL — Socket Mode outbound WebSocket only.
 """
@@ -117,13 +119,27 @@ def load_binding(channel: str, thread_ts: str) -> dict | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def task_worktree_path(task_id: str) -> Path:
+    root = Path(os.environ.get("FORGE_DATA_ROOT", "/media/diestrin/data/forge"))
+    return root / "factory" / "worktrees" / task_id
+
+
+def ensure_task_worktree(repo: Path, task_id: str, branch: str) -> Path:
+    """Isolated worktree for plan commits. Never checks out BRANCH in `repo` (Cursor clone)."""
+    wt = task_worktree_path(task_id)
+    helper = repo / "factory" / "scripts" / "add-task-worktree.sh"
+    proc = run(["bash", str(helper), str(repo), str(wt), branch], check=False)
+    if proc.returncode != 0:
+        raise RuntimeError(proc.stderr or proc.stdout or "worktree add failed")
+    return wt
+
+
 def open_or_update_plan_pr(repo: Path, task_id: str, branch: str, title: str, plan_body: str) -> str:
     """Commit planning artifacts on a branch and open/update a PR. Returns PR URL."""
-    run(["git", "fetch", "origin", "main"], cwd=repo, check=False)
-    # Ensure branch from main
-    run(["git", "checkout", "-B", branch, "origin/main"], cwd=repo, check=False)
-    run(["git", "add", "factory/tasks", "factory/plans"], cwd=repo, check=False)
-    status = run(["git", "status", "--porcelain"], cwd=repo, check=False)
+    wt = ensure_task_worktree(repo, task_id, branch)
+    run(["git", "fetch", "origin", "main"], cwd=wt, check=False)
+    run(["git", "add", "factory/tasks", "factory/plans"], cwd=wt, check=False)
+    status = run(["git", "status", "--porcelain"], cwd=wt, check=False)
     if status.stdout.strip():
         run(
             [
@@ -136,16 +152,15 @@ def open_or_update_plan_pr(repo: Path, task_id: str, branch: str, title: str, pl
                 "-m",
                 f"factory({task_id}): plan (status planning)\n\nSlack orchestrator plan PR. Not claimable until approved.",
             ],
-            cwd=repo,
+            cwd=wt,
             check=False,
         )
-    push_url = None
     gh_token = os.environ.get("GH_TOKEN", "")
     if gh_token:
         push_url = f"https://x-access-token:{gh_token}@github.com/diestrin/homelab-forge.git"
-        run(["git", "push", push_url, f"HEAD:refs/heads/{branch}"], cwd=repo, check=False)
+        run(["git", "push", push_url, f"HEAD:refs/heads/{branch}"], cwd=wt, check=False)
     else:
-        run(["git", "push", "-u", "origin", branch], cwd=repo, check=False)
+        run(["git", "push", "-u", "origin", f"HEAD:refs/heads/{branch}"], cwd=wt, check=False)
 
     body = f"""## Factory plan (`planning`)
 
@@ -223,29 +238,44 @@ def read_yaml_field(path: Path, field: str) -> str:
         return m.group(1).strip(" '\"") if m else ""
 
 
+def mirror_task_yaml_to_repo(repo: Path, task_file: Path) -> None:
+    """Keep a copy in FORGE_REPO_ROOT so the worker daemon can claim without checking out the plan branch."""
+    dest_dir = repo / "factory" / "tasks"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / task_file.name
+    if dest.resolve() != task_file.resolve():
+        dest.write_text(task_file.read_text(encoding="utf-8"), encoding="utf-8")
+
+
 def handle_new_request(say, channel: str, thread_ts: str, user: str, text: str) -> None:
     repo = repo_root()
     ensure_cursor_key()
     mint_github_token(repo)
     task_id = next_task_id(repo)
     human_only = bool(HUMAN_ONLY_RE.search(text))
+    branch = f"factory/{task_id.lower()}"
+    try:
+        wt = ensure_task_worktree(repo, task_id, branch)
+    except RuntimeError as err:
+        say(text=f"Failed to create worktree for `{task_id}`: {err}", thread_ts=thread_ts)
+        return
     cmd = [
         sys.executable,
         str(repo / "factory/orchestrator/cursor_plan.py"),
         "create",
         "--repo",
-        str(repo),
+        str(wt),
         "--task-id",
         task_id,
         "--request",
         text,
         "--allow-fallback",
     ]
-    proc = run(cmd, cwd=repo, check=False)
+    proc = run(cmd, cwd=wt, check=False)
     if proc.returncode != 0:
         say(text=f"Failed to draft plan for `{task_id}`: {proc.stderr[-500:]}", thread_ts=thread_ts)
         return
-    task_file = find_task_file(repo, task_id)
+    task_file = find_task_file(wt, task_id)
     if not task_file:
         say(text=f"Plan runner finished but no task file for `{task_id}`", thread_ts=thread_ts)
         return
@@ -256,11 +286,12 @@ def handle_new_request(say, channel: str, thread_ts: str, user: str, text: str) 
         if "HUMAN-ONLY" not in raw:
             task_file.write_text(raw.replace("notes: |", "notes: |" + notes_extra, 1), encoding="utf-8")
     title = read_yaml_field(task_file, "title") or text[:60]
-    branch = read_yaml_field(task_file, "branch") or f"factory/{task_id.lower()}"
-    plan_path = repo / "factory" / "plans" / f"{task_id}.md"
+    branch = read_yaml_field(task_file, "branch") or branch
+    plan_path = wt / "factory" / "plans" / f"{task_id}.md"
     plan_body = plan_path.read_text(encoding="utf-8") if plan_path.is_file() else "(no plan file)"
-    run([sys.executable, str(repo / "factory/scripts/task_lib.py"), "--repo", str(repo), "validate"], check=False)
+    run([sys.executable, str(repo / "factory/scripts/task_lib.py"), "--repo", str(wt), "validate"], check=False)
     pr_url = open_or_update_plan_pr(repo, task_id, branch, title, plan_body)
+    mirror_task_yaml_to_repo(repo, task_file)
     save_binding(channel, thread_ts, task_id, pr_url, task_file.name)
     run([str(repo / "forge"), "factory", "sync"], cwd=repo, check=False)
     warn = " ⚠️ flagged human-only — do not approve lightly." if human_only else ""
@@ -289,12 +320,18 @@ def handle_thread_feedback(say, channel: str, thread_ts: str, text: str) -> None
         if proc.returncode != 0:
             say(text=f"Approve failed: {proc.stderr or proc.stdout}", thread_ts=thread_ts)
             return
-        # Commit status bump on plan branch if possible
-        task_file = find_task_file(repo, task_id)
+        # Commit status bump on plan worktree (never checkout the plan branch in the Cursor clone)
+        wt = task_worktree_path(task_id)
+        task_file = find_task_file(wt if wt.is_dir() else repo, task_id) or find_task_file(repo, task_id)
         if task_file:
             branch = read_yaml_field(task_file, "branch")
+            approve_cwd = wt if wt.is_dir() else repo
             if branch:
-                run(["git", "add", str(task_file)], cwd=repo, check=False)
+                run(
+                    [sys.executable, str(repo / "factory/scripts/task_lib.py"), "--repo", str(approve_cwd), "approve", task_id],
+                    check=False,
+                )
+                run(["git", "add", "factory/tasks"], cwd=approve_cwd, check=False)
                 run(
                     [
                         "git",
@@ -306,15 +343,16 @@ def handle_thread_feedback(say, channel: str, thread_ts: str, text: str) -> None
                         "-m",
                         f"factory({task_id}): approve plan → proposed",
                     ],
-                    cwd=repo,
+                    cwd=approve_cwd,
                     check=False,
                 )
                 mint_github_token(repo)
                 if os.environ.get("GH_TOKEN"):
                     push_url = f"https://x-access-token:{os.environ['GH_TOKEN']}@github.com/diestrin/homelab-forge.git"
-                    run(["git", "push", push_url, f"HEAD:refs/heads/{branch}"], cwd=repo, check=False)
+                    run(["git", "push", push_url, f"HEAD:refs/heads/{branch}"], cwd=approve_cwd, check=False)
                 else:
-                    run(["git", "push", "origin", branch], cwd=repo, check=False)
+                    run(["git", "push", "origin", f"HEAD:refs/heads/{branch}"], cwd=approve_cwd, check=False)
+            mirror_task_yaml_to_repo(repo, task_file)
         run([str(repo / "forge"), "factory", "sync"], cwd=repo, check=False)
         say(
             text=(
@@ -329,13 +367,15 @@ def handle_thread_feedback(say, channel: str, thread_ts: str, text: str) -> None
     ensure_cursor_key()
     mint_github_token(repo)
     task_file_name = binding.get("task_file", "")
+    wt = task_worktree_path(task_id)
+    plan_repo = wt if wt.is_dir() else repo
     proc = run(
         [
             sys.executable,
             str(repo / "factory/orchestrator/cursor_plan.py"),
             "update",
             "--repo",
-            str(repo),
+            str(plan_repo),
             "--task-id",
             task_id,
             "--task-file",
@@ -343,18 +383,20 @@ def handle_thread_feedback(say, channel: str, thread_ts: str, text: str) -> None
             "--feedback",
             text,
         ],
-        cwd=repo,
+        cwd=plan_repo,
         check=False,
     )
     if proc.returncode != 0:
         say(text=f"Plan update failed: {proc.stderr[-500:]}", thread_ts=thread_ts)
         return
-    task_file = find_task_file(repo, task_id)
+    task_file = find_task_file(plan_repo, task_id)
     title = read_yaml_field(task_file, "title") if task_file else task_id
     branch = read_yaml_field(task_file, "branch") if task_file else ""
-    plan_path = repo / "factory" / "plans" / f"{task_id}.md"
+    plan_path = plan_repo / "factory" / "plans" / f"{task_id}.md"
     plan_body = plan_path.read_text(encoding="utf-8") if plan_path.is_file() else ""
     pr_url = open_or_update_plan_pr(repo, task_id, branch, title, plan_body) if branch else binding.get("pr_url", "")
+    if task_file:
+        mirror_task_yaml_to_repo(repo, task_file)
     if pr_url:
         binding["pr_url"] = pr_url
         save_binding(channel, thread_ts, task_id, pr_url, task_file_name)

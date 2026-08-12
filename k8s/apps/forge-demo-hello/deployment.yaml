@@ -44,9 +44,9 @@ data:
   index.html: |
     <!doctype html>
     <html lang="en">
-      <head><meta charset="utf-8"><title>homelab-forge</title></head>
+      <head><meta charset="utf-8"><title>Forge Software Factory</title></head>
       <body>
-        <h1>homelab-forge</h1>
-        <p>Phase 5 forge demo on localpower.diegobarahona.com (v0.1.0 portfolio release)</p>
+        <h1>Forge Software Factory</h1>
+        <p>Hello from Forge Software Factory — homelab forge demo on localpower.diegobarahona.com</p>
       </body>
     </html>

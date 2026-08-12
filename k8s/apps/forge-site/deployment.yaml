@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forge-site
+  namespace: forge-demo
+  labels:
+    app: forge-site
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: forge-site
+  template:
+    metadata:
+      labels:
+        app: forge-site
+    spec:
+      containers:
+        - name: forge-site
+          image: ghcr.io/diestrin/homelab-forge/forge-site:main
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          env:
+            - name: FORGE_TASKS_DIR
+              value: /data/factory/tasks
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: factory-tasks
+              mountPath: /data/factory/tasks
+              readOnly: true
+      volumes:
+        - name: factory-tasks
+          configMap:
+            name: factory-tasks

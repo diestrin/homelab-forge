@@ -7,7 +7,7 @@ Argo CD syncs cluster desired state from branch **`main`** (ADR-008).
 | One-time (bootstrap) | Argo-managed |
 | --- | --- |
 | `k8s/bootstrap/install-k3s.sh` | `k8s/overlays/root` via Application `forge-root` |
-| `k8s/bootstrap/ufw-k3s.sh` | `k8s/apps/forge-demo-hello` |
+| `k8s/bootstrap/ufw-k3s.sh` | `k8s/apps/forge-site` |
 | `k8s/bootstrap/apply-cert-manager.sh` (+ ClusterIssuers) | Vault manifests, ESO store, metrics CronJob |
 | `k8s/bootstrap/apply-argocd.sh` | Child Applications under `k8s/overlays/root/applications.yaml` |
 | `k8s/bootstrap/init-vault.sh` | — |
@@ -47,9 +47,9 @@ Browser: `https://localhost:8080` (accept self-signed). Change admin password af
 
 ## Prove end-to-end
 
-1. Change a label or ConfigMap string under `k8s/apps/forge-demo-hello/`.
+1. Change manifests under `k8s/apps/forge-site/` (or add a new app under `k8s/apps/`).
 2. Merge to `main`.
-3. Watch: `kubectl -n forge-system get application forge-demo-hello -w`
+3. Watch: `kubectl -n forge-system get application forge-site -w`
 4. Confirm pod/config updates without manual apply.
 
 ## Disaster recovery

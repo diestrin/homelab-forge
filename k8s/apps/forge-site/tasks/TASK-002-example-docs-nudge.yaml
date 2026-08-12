@@ -1,0 +1,29 @@
+id: TASK-002
+title: Example proposed task (docs nudge)
+goal: 'Illustrative low-risk task left in proposed state so the worker daemon and
+  Projects sync can be demonstrated without touching cluster manifests.
+
+  '
+acceptance_criteria:
+- PR that adds a one-line note under docs/runbooks/factory.md Examples section
+- No k8s/ changes
+sandbox_profile: agent-cell
+repo_path: .
+status: done
+assignee_agent: worker-localpower
+artifacts:
+- kind: note
+  path: /media/diestrin/data/forge/factory/artifacts/TASK-002-awaiting-agent.md
+- kind: log
+  path: /media/diestrin/data/forge/factory/artifacts/logs/TASK-002.log
+risk_level: low
+github_project_item_id: PVTI_lAHOAA3gD84Bfo-Bzg1n5fE
+budget_minutes: 20
+branch: factory/task-002-docs-nudge
+worker_hook: null
+notes: 'Orchestrator example. Prefer leaving this proposed until a human wants a second
+  worker run; or cancel by setting status failed.
+
+  '
+claimed_at: '2026-08-07T05:29:09Z'
+updated_at: '2026-08-07T21:40:50Z'

@@ -35,7 +35,12 @@ source of truth the factory already uses — without opening GitHub.
 4. **PR:** worker opens/updates the implementation PR on branch
    `factory/task-007-let-s-plan-to-build-a-multi-phase-projec`; complete
    [`factory/review/CHECKLIST.md`](../review/CHECKLIST.md).
-5. **Deploy:** **human merge to `main` only.** Argo CD syncs the demo Application — this
+5. **CI:** all GitHub Actions checks must be green on the implementation PR before
+   merge — including `ci.yml` (nix flake eval, markdown lint, kustomize/kubeconform,
+   factory schema, shellcheck, actionlint), `forge-site-image.yml` (Next.js build +
+   container build), and gitleaks. Run markdownlint locally on any new/edited `*.md`
+   (see `.markdownlint-cli2.yaml`).
+6. **Deploy:** **human merge to `main` only.** Argo CD syncs the demo Application — this
    is the **sole steady-state deploy path** (ADR-008). No worker `kubectl apply` to
    Argo-managed apps. Worker may use `k8s-workload` sandbox for dry-runs only.
 
@@ -62,3 +67,24 @@ Slack thread feedback refines this plan before approval. After v1 ships, follow-
 phases (richer dashboard, styling, filters, live sync) land as thread-approved plan
 updates or new `TASK-NNN` entries — not scope creep in this task unless the operator
 re-approves expanded acceptance criteria.
+
+## Operator feedback (2026-08-12)
+
+**CI checks are failing** on the draft implementation PR
+([#10](https://github.com/diestrin/homelab-forge/pull/10)).
+
+| Check | Result |
+| --- | --- |
+| markdown lint (`ci.yml`) | **FAIL** |
+| nix flake check, kustomize/kubeconform, factory schema, shellcheck, actionlint | pass |
+| forge-site image (Next.js build, container build) | pass |
+| gitleaks | pass |
+
+**Root cause:** `k8s/apps/forge-site/tasks/README.md` violates markdownlint rules
+(MD022 blanks-around-headings, MD025 single-h1, MD026 no trailing punctuation in
+headings). The file uses two `#` headings with trailing periods and no blank lines.
+
+**Worker action after re-approval:** fix or replace that README so markdown lint passes
+(e.g. one title plus body paragraphs, or regenerate a lint-clean stub when
+`sync-tasks.sh` runs). Re-run CI on the PR and confirm all checks green before requesting
+review/merge. Task returns to `planning` until the operator re-approves the updated plan.

@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""HTTP client for forge-site control plane API (ADR-010)."""
+from __future__ import annotations
+
+import json
+import os
+import urllib.error
+import urllib.request
+from typing import Any
+
+
+class ControlPlaneError(RuntimeError):
+    pass
+
+
+def _base_url() -> str:
+    url = os.environ.get("FORGE_CONTROL_PLANE_URL", "http://127.0.0.1:3000").rstrip("/")
+    return url
+
+
+def _token() -> str:
+    tok = os.environ.get("FORGE_API_TOKEN", "").strip()
+    if not tok:
+        raise ControlPlaneError("FORGE_API_TOKEN required for control plane API")
+    return tok
+
+
+def _request(method: str, path: str, body: dict | None = None) -> Any:
+    url = f"{_base_url()}/api/v1{path}"
+    data = None
+    headers = {"Accept": "application/json", "Authorization": f"Bearer {_token()}"}
+    if body is not None:
+        data = json.dumps(body).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            raw = resp.read().decode("utf-8")
+            return json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as err:
+        detail = err.read().decode("utf-8", errors="replace")
+        raise ControlPlaneError(f"{method} {path} → {err.code}: {detail}") from err
+
+
+def is_configured() -> bool:
+    return bool(os.environ.get("FORGE_CONTROL_PLANE_URL") and os.environ.get("FORGE_API_TOKEN"))
+
+
+def list_tasks() -> list[dict]:
+    return _request("GET", "/tasks").get("tasks", [])
+
+
+def get_task(task_id: str) -> dict:
+    return _request("GET", f"/tasks/{task_id}")["task"]
+
+
+def create_task(payload: dict) -> dict:
+    return _request("POST", "/tasks", payload)["task"]
+
+
+def update_task(task_id: str, patch: dict) -> dict:
+    return _request("PATCH", f"/tasks/{task_id}", patch)["task"]
+
+
+def append_message(task_id: str, source: str, body: str, author: str | None = None) -> dict:
+    return _request(
+        "POST",
+        f"/tasks/{task_id}/messages",
+        {"source": source, "body": body, "author": author},
+    )["message"]
+
+
+def list_messages(task_id: str) -> list[dict]:
+    return _request("GET", f"/tasks/{task_id}/messages").get("messages", [])
+
+
+def next_task_id() -> str:
+    tasks = list_tasks()
+    max_n = 0
+    for t in tasks:
+        tid = str(t.get("id") or "")
+        if tid.startswith("TASK-"):
+            try:
+                max_n = max(max_n, int(tid.split("-", 1)[1]))
+            except ValueError:
+                pass
+    return f"TASK-{max_n + 1:03d}"
+
+
+def approve(task_id: str, actor: str | None = None) -> dict:
+    return _request(
+        "POST",
+        f"/tasks/{task_id}/actions",
+        {"action": "approve", "actor": actor},
+    )
+
+
+def claim(worker_id: str, task_id: str | None = None, via_queue: bool = False) -> dict | None:
+    body: dict[str, Any] = {"worker_id": worker_id, "via_queue": via_queue}
+    if task_id:
+        body["task_id"] = task_id
+    data = _request("POST", "/jobs/claim", body)
+    if not data.get("claimed"):
+        return None
+    return data.get("task")
+
+
+def set_status(task_id: str, status: str, assignee: str | None = None) -> dict:
+    patch: dict[str, Any] = {"status": status}
+    if assignee is not None:
+        patch["assignee_agent"] = assignee
+    return update_task(task_id, patch)
+
+
+def add_artifact(task_id: str, kind: str, path: str, url: str | None = None) -> dict:
+    art = {"kind": kind, "path": path}
+    if url:
+        art["url"] = url
+    return update_task(task_id, {"artifact": art})
+
+
+def save_slack_thread(channel: str, thread_ts: str, task_id: str, pr_url: str | None = None) -> None:
+    _request(
+        "POST",
+        "/slack/threads",
+        {
+            "channel_id": channel,
+            "thread_ts": thread_ts,
+            "task_id": task_id,
+            "pr_url": pr_url,
+        },
+    )
+
+
+def get_slack_thread_task(channel: str, thread_ts: str) -> str | None:
+    try:
+        data = _request(
+            "GET",
+            f"/slack/threads?channel_id={channel}&thread_ts={thread_ts}",
+        )
+        return str(data["binding"]["task_id"])
+    except ControlPlaneError:
+        return None
+
+
+def update_slack_thread_pr(channel: str, thread_ts: str, pr_url: str) -> None:
+    task_id = get_slack_thread_task(channel, thread_ts)
+    if not task_id:
+        return
+    save_slack_thread(channel, thread_ts, task_id, pr_url)

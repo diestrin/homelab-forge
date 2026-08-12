@@ -185,20 +185,18 @@ cmd_sandbox() {
 
 factory_usage() {
   cat <<'EOF'
-forge factory — task board + worker (Phase 4 / ADR-009)
+forge factory — task board + worker (ADR-010 control plane)
 
-  validate
-  list
-  get <TASK-NNN>
-  claim [--task TASK-NNN]
-  set-status <TASK-NNN> <planning|proposed|claimed|in_progress|review|done|failed>
-  approve <TASK-NNN>            planning → proposed (Slack/CLI gate)
-  next-id
+  validate                      validate optional git mirror YAML
+  list | get | claim | set-status | approve | next-id
+                                (via control plane API when FORGE_* env set)
+  migrate-yaml [--dry-run]      one-time YAML → Postgres
+  export-yaml                   optional git mirror export from API
   sync [--dry-run]
   github-token
   run <TASK-NNN>
   worker [--once]
-  orchestrator                  Slack Socket Mode intake (foreground)
+  orchestrator                  Slack Socket Mode (/forge slash)
   demo
 EOF
 }
@@ -207,16 +205,25 @@ cmd_factory() {
   local sub="${1:-}"
   shift || true
   forge_require_cmd python3
+  local CP="$REPO_ROOT/factory/scripts/control_plane_client.py"
   case "$sub" in
     validate)
       python3 "$TASK_LIB" --repo "$REPO_ROOT" validate
       ;;
     list)
-      python3 "$TASK_LIB" --repo "$REPO_ROOT" list
+      if [[ -n "${FORGE_CONTROL_PLANE_URL:-}" && -n "${FORGE_API_TOKEN:-}" ]]; then
+        python3 -c "import sys; sys.path.insert(0,'$REPO_ROOT/factory/scripts'); import control_plane_client as cp; [print(f\"{t['id']}\t{t['status']}\t{t['title']}\") for t in cp.list_tasks()]"
+      else
+        python3 "$TASK_LIB" --repo "$REPO_ROOT" list
+      fi
       ;;
     get)
       [[ $# -ge 1 ]] || forge_die "usage: forge factory get TASK-NNN"
-      python3 "$TASK_LIB" --repo "$REPO_ROOT" get "$1"
+      if [[ -n "${FORGE_CONTROL_PLANE_URL:-}" && -n "${FORGE_API_TOKEN:-}" ]]; then
+        python3 -c "import sys,json; sys.path.insert(0,'$REPO_ROOT/factory/scripts'); import control_plane_client as cp; print(json.dumps(cp.get_task('$1'), indent=2))"
+      else
+        python3 "$TASK_LIB" --repo "$REPO_ROOT" get "$1"
+      fi
       ;;
     claim)
       local task="" worker="${FORGE_WORKER_ID:-worker-$(hostname)}"
@@ -227,7 +234,16 @@ cmd_factory() {
           *) forge_die "unknown claim option: $1" ;;
         esac
       done
-      if [[ -n "$task" ]]; then
+      if [[ -n "${FORGE_CONTROL_PLANE_URL:-}" && -n "${FORGE_API_TOKEN:-}" ]]; then
+        FORGE_WORKER_ID="$worker" FORGE_CLAIM_TASK="$task" python3 - <<PY
+import os, sys
+sys.path.insert(0, "$REPO_ROOT/factory/scripts")
+import control_plane_client as cp
+tid = os.environ.get("FORGE_CLAIM_TASK") or None
+t = cp.claim(os.environ["FORGE_WORKER_ID"], tid, via_queue=True)
+print(t["id"] if t else "")
+PY
+      elif [[ -n "$task" ]]; then
         python3 "$TASK_LIB" --repo "$REPO_ROOT" claim --task "$task" --worker "$worker"
       else
         python3 "$TASK_LIB" --repo "$REPO_ROOT" claim --worker "$worker"
@@ -235,7 +251,16 @@ cmd_factory() {
       ;;
     set-status)
       [[ $# -ge 2 ]] || forge_die "usage: forge factory set-status TASK-NNN STATUS"
-      if [[ -n "${FORGE_WORKER_ID:-}" ]]; then
+      if [[ -n "${FORGE_CONTROL_PLANE_URL:-}" && -n "${FORGE_API_TOKEN:-}" ]]; then
+        FORGE_STATUS_TASK="$1" FORGE_STATUS_VAL="$2" python3 - <<PY
+import os, sys
+sys.path.insert(0, "$REPO_ROOT/factory/scripts")
+import control_plane_client as cp
+assignee = os.environ.get("FORGE_WORKER_ID") or None
+cp.set_status(os.environ["FORGE_STATUS_TASK"], os.environ["FORGE_STATUS_VAL"], assignee)
+print(f"{os.environ['FORGE_STATUS_TASK']} → {os.environ['FORGE_STATUS_VAL']}")
+PY
+      elif [[ -n "${FORGE_WORKER_ID:-}" ]]; then
         python3 "$TASK_LIB" --repo "$REPO_ROOT" set-status "$1" "$2" --assignee "$FORGE_WORKER_ID"
       else
         python3 "$TASK_LIB" --repo "$REPO_ROOT" set-status "$1" "$2"
@@ -243,10 +268,24 @@ cmd_factory() {
       ;;
     approve)
       [[ $# -ge 1 ]] || forge_die "usage: forge factory approve TASK-NNN"
-      python3 "$TASK_LIB" --repo "$REPO_ROOT" approve "$1"
+      if [[ -n "${FORGE_CONTROL_PLANE_URL:-}" && -n "${FORGE_API_TOKEN:-}" ]]; then
+        python3 -c "import sys; sys.path.insert(0,'$REPO_ROOT/factory/scripts'); import control_plane_client as cp; cp.approve('$1'); print('$1 → proposed')"
+      else
+        python3 "$TASK_LIB" --repo "$REPO_ROOT" approve "$1"
+      fi
       ;;
     next-id)
-      python3 "$TASK_LIB" --repo "$REPO_ROOT" next-id
+      if [[ -n "${FORGE_CONTROL_PLANE_URL:-}" && -n "${FORGE_API_TOKEN:-}" ]]; then
+        python3 -c "import sys; sys.path.insert(0,'$REPO_ROOT/factory/scripts'); import control_plane_client as cp; print(cp.next_task_id())"
+      else
+        python3 "$TASK_LIB" --repo "$REPO_ROOT" next-id
+      fi
+      ;;
+    migrate-yaml)
+      python3 "$REPO_ROOT/factory/scripts/migrate-yaml-to-db.py" --repo "$REPO_ROOT" "$@"
+      ;;
+    export-yaml)
+      python3 "$REPO_ROOT/factory/scripts/export-yaml-from-db.py" --repo "$REPO_ROOT" "$@"
       ;;
     sync)
       "$REPO_ROOT/factory/scripts/sync-projects.sh" "$@"

@@ -1,0 +1,26 @@
+id: TASK-008
+title: DB-backed factory control plane
+goal: |
+  Refactor the factory control plane so runtime coordination no longer depends on git
+  worktree/filesystem task YAML. Move task state, orchestrator messages, intake, and job
+  dispatch into the forge-site Next.js backend backed by Postgres on k3s and pg-boss.
+branch: factory/task-008-db-backed-factory-control-plane
+status: in_progress
+assignee_agent: worker-cursor
+sandbox_profile: trusted
+repo_path: .
+risk_level: high
+budget_minutes: 240
+acceptance_criteria:
+  - ADR-010 supersedes ADR-004/ADR-009 runtime SoT; Postgres for tasks/messages/jobs
+  - Postgres on k3s with Vault + ExternalSecrets; forge-site connects via env
+  - pg-boss job queue integrated for plan/implement/notify jobs
+  - HTTP API for tasks/messages/actions; OpenAPI in-repo
+  - MCP server exposes control/intake surface
+  - Live dashboard /dashboard and /dashboard/[id] from API/DB
+  - Orchestrator replies persisted in Postgres
+  - Slack slash commands only; state via API
+  - Filesystem YAML retired as default worker path; cutover documented
+  - PR with k8s + ADR + runbook; CHECKLIST completed; CI green
+notes: |
+  Runtime SoT is Postgres (ADR-010). Git YAML is optional export mirror only.

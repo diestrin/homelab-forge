@@ -15,6 +15,8 @@ Environment=PATH=/media/diestrin/data/forge/factory/venv/bin:/home/diestrin/.nix
 # (mode 600). Example keys: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, FORGE_SLACK_ALLOWLIST,
 # optional CURSOR_API_KEY / GH_TOKEN if not fetched at runtime.
 EnvironmentFile=-/media/diestrin/data/secrets/forge/slack-orchestrator.env
+Environment=FORGE_CONTROL_PLANE_URL=https://localpower.diegobarahona.com
+# FORGE_API_TOKEN in EnvironmentFile (from Vault secret/forge/control-plane)
 ExecStart=/media/diestrin/data/forge/factory/venv/bin/python /media/diestrin/data/Projects/homelab-forge/factory/orchestrator/slack_intake.py
 Restart=on-failure
 RestartSec=15

@@ -1,0 +1,163 @@
+openapi: 3.1.0
+info:
+  title: Forge Factory Control Plane API
+  version: 1.0.0
+  description: |
+    DB-backed factory control plane (ADR-010). Postgres is runtime SoT for tasks,
+    messages, and pg-boss jobs. Bearer auth via FORGE_API_TOKEN for mutations.
+servers:
+  - url: /api/v1
+    description: forge-site in-cluster or public ingress
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+paths:
+  /health:
+    get:
+      summary: Health check (DB connectivity)
+      security: []
+      responses:
+        "200":
+          description: OK
+  /tasks:
+    get:
+      summary: List tasks
+      security: []
+      responses:
+        "200":
+          description: Task list
+    post:
+      summary: Create task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, goal, acceptance_criteria]
+              properties:
+                id: { type: string }
+                title: { type: string }
+                goal: { type: string }
+                acceptance_criteria:
+                  type: array
+                  items: { type: string }
+                status: { type: string }
+                enqueue_plan: { type: boolean }
+      responses:
+        "201":
+          description: Created
+  /tasks/{id}:
+    get:
+      summary: Get task
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Task
+    patch:
+      summary: Update task status/fields
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string }
+                assignee_agent: { type: string, nullable: true }
+                artifact:
+                  type: object
+                  properties:
+                    kind: { type: string }
+                    path: { type: string }
+                    url: { type: string }
+      responses:
+        "200":
+          description: Updated task
+  /tasks/{id}/messages:
+    get:
+      summary: List task messages
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Messages
+    post:
+      summary: Append message
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                source: { type: string }
+                author: { type: string }
+                body: { type: string }
+      responses:
+        "201":
+          description: Message created
+  /tasks/{id}/actions:
+    post:
+      summary: Control action (approve, cancel, retry)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [approve, cancel, retry]
+                actor: { type: string }
+      responses:
+        "200":
+          description: Action result
+  /jobs/claim:
+    post:
+      summary: Claim work for worker
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                worker_id: { type: string }
+                task_id: { type: string }
+                via_queue: { type: boolean }
+                kinds:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: Claim result

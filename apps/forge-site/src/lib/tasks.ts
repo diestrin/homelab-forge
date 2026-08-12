@@ -1,59 +1,33 @@
-import fs from "fs";
-import path from "path";
-import yaml from "yaml";
+import { listMessages } from "@/lib/control-plane/messages";
+import { getTask, listTasks } from "@/lib/control-plane/tasks";
+import { isDbConfigured } from "@/lib/control-plane/auth";
+import type { FactoryTask, TaskMessage } from "@/lib/control-plane/types";
 
-export interface FactoryTask {
-  id: string;
-  title: string;
-  status: string;
-  assignee_agent: string | null;
-}
+export type { FactoryTask, TaskMessage };
 
-function tasksDirectory(): string {
-  if (process.env.FORGE_TASKS_DIR) {
-    return process.env.FORGE_TASKS_DIR;
-  }
-  return path.join(process.cwd(), "../../factory/tasks");
-}
-
-export function loadTasks(): FactoryTask[] {
-  const dir = tasksDirectory();
-
-  if (!fs.existsSync(dir)) {
+export async function loadTasksFromDb(): Promise<FactoryTask[]> {
+  if (!isDbConfigured()) return [];
+  try {
+    return await listTasks();
+  } catch {
     return [];
   }
+}
 
-  const tasks: FactoryTask[] = [];
-
-  for (const file of fs.readdirSync(dir)) {
-    if (!file.endsWith(".yaml")) {
-      continue;
-    }
-
-    try {
-      const raw = fs.readFileSync(path.join(dir, file), "utf8");
-      const doc = yaml.parse(raw) as Record<string, unknown> | null;
-
-      if (
-        !doc ||
-        typeof doc.id !== "string" ||
-        typeof doc.title !== "string" ||
-        typeof doc.status !== "string"
-      ) {
-        continue;
-      }
-
-      tasks.push({
-        id: doc.id,
-        title: doc.title,
-        status: doc.status,
-        assignee_agent:
-          typeof doc.assignee_agent === "string" ? doc.assignee_agent : null,
-      });
-    } catch {
-      // Skip unreadable or malformed task files in v1.
-    }
+export async function loadTaskFromDb(id: string): Promise<FactoryTask | null> {
+  if (!isDbConfigured()) return null;
+  try {
+    return await getTask(id);
+  } catch {
+    return null;
   }
+}
 
-  return tasks.sort((a, b) => a.id.localeCompare(b.id));
+export async function loadMessagesFromDb(taskId: string): Promise<TaskMessage[]> {
+  if (!isDbConfigured()) return [];
+  try {
+    return await listMessages(taskId);
+  } catch {
+    return [];
+  }
 }

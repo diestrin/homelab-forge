@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://homelab-forge.local/factory/schema/task.schema.json",
   "title": "ForgeFactoryTask",
-  "description": "Git-backed factory task (ADR-004). Git is source of truth; GitHub Projects mirrors status.",
+  "description": "Factory task schema. Runtime SoT is Postgres (ADR-010); YAML is optional git mirror.",
   "type": "object",
   "additionalProperties": false,
   "required": [

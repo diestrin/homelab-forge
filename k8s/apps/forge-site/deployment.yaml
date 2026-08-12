@@ -15,39 +15,48 @@ spec:
       labels:
         app: forge-site
     spec:
+      initContainers:
+        - name: wait-postgres
+          image: postgres:16-alpine
+          envFrom:
+            - secretRef:
+                name: forge-site-secrets
+          command:
+            - sh
+            - -c
+            - |
+              until psql "$DATABASE_URL" -c 'SELECT 1' >/dev/null 2>&1; do
+                echo "waiting for postgres..."
+                sleep 2
+              done
       containers:
         - name: forge-site
           image: ghcr.io/diestrin/homelab-forge/forge-site:main
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: forge-site-secrets
           env:
-            - name: FORGE_TASKS_DIR
-              value: /data/factory/tasks
+            - name: FORGE_RUN_MIGRATIONS
+              value: "true"
           resources:
             requests:
               cpu: 50m
               memory: 128Mi
             limits:
               cpu: 500m
-              memory: 256Mi
+              memory: 512Mi
           readinessProbe:
             httpGet:
-              path: /
+              path: /api/v1/health
               port: 3000
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /
+              path: /api/v1/health
               port: 3000
-            initialDelaySeconds: 15
+            initialDelaySeconds: 30
             periodSeconds: 20
-          volumeMounts:
-            - name: factory-tasks
-              mountPath: /data/factory/tasks
-              readOnly: true
-      volumes:
-        - name: factory-tasks
-          configMap:
-            name: factory-tasks

@@ -1,11 +1,40 @@
-# Factory (Phase 4)
+# Factory (Phase 4 + ADR-010)
 
-Agentic software factory: git tasks + GitHub Projects + sandboxed workers +
-human review + Argo CD deploy (ADR-004 / ADR-008).
+Agentic software factory: **Postgres control plane** + GitHub Projects mirror +
+sandboxed workers + human review + Argo CD deploy (ADR-004 / ADR-008 / ADR-010).
 
 ## Layout
 
 See [`factory/README.md`](../../factory/README.md).
+
+## Control plane (ADR-010)
+
+Runtime SoT is Postgres on k3s (`k8s/platform/postgres/`). forge-site exposes HTTP API
+and MCP. Host clients need:
+
+```bash
+export FORGE_CONTROL_PLANE_URL=https://localpower.diegobarahona.com
+export FORGE_API_TOKEN=…   # Vault secret/forge/control-plane api_token
+```
+
+Vault bootstrap (operator, never commit):
+
+```bash
+vault kv put secret/forge/postgres username=forge password='…' database=forge
+vault kv put secret/forge/control-plane api_token="$(openssl rand -hex 32)"
+```
+
+After Argo sync, one-time migration from git mirror:
+
+```bash
+./forge factory migrate-yaml
+```
+
+Optional export back to git for portfolio audit:
+
+```bash
+./forge factory export-yaml
+```
 
 ## One-time host setup
 
@@ -88,9 +117,21 @@ Workers load it via `factory/scripts/fetch-cursor-key.sh` after AppRole login.
 
 ### 5. Slack Socket Mode orchestrator (ADR-009)
 
-Create a Slack app with **Socket Mode** enabled (no Request URL / no Ingress). Bot
-scopes typically include `chat:write`, `channels:history`, `groups:history` (private
-channel), and app-level token (`xapp-…`) for Socket Mode.
+Create a Slack app with **Socket Mode** enabled (no Request URL / no Ingress). Register
+slash command `/forge`. Bot scopes include `chat:write`, `commands`, and channel history.
+
+Host env file must include control plane URL + API token:
+
+```bash
+FORGE_CONTROL_PLANE_URL=https://localpower.diegobarahona.com
+FORGE_API_TOKEN=…
+SLACK_BOT_TOKEN=xoxb-…
+SLACK_APP_TOKEN=xapp-…
+FORGE_SLACK_ALLOWLIST=U0…
+```
+
+Smoke-test: `/forge plan …` → plan PR (`planning`) → thread reply → `approve` → worker
+implements → human merges.
 
 ```bash
 vault kv put secret/forge/agents/slack \
@@ -126,6 +167,8 @@ Or foreground: `./forge factory orchestrator` (venv `python` on `PATH`).
 
 Smoke-test: post in the private channel → plan PR (`planning`) → thread reply →
 `approve` → task `proposed` → worker updates the same PR → human merges.
+
+**ADR-010:** use `/forge plan …` slash command; top-level channel messages are ignored.
 
 ### 6. Worker daemon (opt-in always-on)
 
@@ -177,6 +220,6 @@ Argo sync + `curl` for the Phase 4 hello copy.
 - Slack allowlist is mandatory; thread replies from others are ignored.
 - Cells still lack docker.sock and `$HOME` mounts; Cursor SDK runs on the host with
   worktree `cwd`.
-- Board is a mirror; ignore board-only edits when they disagree with git.
+- Board is a mirror; **Postgres/API wins** over board or git YAML on conflict.
 - Never commit `private_key.pem`, `client_secret`, Slack tokens, Cursor API keys, or
   real Slack user IDs.

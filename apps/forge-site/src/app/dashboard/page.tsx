@@ -1,4 +1,5 @@
-import { loadTasks } from "@/lib/tasks";
+import Link from "next/link";
+import { loadTasksFromDb } from "@/lib/tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +16,15 @@ function statusBadgeClass(status: string): string {
       return "bg-violet-500/15 text-violet-300 ring-violet-500/30";
     case "proposed":
       return "bg-amber-500/15 text-amber-300 ring-amber-500/30";
+    case "planning":
+      return "bg-orange-500/15 text-orange-300 ring-orange-500/30";
     default:
       return "bg-zinc-500/15 text-zinc-300 ring-zinc-500/30";
   }
 }
 
-export default function DashboardPage() {
-  const tasks = loadTasks();
+export default async function DashboardPage() {
+  const tasks = await loadTasksFromDb();
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-12">
@@ -30,17 +33,18 @@ export default function DashboardPage() {
           Factory dashboard
         </h1>
         <p className="text-zinc-400">
-          Read-only view of tasks in{" "}
-          <code className="rounded bg-zinc-900 px-1.5 py-0.5 font-mono text-sm text-zinc-300">
-            factory/tasks/*.yaml
-          </code>{" "}
-          — git is the source of truth; GitHub Projects mirrors status.
+          Live tasks from the control plane API (Postgres, ADR-010). Git remains code/config SoT;
+          runtime coordination no longer depends on checked-out YAML.
         </p>
       </div>
 
       {tasks.length === 0 ? (
         <p className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 text-zinc-400">
-          No tasks found. Task YAML may be unavailable in this environment.
+          No tasks in the database yet. Create work via{" "}
+          <code className="rounded bg-zinc-900 px-1.5 py-0.5 font-mono text-sm text-zinc-300">
+            /forge plan …
+          </code>{" "}
+          in Slack or the HTTP/MCP API.
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-zinc-800">
@@ -56,7 +60,14 @@ export default function DashboardPage() {
             <tbody className="divide-y divide-zinc-800/80 bg-zinc-950/40">
               {tasks.map((task) => (
                 <tr key={task.id} className="hover:bg-zinc-900/40">
-                  <td className="px-4 py-3 font-mono text-amber-400/90">{task.id}</td>
+                  <td className="px-4 py-3 font-mono">
+                    <Link
+                      href={`/dashboard/${task.id}`}
+                      className="text-amber-400/90 hover:text-amber-300"
+                    >
+                      {task.id}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 text-zinc-200">{task.title}</td>
                   <td className="px-4 py-3">
                     <span

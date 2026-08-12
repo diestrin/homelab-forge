@@ -7,7 +7,6 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=../../sandbox/lib/common.sh
 source "$REPO_ROOT/sandbox/lib/common.sh"
-TASK_LIB="$REPO_ROOT/factory/scripts/task_lib.py"
 WORKER_ID="${FORGE_WORKER_ID:-worker-$(hostname)-$$}"
 ART_ROOT="${FORGE_DATA_ROOT:-/media/diestrin/data/forge}/factory/artifacts"
 LOG_DIR="$ART_ROOT/logs"
@@ -17,38 +16,50 @@ chmod 700 "${FORGE_DATA_ROOT:-/media/diestrin/data/forge}/factory" 2>/dev/null |
 die() { echo "run-task: $*" >&2; exit 1; }
 log() { echo "==> $*"; }
 
+cp_py() {
+  python3 - "$@" <<'PY'
+import json, os, sys
+sys.path.insert(0, os.environ["REPO_ROOT"] + "/factory/scripts")
+import control_plane_client as cp
+
+cmd = sys.argv[1]
+if cmd == "get-env":
+    d = cp.get_task(sys.argv[2])
+    import shlex
+    def emit(k, v):
+        if v is None:
+            print(f"export {k}=")
+        else:
+            print(f"export {k}={shlex.quote(str(v))}")
+    emit("TASK_STATUS", d.get("status"))
+    emit("TASK_PROFILE", d.get("sandbox_profile", "agent-cell"))
+    emit("TASK_REPO_PATH", d.get("repo_path", "."))
+    emit("TASK_BRANCH", d.get("branch") or f"factory/{d['id'].lower()}")
+    emit("TASK_HOOK", d.get("worker_hook") or "")
+    emit("TASK_BUDGET", d.get("budget_minutes") or 30)
+    emit("TASK_TITLE", d.get("title") or "")
+    emit("TASK_RISK", d.get("risk_level") or "low")
+    emit("TASK_GOAL", d.get("goal") or "")
+    ac = d.get("acceptance_criteria") or []
+    emit("TASK_AC", "\n".join("- " + str(x) for x in ac))
+elif cmd == "set-status":
+    assignee = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] else None
+    cp.set_status(sys.argv[2], sys.argv[3], assignee)
+elif cmd == "add-artifact":
+    url = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] else None
+    cp.add_artifact(sys.argv[2], sys.argv[3], sys.argv[4], url)
+PY
+}
+
 TASK_ID="${1:-}"
 [[ -n "$TASK_ID" ]] || die "usage: run-task.sh TASK-NNN"
 
-TASK_FILE=""
-for f in "$REPO_ROOT"/factory/tasks/TASK-*.yaml; do
-  id="$(python3 -c "import yaml,sys; print(yaml.safe_load(open(sys.argv[1]))['id'])" "$f")"
-  if [[ "$id" == "$TASK_ID" ]]; then
-    TASK_FILE="$f"
-    break
-  fi
-done
-[[ -n "$TASK_FILE" ]] || die "task file not found for $TASK_ID"
+if [[ -z "${FORGE_CONTROL_PLANE_URL:-}" || -z "${FORGE_API_TOKEN:-}" ]]; then
+  die "FORGE_CONTROL_PLANE_URL and FORGE_API_TOKEN required (ADR-010)"
+fi
 
-eval "$(python3 - <<PY
-import yaml, shlex
-from pathlib import Path
-d = yaml.safe_load(Path("$TASK_FILE").read_text())
-def emit(k, v):
-    if v is None:
-        print(f"export {k}=")
-    else:
-        print(f"export {k}={shlex.quote(str(v))}")
-emit("TASK_STATUS", d.get("status"))
-emit("TASK_PROFILE", d.get("sandbox_profile", "agent-cell"))
-emit("TASK_REPO_PATH", d.get("repo_path", "."))
-emit("TASK_BRANCH", d.get("branch") or f"factory/{d['id'].lower()}")
-emit("TASK_HOOK", d.get("worker_hook") or "")
-emit("TASK_BUDGET", d.get("budget_minutes") or 30)
-emit("TASK_TITLE", d.get("title") or "")
-emit("TASK_RISK", d.get("risk_level") or "low")
-PY
-)"
+export REPO_ROOT
+eval "$(REPO_ROOT="$REPO_ROOT" cp_py get-env "$TASK_ID")"
 
 LOG="$LOG_DIR/${TASK_ID}.log"
 exec > >(tee -a "$LOG") 2>&1
@@ -65,8 +76,8 @@ fail_task() {
   trap - EXIT INT TERM
   clear_watchdog 2>/dev/null || true
   log "FAIL: $reason"
-  python3 "$TASK_LIB" --repo "$REPO_ROOT" set-status "$TASK_ID" failed --assignee "$WORKER_ID" || true
-  python3 "$TASK_LIB" --repo "$REPO_ROOT" add-artifact "$TASK_ID" log "$LOG" || true
+  REPO_ROOT="$REPO_ROOT" cp_py set-status "$TASK_ID" failed "$WORKER_ID" || true
+  REPO_ROOT="$REPO_ROOT" cp_py add-artifact "$TASK_ID" log "$LOG" || true
   cleanup_cell
   exit 1
 }
@@ -87,14 +98,14 @@ WATCHDOG_PID=$!
 
 case "$TASK_STATUS" in
   proposed)
-    python3 "$TASK_LIB" --repo "$REPO_ROOT" claim --task "$TASK_ID" --worker "$WORKER_ID" >/dev/null
+    REPO_ROOT="$REPO_ROOT" cp_py set-status "$TASK_ID" claimed "$WORKER_ID" >/dev/null
     ;;
   claimed) ;;
   in_progress) log "resuming in_progress task" ;;
   *) die "cannot run task in status=$TASK_STATUS" ;;
 esac
 
-python3 "$TASK_LIB" --repo "$REPO_ROOT" set-status "$TASK_ID" in_progress --assignee "$WORKER_ID"
+REPO_ROOT="$REPO_ROOT" cp_py set-status "$TASK_ID" in_progress "$WORKER_ID"
 
 PROJECT="$(forge_resolve_project "$TASK_REPO_PATH")"
 
@@ -213,10 +224,8 @@ else
     fi
     export FORGE_TASK_ID="$TASK_ID"
     export FORGE_TASK_TITLE="$TASK_TITLE"
-    export FORGE_TASK_GOAL
-    FORGE_TASK_GOAL="$(python3 -c "import yaml;print(yaml.safe_load(open('$TASK_FILE'))['goal'])")"
-    export FORGE_TASK_AC
-    FORGE_TASK_AC="$(python3 -c "import yaml;d=yaml.safe_load(open('$TASK_FILE'));print('\n'.join('- '+x for x in d.get('acceptance_criteria') or []))")"
+    export FORGE_TASK_GOAL="$TASK_GOAL"
+    export FORGE_TASK_AC="$TASK_AC"
     export FORGE_TASK_BRANCH="$TASK_BRANCH"
     export FORGE_TASK_REPO="$WORK_REPO"
     set +e
@@ -241,9 +250,9 @@ Attach with:
 
 Or put api_key in Vault secret/forge/agents/cursor and re-run.
 EOF
-    python3 "$TASK_LIB" --repo "$REPO_ROOT" add-artifact "$TASK_ID" note "$NOTE"
-    python3 "$TASK_LIB" --repo "$REPO_ROOT" set-status "$TASK_ID" review --assignee "$WORKER_ID"
-    python3 "$TASK_LIB" --repo "$REPO_ROOT" add-artifact "$TASK_ID" log "$LOG"
+    REPO_ROOT="$REPO_ROOT" cp_py add-artifact "$TASK_ID" note "$NOTE"
+    REPO_ROOT="$REPO_ROOT" cp_py set-status "$TASK_ID" review "$WORKER_ID"
+    REPO_ROOT="$REPO_ROOT" cp_py add-artifact "$TASK_ID" log "$LOG"
     FORGE_TASK_OK=1
     clear_watchdog
     trap - EXIT INT TERM
@@ -328,10 +337,10 @@ fi
 
 DIFF_ART="$ART_ROOT/${TASK_ID}-git.diff"
 git diff "$BASE_REF...HEAD" >"$DIFF_ART" 2>/dev/null || true
-python3 "$TASK_LIB" --repo "$REPO_ROOT" add-artifact "$TASK_ID" log "$LOG"
-python3 "$TASK_LIB" --repo "$REPO_ROOT" add-artifact "$TASK_ID" other "$DIFF_ART"
+REPO_ROOT="$REPO_ROOT" cp_py add-artifact "$TASK_ID" log "$LOG"
+REPO_ROOT="$REPO_ROOT" cp_py add-artifact "$TASK_ID" other "$DIFF_ART"
 if [[ -n "$PR_URL" ]]; then
-  python3 "$TASK_LIB" --repo "$REPO_ROOT" add-artifact "$TASK_ID" pr "artifacts/${TASK_ID}-pr.txt" --url "$PR_URL"
+  REPO_ROOT="$REPO_ROOT" cp_py add-artifact "$TASK_ID" pr "artifacts/${TASK_ID}-pr.txt" "$PR_URL"
   printf '%s\n' "$PR_URL" >"$ART_ROOT/${TASK_ID}-pr.txt"
 fi
 
@@ -339,11 +348,11 @@ if git diff --name-only "$BASE_REF...HEAD" 2>/dev/null | grep -q '^k8s/'; then
   if command -v kubectl >/dev/null && [[ -f "${KUBECONFIG:-$HOME/.kube/config}" ]]; then
     KDIFF="$ART_ROOT/${TASK_ID}-kubectl.diff"
     kubectl -n forge-demo diff -k "$WORK_REPO/k8s/apps/forge-site" >"$KDIFF" 2>&1 || true
-    python3 "$TASK_LIB" --repo "$REPO_ROOT" add-artifact "$TASK_ID" kubectl_diff "$KDIFF"
+    REPO_ROOT="$REPO_ROOT" cp_py add-artifact "$TASK_ID" kubectl_diff "$KDIFF"
   fi
 fi
 
-python3 "$TASK_LIB" --repo "$REPO_ROOT" set-status "$TASK_ID" review --assignee "$WORKER_ID"
+REPO_ROOT="$REPO_ROOT" cp_py set-status "$TASK_ID" review "$WORKER_ID"
 FORGE_TASK_OK=1
 clear_watchdog
 trap - EXIT INT TERM

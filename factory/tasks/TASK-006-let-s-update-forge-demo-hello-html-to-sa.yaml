@@ -1,30 +1,45 @@
 id: TASK-006
 title: Update forge-demo hello HTML to Forge Software Factory
-goal: |
-  Small web-service change: update the forge-demo hello ConfigMap HTML so the public
+goal: 'Small web-service change: update the forge-demo hello ConfigMap HTML so the
+  public
+
   demo greets visitors with copy from "Forge Software Factory" (Slack operator request).
+
   Worker implements after plan approval; humans merge; Argo syncs steady state.
+
+  '
 acceptance_criteria:
-- PR opened against main that changes k8s/apps/forge-demo-hello hello-html copy to greet from "Forge Software Factory"
+- PR opened against main that changes k8s/apps/forge-demo-hello hello-html copy to
+  greet from "Forge Software Factory"
 - Review checklist completed before merge
 - After merge, Argo Application forge-demo-hello Healthy/Synced
 - curl -fsS https://localpower.diegobarahona.com | grep -q "Forge Software Factory"
 sandbox_profile: agent-cell
 repo_path: .
-status: planning
+status: proposed
 assignee_agent: null
 artifacts: []
 risk_level: low
 budget_minutes: 30
 branch: factory/task-006-let-s-update-forge-demo-hello-html-to-sa
 worker_hook: null
-notes: |
-  Slack operator request: update forge-demo-hello HTML to say hi from "Forge Software Factory".
-  Slack operator approved plan content (2026-08-12). Status stays planning on this plan PR
+notes: 'Slack operator request: update forge-demo-hello HTML to say hi from "Forge
+  Software Factory".
+
+  Slack operator approved plan content (2026-08-12). Status stays planning on this
+  plan PR
+
   until `./forge factory approve TASK-006` → proposed for worker claim.
-  Plan PR CI: markdown-lint failed on bare URL in factory/plans/TASK-006.md (MD034); fixed
+
+  Plan PR CI: markdown-lint failed on bare URL in factory/plans/TASK-006.md (MD034);
+  fixed
+
   by linking the demo hostname in the plan.
-  Deploy path is merge-to-main → Argo CD only; no kubectl apply to Argo-managed apps from the worker.
+
+  Deploy path is merge-to-main → Argo CD only; no kubectl apply to Argo-managed apps
+  from the worker.
+
+  '
 claimed_at: null
-updated_at: '2026-08-12T01:01:00Z'
+updated_at: '2026-08-12T01:03:07Z'
 github_project_item_id: PVTI_lAHOAA3gD84Bfo-Bzg2Lmz8

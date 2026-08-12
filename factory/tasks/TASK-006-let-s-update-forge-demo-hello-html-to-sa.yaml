@@ -16,9 +16,12 @@ acceptance_criteria:
 - curl -fsS https://localpower.diegobarahona.com | grep -q "Forge Software Factory"
 sandbox_profile: agent-cell
 repo_path: .
-status: proposed
-assignee_agent: null
-artifacts: []
+status: review
+assignee_agent: cursor-sdk-task-006
+artifacts:
+- kind: pr
+  path: artifacts/TASK-006-pr.txt
+  url: https://github.com/diestrin/homelab-forge/pull/8
 risk_level: low
 budget_minutes: 30
 branch: factory/task-006-let-s-update-forge-demo-hello-html-to-sa
@@ -40,6 +43,6 @@ notes: 'Slack operator request: update forge-demo-hello HTML to say hi from "For
   from the worker.
 
   '
-claimed_at: null
-updated_at: '2026-08-12T01:03:07Z'
+claimed_at: '2026-08-12T01:13:35Z'
+updated_at: '2026-08-12T01:13:35Z'
 github_project_item_id: PVTI_lAHOAA3gD84Bfo-Bzg2Lmz8

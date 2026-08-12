@@ -1,0 +1,47 @@
+id: TASK-007
+title: Forge site — Next.js landing + task dashboard (v1)
+goal: 'Multi-phase project (phase 1 in this task): build a Next.js full-stack app that
+  replaces the forge-demo-hello public front page. Landing page explains the Forge OSS
+  project, its components, and how the factory works; a dashboard page shows factory
+  tasks tracked in git (factory/tasks/*.yaml). Deliver a simple v1 of both pages; richer
+  UX and follow-on phases iterate via Slack thread and later tasks. Worker implements
+  after plan approval; humans merge; Argo syncs steady state.
+
+  '
+acceptance_criteria:
+- Next.js app added in-repo (app source + container build) with a landing route at `/`
+  explaining Forge, its components, and the factory workflow
+- Dashboard route at `/dashboard` lists tasks from `factory/tasks/*.yaml` (at minimum
+  id, title, status; assignee when present)
+- K8s manifests in PR replace forge-demo-hello as the public demo workload on the existing
+  demo hostname (localpower.diegobarahona.com root path)
+- PR opened against main; factory/review/CHECKLIST.md completed before merge
+- After human merge to main, Argo Application for the demo app is Healthy/Synced; HTTPS
+  `/` serves the landing page and `/dashboard` shows current task rows from git-backed
+  YAML
+- No secrets, tokens, Slack user IDs, or private ntfy topics committed; worker does not
+  kubectl apply to Argo-managed apps
+sandbox_profile: k8s-workload
+repo_path: .
+status: planning
+risk_level: high
+budget_minutes: 120
+branch: factory/task-007-let-s-plan-to-build-a-multi-phase-projec
+worker_hook: null
+notes: 'Slack operator request (2026-08-12): plan a multi-phase Forge website — Next.js
+  with frontend + backend; landing page for OSS Forge overview; dashboard for worker
+  tasks in git; simple v1 now, iterate later.
+
+  Status stays planning on this plan PR until operator approves in Slack thread and
+  `./forge factory approve TASK-007` → proposed for worker claim. Slack thread will
+  iterate the plan before approval.
+
+  Phase 1 scope only: static-ish landing copy + read-only task board sourced from
+  factory/tasks/*.yaml. Out of scope for v1: auth, task mutation, Slack live feed,
+  orchestrator replacement.
+
+  High risk — long-running workload with public Ingress. Deploy path is merge-to-main
+  → Argo CD only; do not auto-approve; human-only for prod sync. Worker may dry-run
+  with k8s-workload sandbox; manifests land via PR, not direct cluster apply.
+
+  '

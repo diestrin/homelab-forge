@@ -20,8 +20,11 @@ branch: factory/task-006-let-s-update-forge-demo-hello-html-to-sa
 worker_hook: null
 notes: |
   Slack operator request: update forge-demo-hello HTML to say hi from "Forge Software Factory".
-  Plan PR is for review only — status stays planning until explicit Slack approve (lgtm / approve).
-  The Slack thread may iterate goal, copy wording, and acceptance criteria before workers claim.
+  Slack operator approved plan content (2026-08-12). Status stays planning on this plan PR
+  until `./forge factory approve TASK-006` → proposed for worker claim.
+  Plan PR CI: markdown-lint failed on bare URL in factory/plans/TASK-006.md (MD034); fixed
+  by linking the demo hostname in the plan.
   Deploy path is merge-to-main → Argo CD only; no kubectl apply to Argo-managed apps from the worker.
 claimed_at: null
-updated_at: null
+updated_at: '2026-08-12T01:01:00Z'
+github_project_item_id: PVTI_lAHOAA3gD84Bfo-Bzg2Lmz8

@@ -24,7 +24,7 @@ acceptance_criteria:
   not kubectl apply to Argo-managed apps
 sandbox_profile: k8s-workload
 repo_path: .
-status: planning
+status: proposed
 assignee_agent: null
 artifacts:
 - kind: pr
@@ -39,8 +39,8 @@ notes: 'Slack operator feedback (2026-08-12): CI checks failing on draft impleme
   MD025, and MD026 (two # headings with trailing periods, no blank lines). Other CI
   jobs pass (nix flake eval, kubeconform, factory schema, shellcheck, actionlint,
   forge-site Next.js/container build, gitleaks). Plan revised; status back to planning
-  until operator re-approves. Worker must fix markdown lint and confirm all checks green
-  before merge.
+  until operator re-approves. Worker must fix markdown lint and confirm all checks
+  green before merge.
 
   Draft implementation exists on branch factory/task-007-let-s-plan-to-build-a-multi-phase-projec
   (apps/forge-site, k8s/apps/forge-site, ghcr.io image workflow). Deploy path: merge
@@ -49,4 +49,4 @@ notes: 'Slack operator feedback (2026-08-12): CI checks failing on draft impleme
 
   '
 claimed_at: null
-updated_at: '2026-08-12T02:20:00Z'
+updated_at: '2026-08-12T02:27:13Z'

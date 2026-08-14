@@ -43,7 +43,8 @@ Phase 3 verified: `vault operator seal` then unseal with the stored key succeeds
 | `ci-deployer` | `secret/data/forge/ci/*` | CI read |
 | `agent` | `secret/data/forge/agents/*` | AppRole for Phase 4 workers |
 
-AppRole role: `forge-agent` (short TTL). Worker login helper:
+AppRole role: `forge-agent` (15m login token; non-expiring `secret_id` on the host
+file). Worker login helper:
 [`factory/scripts/vault-agent-login.sh`](../../factory/scripts/vault-agent-login.sh).
 GitHub bot identity: [`factory/scripts/github-app-token.sh`](../../factory/scripts/github-app-token.sh)
 reads `secret/forge/agents/github` (`app_id`, `private_key`, optional `client_id` /

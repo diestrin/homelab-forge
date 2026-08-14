@@ -1,4 +1,5 @@
 # Default-deny ingress/egress; allow DNS + same-namespace + ingress controller paths.
+# forge-site also needs TCP/5432 to platform Postgres in forge-system (ADR-010).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -77,6 +78,29 @@ spec:
           port: 443
         - protocol: TCP
           port: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-postgres
+  namespace: forge-demo
+spec:
+  podSelector:
+    matchLabels:
+      app: forge-site
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: forge-system
+          podSelector:
+            matchLabels:
+              app: forge-postgres
+      ports:
+        - protocol: TCP
+          port: 5432
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

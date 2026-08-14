@@ -120,15 +120,9 @@ Workers load it via `factory/scripts/fetch-cursor-key.sh` after AppRole login.
 Create a Slack app with **Socket Mode** enabled (no Request URL / no Ingress). Register
 slash command `/forge`. Bot scopes include `chat:write`, `commands`, and channel history.
 
-Host env file must include control plane URL + API token:
-
-```bash
-FORGE_CONTROL_PLANE_URL=https://localpower.diegobarahona.com
-FORGE_API_TOKEN=…
-SLACK_BOT_TOKEN=xoxb-…
-SLACK_APP_TOKEN=xapp-…
-FORGE_SLACK_ALLOWLIST=U0…
-```
+The systemd unit loads `control-plane.env` (`FORGE_API_TOKEN` from Vault
+`secret/forge/control-plane`) and `slack-orchestrator.env` (bot tokens + allowlist).
+Do not copy the API token into the Slack env file — a stale duplicate caused 401s.
 
 Smoke-test: `/forge plan …` → plan PR (`planning`) → thread reply → `approve` → worker
 implements → human merges.

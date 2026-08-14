@@ -37,15 +37,25 @@ export async function POST(request: Request) {
         ? body.kinds.filter((k): k is JobKind => typeof k === "string")
         : ["implement"]) as JobKind[];
       const job = await claimJob(kinds.length ? kinds : ["implement"], workerId);
-      if (!job) {
+      if (job) {
+        const work = await claimWork(workerId, job.payload.taskId);
+        return NextResponse.json({
+          claimed: Boolean(work),
+          task: work?.task ?? null,
+          job,
+          source: "pg-boss",
+        });
+      }
+      // Queue empty or job already consumed — still claim a proposed task.
+      const work = await claimWork(workerId, taskId);
+      if (!work) {
         return NextResponse.json({ claimed: false, task: null, job: null });
       }
-      const work = await claimWork(workerId, job.payload.taskId);
       return NextResponse.json({
-        claimed: Boolean(work),
-        task: work?.task ?? null,
-        job,
-        source: "pg-boss",
+        claimed: true,
+        task: work.task,
+        job: null,
+        source: work.source,
       });
     }
 

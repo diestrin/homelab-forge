@@ -1,11 +1,14 @@
 id: TASK-009
-title: Redesign forge-site landing with frontend-design skill
+title: Redesign forge-site landing + PR preview runner in k3s
 goal: >
   Improve the public forge-site landing page (apps/forge-site) using the
   frontend-design Cursor skill: clearer concept explanation with images/icons,
-  a FAQ section, and interactive background effects. Worker implements after
-  plan approval; humans merge; Argo CD syncs the updated container image as
-  steady state.
+  a FAQ section, and interactive background effects. Install a GitHub Actions
+  self-hosted runner inside the k3s cluster as the CI bridge to the control plane
+  for ephemeral PR preview environments at
+  pr-{PR_NUMBER}.localpower.diegobarahona.com. Worker implements after plan
+  approval; humans merge steady-state manifests; Argo CD syncs forge-site and
+  runner manifests; preview deploy/teardown runs via in-cluster workflow jobs.
 acceptance_criteria:
 - Landing route at / in apps/forge-site is redesigned following the frontend-design
   Cursor skill (distinctive aesthetic, deliberate typography/palette, not generic
@@ -18,23 +21,38 @@ acceptance_criteria:
   accessible expand/collapse
 - Interactive background effect on the landing page (canvas, CSS, or lightweight
   animation) that respects prefers-reduced-motion and remains usable on mobile
+- GitHub Actions self-hosted runner deployed in k3s (manifests in repo under k8s/,
+  Argo-managed after merge); runner registration credentials from Vault/ESO only,
+  not committed to git; RBAC scoped to a preview namespace
+- PR preview workflow uses the in-cluster runner to deploy forge-site previews on open
+  PRs at https://pr-{PR_NUMBER}.localpower.diegobarahona.com with valid TLS; preview
+  resources are removed when the PR closes; steady-state forge-site on the root host
+  is unchanged
 - Dashboard route and API routes unchanged unless a shared layout tweak is required;
   no new secrets, tokens, Slack user IDs, or private ntfy topics in git
-- PR opened against main; factory/review/CHECKLIST.md completed; CI green (ci.yml,
-  forge-site-image.yml, gitleaks)
+- PR opened against main; factory/review/CHECKLIST.md completed; all CI checks green
+  on the PR head (ci.yml, forge-site-image.yml, gitleaks)
 - After human merge to main, Argo Application forge-site is Healthy/Synced and HTTPS
-  root path shows the redesigned landing with FAQ and background effect
-sandbox_profile: agent-cell
+  root path shows the redesigned landing; opening a test PR proves preview URL on
+  pr-{number}.localpower.diegobarahona.com before merge
+sandbox_profile: k8s-workload
 repo_path: .
 status: planning
 risk_level: medium
-budget_minutes: 60
+budget_minutes: 90
 branch: factory/task-009-let-s-update-forge-website-to-use-the-fr
 worker_hook: null
 notes: >
   Slack operator request (2026-08-14): update forge-website to use the
   frontend-design skill — add images/icons for concepts, a FAQ, and interactive
   background effects.
+
+  Operator feedback (2026-08-14): CI is failing on the implementation PR — fix
+  markdown lint (e.g. MD047 on .cursor/skills/frontend-design/SKILL.md) and
+  confirm all checks green on PR head before review. Plan in-cluster GitHub
+  Actions runner in k3s as the bridge for ephemeral env deploys; preview subdomain
+  pattern pr-{PR_NUMBER}.localpower.diegobarahona.com (wildcard DNS prerequisite
+  documented in plan).
 
   "forge-website" maps to the existing Next.js app at apps/forge-site (TASK-007),
   served on the public demo hostname via Argo-managed forge-site.
@@ -48,5 +66,6 @@ notes: >
   implementation (design plan pass, self-critique, reduced-motion/accessibility
   floor).
 
-  Deploy path: merge to main → CI publishes forge-site image → Argo CD syncs.
-  No worker kubectl apply to Argo-managed apps.
+  Steady-state deploy path: merge to main → CI publishes forge-site image → Argo CD
+  syncs forge-site and runner manifests. Ephemeral previews: in-cluster runner
+  workflow only. No worker kubectl apply to Argo-managed steady-state apps.

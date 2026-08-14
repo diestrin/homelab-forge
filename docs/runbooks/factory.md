@@ -55,6 +55,20 @@ printf 'ROLE_ID=%s\nSECRET_ID=%s\n' "$ROLE_ID" "$SECRET_ID" \
 chmod 600 /media/diestrin/data/secrets/vault/approle-forge-agent.env
 ```
 
+`secret_id_ttl` is unlimited (`0`); each login still mints a 15m agent token. If
+`vault-agent-login.sh` returns 403, Vault likely locked the role after failed
+logins (`core: login attempts exceeded, user is locked out`). Unlock, then
+regenerate the host `SECRET_ID` as above:
+
+```bash
+export VAULT_ADDR=http://127.0.0.1:8200
+export VAULT_TOKEN="$(cat /media/diestrin/data/secrets/vault/root.token)"
+ROLE_ID=$(vault read -field=role_id auth/approle/role/forge-agent/role-id)
+ACCESSOR=$(vault auth list -format=json | jq -r '."approle/".accessor')
+vault write -force "sys/locked-users/${ACCESSOR}/unlock/${ROLE_ID}"
+# then rewrite approle-forge-agent.env with a fresh SECRET_ID
+```
+
 ### 2. GitHub App credentials (bot identity — not a personal PAT)
 
 Workers mint a short-lived **installation access token** and push/open PRs as the App.
@@ -120,15 +134,9 @@ Workers load it via `factory/scripts/fetch-cursor-key.sh` after AppRole login.
 Create a Slack app with **Socket Mode** enabled (no Request URL / no Ingress). Register
 slash command `/forge`. Bot scopes include `chat:write`, `commands`, and channel history.
 
-Host env file must include control plane URL + API token:
-
-```bash
-FORGE_CONTROL_PLANE_URL=https://localpower.diegobarahona.com
-FORGE_API_TOKEN=…
-SLACK_BOT_TOKEN=xoxb-…
-SLACK_APP_TOKEN=xapp-…
-FORGE_SLACK_ALLOWLIST=U0…
-```
+The systemd unit loads `control-plane.env` (`FORGE_API_TOKEN` from Vault
+`secret/forge/control-plane`) and `slack-orchestrator.env` (bot tokens + allowlist).
+Do not copy the API token into the Slack env file — a stale duplicate caused 401s.
 
 Smoke-test: `/forge plan …` → plan PR (`planning`) → thread reply → `approve` → worker
 implements → human merges.

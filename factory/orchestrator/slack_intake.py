@@ -28,7 +28,8 @@ APPROVE_RE = re.compile(r"(?i)^\s*(approve|lgtm|/forge\s+approve)\s*$")
 HUMAN_ONLY_RE = re.compile(
     r"(?i)\b(ssh|ufw|vault\s+unseal|host-watch|force-?push|kubectl\s+apply)\b"
 )
-PLAN_CMD_RE = re.compile(r"(?i)^/forge\s+plan\s+(.+)$")
+# Slack slash payload: command="/forge", text="plan …" (the command name is not in text).
+PLAN_CMD_RE = re.compile(r"(?i)^(?:/forge\s+)?plan\s+(.+)$")
 
 
 def die(msg: str) -> None:
@@ -378,8 +379,6 @@ def main() -> None:
             return
         text = (command.get("text") or "").strip()
         channel = command.get("channel_id") or ""
-        # Slash responses use response_url; use say with thread_ts from command if in thread
-        ts = command.get("trigger_id")  # noqa: F841 — reserved for future slash threading
 
         if re.match(r"(?i)^approve\s*$", text):
             say(text="Use `approve` in the plan thread, not `/forge approve` at channel level.")
@@ -397,13 +396,18 @@ def main() -> None:
             return
 
         request_text = m.group(1).strip()
-        # Post ack message to get a thread ts
+        # say() uses chat.postMessage and returns SlackResponse (dict-like, not dict).
         result = say(text=f"Planning: _{request_text[:120]}_…")
-        thread_ts = result.get("ts") if isinstance(result, dict) else None
+        thread_ts = result.get("ts") if result is not None else None
         if not thread_ts:
             say(text="Failed to open plan thread")
             return
-        handle_new_plan(say, channel, thread_ts, request_text)
+        try:
+            handle_new_plan(say, channel, thread_ts, request_text)
+        except cp.ControlPlaneError as err:
+            say(text=f"Control plane error: {err}", thread_ts=thread_ts)
+        except Exception as err:
+            say(text=f"Plan failed: {err}", thread_ts=thread_ts)
 
     @app.event("message")
     def on_message(event, say):  # type: ignore[no-untyped-def]

@@ -63,11 +63,14 @@ vault policy write agent "$REPO_ROOT/k8s/platform/vault/policies/agent.hcl"
 
 echo "==> Enabling AppRole for agents"
 vault auth enable approle 2>/dev/null || true
+# secret_id_ttl=0: host file is long-lived (mode 600). Login tokens stay 15m.
+# Disable user lockout so a burst of failed worker logins cannot wedge the factory.
 vault write auth/approle/role/forge-agent \
   token_policies="agent" \
   token_ttl=15m \
   token_max_ttl=1h \
-  secret_id_ttl=24h
+  secret_id_ttl=0
+vault auth tune -user-lockout-disable=true approle/
 
 echo "==> Creating ESO token"
 ESO_TOKEN="$(vault token create -policy=platform -period=768h -orphan -format=json | jq -r .auth.client_token)"

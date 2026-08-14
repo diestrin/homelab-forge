@@ -20,7 +20,7 @@ import urllib.request
 try:
     import jwt
 except ImportError as e:  # pragma: no cover
-    print("PyJWT required (python3-jwt / PyJWT)", file=sys.stderr)
+    print("PyJWT required (pip install 'PyJWT[crypto]')", file=sys.stderr)
     raise SystemExit(2) from e
 
 
@@ -40,7 +40,15 @@ def make_jwt(issuer: str, private_key: str) -> str:
         "exp": now + 9 * 60,
         "iss": issuer,
     }
-    return jwt.encode(payload, private_key, algorithm="RS256")
+    try:
+        return jwt.encode(payload, private_key, algorithm="RS256")
+    except NotImplementedError as e:  # pragma: no cover
+        print(
+            "github-app-token: RS256 unavailable — install cryptography "
+            "(pip install 'PyJWT[crypto]')",
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from e
 
 
 def api_request(method: str, url: str, bearer: str, body: dict | None = None) -> dict:

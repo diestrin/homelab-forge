@@ -11,6 +11,7 @@
     jq
     kubectl
     kubernetes-helm
+    k9s
     ripgrep
     tree
     vault

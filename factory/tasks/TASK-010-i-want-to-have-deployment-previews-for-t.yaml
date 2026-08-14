@@ -1,0 +1,63 @@
+id: TASK-010
+title: Forge-site PR preview environments (local k8s)
+goal: 'Add ephemeral deployment previews for forge-site so opening or updating a PR
+  can spawn an isolated workload in the operator''s local k3s cluster, with automatic
+  teardown when the branch is deleted and manual create/delete controls via GitHub
+  Actions. An in-cluster GitHub Actions runner inside k3s acts as the communication
+  bridge to the control plane for preview deploy/cleanup jobs. Previews must not replace
+  or mutate the Argo-managed steady-state forge-site Application; merge to main → Argo
+  CD remains the only production deploy path (ADR-008).
+
+  '
+acceptance_criteria:
+- A self-hosted GitHub Actions runner is deployed inside the k3s cluster (documented
+  namespace, ServiceAccount, and RBAC scoped to preview namespaces only) and registered
+  with the repo/org; preview workflows use `runs-on` targeting that runner so deploy
+  jobs reach the API server without committing kubeconfig to git
+- Opening or synchronizing a PR that touches `apps/forge-site/**` (or documented preview
+  paths) triggers a GitHub Actions workflow that builds a branch/SHA-tagged container
+  image and deploys an isolated preview (Deployment, Service, Ingress) in a dedicated
+  preview namespace or clearly labeled non-Argo resources — without modifying the Argo
+  Application `forge-site` or its steady-state manifests under `k8s/apps/forge-site/`
+- Each active preview exposes a reachable HTTPS URL at `pr-<n>.localpower.diegobarahona.com`
+  (PR number in the subdomain) serving the PR-built forge-site image; PR comment or
+  workflow summary posts the preview URL
+- Deleting the PR branch (or closing the PR with branch delete) triggers cleanup that
+  removes the preview Deployment, Service, Ingress, and namespace-scoped secrets for
+  that preview
+- workflow_dispatch GitHub Actions workflows (or documented manual jobs) allow the
+  operator to create or tear down a preview for a given PR number or branch ref without
+  waiting for the automatic triggers
+- Runner registration token and any CI credentials live in GitHub Actions secrets or
+  Vault-backed CI credentials only — no kubeconfig, tokens, or real hostnames with
+  secrets committed to git; runbook documents the secret names / Vault paths for human
+  setup
+- CI green on the implementation PR (`ci.yml`, `forge-site-image.yml` or successor preview
+  workflow, gitleaks); `factory/review/CHECKLIST.md` completed before merge
+- After merge to main, steady-state forge-site still deploys only via Argo CD sync; no
+  preview resources remain for merged/closed PRs after cleanup runs
+sandbox_profile: k8s-workload
+repo_path: .
+status: proposed
+risk_level: high
+budget_minutes: 90
+branch: factory/task-010-i-want-to-have-deployment-previews-for-t
+worker_hook: null
+notes: 'Slack operator request (2026-08-14): deployment previews for forge-website —
+  send a PR to spawn a new deployment in local k8s; delete the branch to remove the
+  preview; manual create/delete control via GitHub Actions as well.
+
+  Slack iteration (2026-08-14): install a GitHub Actions runner inside the k3s cluster
+  as the communication bridge with the control plane when an ephemeral env is needed;
+  preview subdomain pattern pr-<n>.localpower.diegobarahona.com (not a separate preview
+  subdomain tree).
+
+  Slack thread will iterate this plan before approve → proposed. Do **not** auto-approve
+  into the worker queue without operator review — high-risk intent (ephemeral Ingress +
+  in-cluster CI runner with kubectl to preview namespaces; previews are outside Argo
+  steady-state). Worker must not kubectl apply to Argo-managed apps (`forge-site`,
+  `forge-root`, platform leaves). Preview manifests, runner manifests, and workflows
+  land via PR; runner registration and CI credentials via GitHub secrets / Vault
+  `secret/forge/ci/*` (human configures; never commit).
+
+  '

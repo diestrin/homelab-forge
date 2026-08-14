@@ -52,6 +52,16 @@ jobs:
           done
           exit "$status"
 
+      - name: Validate preview templates
+        run: |
+          set -euo pipefail
+          export PREVIEW_PR_NUMBER=42
+          export PREVIEW_IMAGE=ghcr.io/example/forge-site:pr-42-deadbeef
+          export PREVIEW_HOST=pr-42.localpower.diegobarahona.com
+          export PREVIEW_BRANCH=factory/example-branch
+          ./k8s/preview/forge-site/render.sh \
+            | ./kubeconform -strict -ignore-missing-schemas -summary
+
   factory-schema:
     name: factory task schema
     runs-on: ubuntu-latest

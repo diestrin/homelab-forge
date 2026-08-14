@@ -23,3 +23,10 @@ spec:
       ports:
         - protocol: TCP
           port: 5432
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              forge.homelab/preview: "true"
+      ports:
+        - protocol: TCP
+          port: 5432

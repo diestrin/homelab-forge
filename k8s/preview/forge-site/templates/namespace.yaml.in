@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: forge-preview-${PREVIEW_PR_NUMBER}
+  labels:
+    forge.homelab/preview: "true"
+    forge.homelab/preview-pr: "${PREVIEW_PR_NUMBER}"
+    forge.homelab/app: forge-site
+  annotations:
+    forge.homelab/preview-branch: "${PREVIEW_BRANCH}"

@@ -38,7 +38,7 @@ acceptance_criteria:
   preview resources remain for merged/closed PRs after cleanup runs
 sandbox_profile: k8s-workload
 repo_path: .
-status: planning
+status: proposed
 risk_level: high
 budget_minutes: 90
 branch: factory/task-010-i-want-to-have-deployment-previews-for-t

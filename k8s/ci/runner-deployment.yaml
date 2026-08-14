@@ -1,0 +1,54 @@
+# Pin runner version in k8s/bootstrap/VERSIONS.md when bumping.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-actions-runner
+  labels:
+    app: github-actions-runner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: github-actions-runner
+  template:
+    metadata:
+      labels:
+        app: github-actions-runner
+    spec:
+      serviceAccountName: forge-ci-runner
+      containers:
+        - name: runner
+          image: ghcr.io/actions/actions-runner:2.322.0
+          command: ["/bin/bash", "/etc/runner/entrypoint.sh"]
+          envFrom:
+            - configMapRef:
+                name: github-actions-runner-config
+          env:
+            - name: RUNNER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: github-runner-registration
+                  key: token
+          volumeMounts:
+            - name: runner-data
+              mountPath: /home/runner
+            - name: entrypoint
+              mountPath: /etc/runner
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+      volumes:
+        - name: runner-data
+          persistentVolumeClaim:
+            claimName: github-actions-runner-data
+        - name: entrypoint
+          configMap:
+            name: github-actions-runner-config
+            defaultMode: 0755
+            items:
+              - key: entrypoint.sh
+                path: entrypoint.sh

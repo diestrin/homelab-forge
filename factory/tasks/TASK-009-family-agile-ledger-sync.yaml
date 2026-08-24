@@ -1,0 +1,41 @@
+id: TASK-009
+title: Family Agile ledger sync (Notion <-> Habitica)
+goal: 'Deploy a scheduled two-way sync between the Family Agile Notion workspace and
+  Habitica as k3s CronJobs. Notion stays the system of record for the household chore
+  ledger, which is the children''s real allowance; Habitica is the interface and the
+  game layer only. Replaces a review-gated design that penalised by default and died
+  when the reviewer fell behind.
+
+  '
+branch: factory/task-009-family-agile-ledger-sync
+status: planning
+assignee_agent: null
+sandbox_profile: devcontainer
+repo_path: .
+risk_level: high
+budget_minutes: 240
+acceptance_criteria:
+- ADR-011 records Notion as monetary SoT and Habitica gold as non-monetary play currency
+- rules.py is pure and unit-tested; cycle floor, daily cap and payday calendar covered
+- Money-bearing values are plain Notion fields, never formulas or rollups (API returns null)
+- Only mandatory work can subtract; optional work and to-dos left undone are neutral
+- Habitica per-task damage off for everything except mandatory dailies
+- Habitica API v3 only; X-Client header set; 30s pacing; /api/v3/cron never called
+- Jobs idempotent - transitions out of Pendiente only, so re-runs cannot double-credit
+- Rows with Origen = Manual are never overwritten by any job
+- close-cycle exits without writing on a Friday that is not a payday
+- Secrets in Vault via ExternalSecret; no credential in git; gitleaks green
+- Namespace carries default-deny plus DNS and egress HTTPS NetworkPolicies
+- kustomize build + kubeconform clean; pytest green in CI
+- One full cycle run with DRY_RUN=1 reconciled against a manual estimate before any payment
+notes: 'Diagnostic that motivated this (Notion snapshot 2026-08-24): 2,240 penalty rows
+  vs 1,223 credit rows in the old chore ledger; only 1 of 5 members active after
+  2026-08-06; zero rows dated in the future; four free-text person fields in one table,
+  none a relation. Design constraint: the system must keep working on days nobody
+  reviews it. Depends on refactor phases creating Rutinas and Corte quincenal and adding
+  the Miembro relation to Agenda - CronJobs stay suspended until ConfigMap placeholders
+  are filled. Habitica Group Plan evaluated and deferred.
+
+  '
+github_project_item_id: null
+updated_at: '2026-08-24T00:00:00Z'

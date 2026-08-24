@@ -1,0 +1,19 @@
+# Non-secret configuration. Notion database ids are not credentials: without a
+# token they grant nothing.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: family-agile-sync-config
+  namespace: family-agile
+data:
+  NOTION_DB_MIEMBROS: "22566772-4688-80d5-9c41-000b55258ed5"
+  NOTION_DB_AGENDA: "1f366772-4688-80f8-8b96-000bf2c8dbf7"
+  NOTION_DB_TAREAS: "1cb827bb-59a2-469e-9803-56a416b2e7b7"
+  # Created during refactor phase 2 / 5 — fill in before enabling the CronJobs.
+  NOTION_DB_RUTINAS: "REPLACE_ME"
+  NOTION_DB_CORTE: "REPLACE_ME"
+  # Any payday Friday; the 14-day calendar extends both ways from here.
+  CYCLE_ANCHOR_FRIDAY: "REPLACE_ME"
+  # Habitica requires "<owner UserID>-<tool name>" on every request.
+  HABITICA_CLIENT: "REPLACE_ME-family-agile-sync"
+  HABITICA_REQUEST_DELAY: "30"

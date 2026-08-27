@@ -9,6 +9,7 @@ the relation. See ADR-32.
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from datetime import date
@@ -64,13 +65,45 @@ class Routine:
     paga: bool
     difficulty: Difficulty | None
     recurrencia: str | None
-    habitica_task_id: str | None
+    dias: list[str]
+    #: Habitica mirror task id per member page id. A Personal routine with two
+    #: members, or a Pool routine with three eligibles, has that many mirrors.
+    habitica_task_ids: dict[str, str]
     habitica_tipo: str | None
     retired: bool
 
     @property
     def is_pool(self) -> bool:
         return self.modalidad == s.MODALIDAD_POOL
+
+    def targets(self) -> list[str]:
+        """Member page ids this routine should be mirrored to in Habitica.
+
+        Pool: every eligible member (whoever finishes first claims the single
+        occurrence). Personal: every listed member, each with an independent
+        occurrence of their own (ADR-28).
+        """
+        return list(self.elegibles_ids if self.is_pool else self.member_ids)
+
+
+def _parse_task_ids(raw: str) -> dict[str, str]:
+    """Read the per-member mirror map stored as JSON in 'Habitica Task ID'.
+
+    Tolerates an empty cell and legacy single-string values (from before the
+    map existed); either yields an empty map, so the next push recreates the
+    mirrors cleanly.
+    """
+    raw = (raw or "").strip()
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        log.warning("Habitica Task ID is not the expected JSON map: %r", raw[:80])
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {str(k): str(v) for k, v in data.items() if k and v}
 
 
 def _difficulty(value: str | None) -> Difficulty | None:
@@ -102,7 +135,10 @@ def load_routines(client: n.NotionClient, database_id: str) -> dict[str, Routine
             paga=n.read_checkbox(page, s.Rutinas.PAGA),
             difficulty=_difficulty(n.read_select(page, s.Rutinas.DIFICULTAD)),
             recurrencia=n.read_select(page, s.Rutinas.RECURRENCIA),
-            habitica_task_id=n.read_text(page, s.Rutinas.HABITICA_TASK_ID) or None,
+            dias=n.read_multi_select(page, s.Rutinas.DIAS),
+            habitica_task_ids=_parse_task_ids(
+                n.read_text(page, s.Rutinas.HABITICA_TASK_ID)
+            ),
             habitica_tipo=n.read_select(page, s.Rutinas.HABITICA_TIPO),
             retired=n.read_date(page, s.Rutinas.VIGENTE_HASTA) is not None,
         )

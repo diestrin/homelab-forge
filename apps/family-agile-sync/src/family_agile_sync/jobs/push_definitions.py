@@ -3,80 +3,120 @@
 Notion owns definitions: which routines exist, whose they are, whether they are
 mandatory, and what they are worth. Habitica only ever mirrors them.
 
-Damage is switched on for mandatory dailies and off for everything else. That
-one flag is the difference between the system that failed (silent penalties by
-default) and this one.
+A routine is mirrored once per target member: every listed Miembro for a
+Personal routine (ADR-28), every Elegible for a Pool routine (ADR-33). The
+per-member mirror ids are stored back on the routine as a JSON map in
+'Habitica Task ID'.
+
+Damage is switched on only for mandatory, non-pool dailies. Optional work is a
+Habit (never subtracts) and a shared Pool task must not be able to penalise
+five accounts for one undone chore.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 
 from .. import notion as n
 from .. import schema as s
 from ..config import Config, habitica_credentials
 from ..habitica import HabiticaClient, build_task_payload
-from ..repo import load_members
+from ..repo import Member, load_members, load_routines
+from ..rules import Kind
 
 log = logging.getLogger(__name__)
 
 
+def _client_for(
+    member: Member,
+    cache: dict[str, HabiticaClient | None],
+    config: Config,
+) -> HabiticaClient | None:
+    if member.page_id not in cache:
+        creds = habitica_credentials(member.name)
+        cache[member.page_id] = (
+            HabiticaClient(*creds, config.habitica_client, config.request_delay_seconds)
+            if creds
+            else None
+        )
+    return cache[member.page_id]
+
+
 def run(config: Config) -> int:
     client = n.NotionClient(config.notion_token)
-    members = {m.page_id: m for m in load_members(client, config.db_miembros) if m.active}
+    members = {m.page_id: m for m in load_members(client, config.db_miembros)}
+    routines = load_routines(client, config.db_rutinas)
 
+    clients: dict[str, HabiticaClient | None] = {}
     pushed = 0
-    clients: dict[str, HabiticaClient] = {}
 
-    for page in client.query(config.db_rutinas):
-        vigente_hasta = n.read_date(page, s.Rutinas.VIGENTE_HASTA)
-        if vigente_hasta is not None:
-            continue  # retired routine: leave Habitica alone
-
-        member_ids = n.read_relation_ids(page, s.Rutinas.MIEMBRO)
-        member = next((members[mid] for mid in member_ids if mid in members), None)
-        if member is None:
+    for routine in routines.values():
+        if routine.retired:
+            continue
+        targets = routine.targets()
+        if not targets:
+            log.info("routine %r has no members/eligibles; skipped", routine.name)
             continue
 
-        if member.name not in clients:
-            credentials = habitica_credentials(member.name)
-            if not credentials:
-                continue
-            clients[member.name] = HabiticaClient(
-                *credentials, config.habitica_client, config.request_delay_seconds
-            )
-        habitica = clients[member.name]
-
-        title = n.read_title(page, s.Rutinas.NOMBRE)
-        kind = n.read_select(page, s.Rutinas.TIPO) or "Opcional"
-        difficulty = n.read_select(page, s.Rutinas.DIFICULTAD) or "Fácil"
-        habitica_type = n.read_select(page, s.Rutinas.HABITICA_TIPO) or (
-            "daily" if kind == "Mandatory" else "habit"
+        habitica_type = routine.habitica_tipo or (
+            "daily" if routine.kind is Kind.MANDATORY else "habit"
         )
-        days = n.read_multi_select(page, s.Rutinas.DIAS)
-        existing_id = n.read_text(page, s.Rutinas.HABITICA_TASK_ID) or None
-
+        applies_damage = (
+            routine.kind is Kind.MANDATORY
+            and habitica_type == "daily"
+            and not routine.is_pool
+        )
         payload = build_task_payload(
-            title=title,
+            title=routine.name,
             habitica_type=habitica_type,
-            difficulty=difficulty,
-            days=days,
+            difficulty=routine.difficulty.value if routine.difficulty else "Fácil",
+            days=routine.dias,
             notes="Family Agile — no editar manualmente",
-            applies_damage=(kind == "Mandatory" and habitica_type == "daily"),
+            applies_damage=applies_damage,
         )
 
-        if config.dry_run:
-            log.info("[dry-run] %s: %s %s", member.name, habitica_type, title)
-            pushed += 1
-            continue
+        ids = dict(routine.habitica_task_ids)  # member page id -> habitica task id
 
-        if existing_id:
-            habitica.update_task(existing_id, payload)
-        else:
-            created = habitica.create_task(payload)
+        for member_id in targets:
+            member = members.get(member_id)
+            if member is None or not member.active:
+                continue
+            habitica = _client_for(member, clients, config)
+            if habitica is None:
+                log.info("%s has no Habitica credentials; mirror skipped", member.name)
+                continue
+            if config.dry_run:
+                log.info(
+                    "[dry-run] %s <- %s (%s%s)",
+                    member.name, routine.name, habitica_type,
+                    ", pool" if routine.is_pool else "",
+                )
+                continue
+            if member_id in ids:
+                habitica.update_task(ids[member_id], payload)
+            else:
+                created = habitica.create_task(payload)
+                ids[member_id] = created.get("id", "")
+
+        # A member removed from Miembro/Elegibles should lose their mirror.
+        for stale_id in [mid for mid in ids if mid not in targets]:
+            member = members.get(stale_id)
+            habitica = _client_for(member, clients, config) if member else None
+            if habitica and not config.dry_run:
+                try:
+                    habitica.delete_task(ids[stale_id])
+                except Exception:
+                    log.warning(
+                        "could not delete stale mirror for %s / %s",
+                        routine.name, stale_id,
+                    )
+            ids.pop(stale_id, None)
+
+        if not config.dry_run and ids != routine.habitica_task_ids:
             client.update_page(
-                page["id"],
-                {s.Rutinas.HABITICA_TASK_ID: n.w_text(created.get("id", ""))},
+                routine.page_id,
+                {s.Rutinas.HABITICA_TASK_ID: n.w_text(json.dumps(ids))},
             )
         pushed += 1
 

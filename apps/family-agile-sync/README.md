@@ -59,6 +59,15 @@ ledger entry.
 anything happens; jobs only transition `Pendiente → Hecha/Fallada`. Re-running
 after a crash cannot double-credit.
 
+**One routine, one mirror per person.** `push-definitions` creates a Habitica
+task for every listed `Miembro` (Personal, ADR-28) or every `Elegible` (Pool,
+ADR-33) and stores the ids as a `{member_id: task_id}` JSON map in the routine's
+`Habitica Task ID`. For a Pool routine the single Agenda occurrence stays
+unclaimed; the first eligible to tick it claims the row and the losing mirrors
+are deleted so no one else can be credited. Two ticks inside the same hourly
+window: the first one processed wins, the second keeps its Habitica gold and
+earns nothing.
+
 **`close-cycle` fires weekly but settles biweekly.** Cron cannot express "every
 second Friday", so the job checks the payday calendar itself and exits quietly
 on off-Fridays. Set `FORCE_CLOSE=1` only for the parallel dry run.

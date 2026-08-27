@@ -1,30 +1,37 @@
-"""Tests for the Agenda -> Rutina join and the Paga gate (ADR-32, ADR-15).
+"""Tests for the Agenda -> Rutina join, the Paga gate and mirror targeting
+(ADR-32, ADR-15, ADR-28, ADR-33).
 
-These exercise the pure conversion in repo.to_events; the Notion client is
-never touched.
+These exercise pure functions in repo; the Notion client is never touched.
 """
 
 from datetime import date
 
-from family_agile_sync.repo import AgendaRow, Routine, to_events
+from family_agile_sync.repo import (
+    AgendaRow,
+    Routine,
+    _parse_task_ids,
+    to_events,
+)
 from family_agile_sync.rules import Difficulty, Kind, Outcome
 
 D = date(2026, 8, 24)
 
 
 def routine(page_id="r1", *, paga=True, difficulty=Difficulty.INTERMEDIA,
-            kind=Kind.MANDATORY, modalidad="Personal"):
+            kind=Kind.MANDATORY, modalidad="Personal", member_ids=("m1",),
+            elegibles_ids=(), habitica_task_ids=None):
     return Routine(
         page_id=page_id,
         name=f"routine {page_id}",
-        member_ids=["m1"],
-        elegibles_ids=[],
+        member_ids=list(member_ids),
+        elegibles_ids=list(elegibles_ids),
         kind=kind,
         modalidad=modalidad,
         paga=paga,
         difficulty=difficulty,
         recurrencia="Semanal",
-        habitica_task_id=f"h-{page_id}",
+        dias=["L", "K", "V"],
+        habitica_task_ids=habitica_task_ids or {},
         habitica_tipo="daily",
         retired=False,
     )
@@ -92,3 +99,37 @@ def test_is_manual_flag():
 def test_is_pool_flag():
     assert routine(modalidad="Pool").is_pool
     assert not routine(modalidad="Personal").is_pool
+
+
+# --- mirror targeting (ADR-28 personal multi, ADR-33 pool) ------------------
+
+
+def test_personal_routine_targets_every_listed_member():
+    r = routine(modalidad="Personal", member_ids=("m1", "m2", "m3"),
+                elegibles_ids=("m9",))
+    assert r.targets() == ["m1", "m2", "m3"]
+
+
+def test_pool_routine_targets_the_eligibles_not_the_members():
+    r = routine(modalidad="Pool", member_ids=(), elegibles_ids=("m1", "m2"))
+    assert r.targets() == ["m1", "m2"]
+
+
+def test_routine_with_no_targets_is_empty():
+    assert routine(modalidad="Personal", member_ids=()).targets() == []
+    assert routine(modalidad="Pool", member_ids=("m1",), elegibles_ids=()).targets() == []
+
+
+# --- Habitica Task ID map parsing -----------------------------------------
+
+
+def test_parse_task_ids_reads_the_json_map():
+    assert _parse_task_ids('{"m1": "abc", "m2": "def"}') == {"m1": "abc", "m2": "def"}
+
+
+def test_parse_task_ids_tolerates_empty_and_legacy_values():
+    assert _parse_task_ids("") == {}
+    assert _parse_task_ids("   ") == {}
+    assert _parse_task_ids("legacy-single-id") == {}  # pre-map value -> recreated
+    assert _parse_task_ids('["a", "b"]') == {}
+    assert _parse_task_ids('{"m1": "abc", "": "x", "m2": ""}') == {"m1": "abc"}

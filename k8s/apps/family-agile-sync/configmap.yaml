@@ -1,19 +1,25 @@
 # Non-secret configuration. Notion database ids are not credentials: without a
 # token they grant nothing.
+#
+# These are the classic *database* ids (the id in the database page URL), which
+# is what /v1/databases/{id}/query expects under Notion-Version 2022-06-28 --
+# NOT the data-source / collection id shown in some views. Verified 2026-08-26.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: family-agile-sync-config
   namespace: family-agile
 data:
-  NOTION_DB_MIEMBROS: "22566772-4688-80d5-9c41-000b55258ed5"
-  NOTION_DB_AGENDA: "1f366772-4688-80f8-8b96-000bf2c8dbf7"
-  NOTION_DB_TAREAS: "1cb827bb-59a2-469e-9803-56a416b2e7b7"
-  # Created during refactor phase 2 / 5 — fill in before enabling the CronJobs.
-  NOTION_DB_RUTINAS: "REPLACE_ME"
+  NOTION_DB_MIEMBROS: "225667724688805283bee4ed7bdfe3b5"
+  NOTION_DB_RUTINAS: "0a6f241192614f63ae84bf9b83687144"
+  NOTION_DB_AGENDA: "1f36677246888026b113f11dffecdda7"
+  NOTION_DB_TAREAS: "e968d41b12f44f9c8b6b7b75e04161a9"
+  # Base "Corte quincenal" aún no existe (tarea de Fase 5). Rellenar al crearla.
   NOTION_DB_CORTE: "REPLACE_ME"
   # Any payday Friday; the 14-day calendar extends both ways from here.
+  # Blocked on the pending decision "viernes ancla del calendario de ciclos".
   CYCLE_ANCHOR_FRIDAY: "REPLACE_ME"
   # Habitica requires "<owner UserID>-<tool name>" on every request.
+  # Use the owner account's (Diego/Fer) Habitica User ID.
   HABITICA_CLIENT: "REPLACE_ME-family-agile-sync"
   HABITICA_REQUEST_DELAY: "30"

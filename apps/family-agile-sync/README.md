@@ -48,6 +48,13 @@ work. If the sync is down for a full day, that day may be unrecoverable.
 overwritten. That is the escape hatch when the sync misses something — not the
 normal path.
 
+**Definitions come from the catalogue, not the occurrence.** An Agenda row
+stores only the result (points applied, colones, who/when). Difficulty,
+mandatory-vs-optional, whether it pays (`Paga`) and the Habitica mirror id are
+read from the linked `Rutina` (or `Tarea`) at sync time — see ADR-32. A row
+that resolves to no routine, or to one with `Paga` unchecked, produces no
+ledger entry.
+
 **Idempotent by construction.** Agenda rows already exist as `Pendiente` before
 anything happens; jobs only transition `Pendiente → Hecha/Fallada`. Re-running
 after a crash cannot double-credit.

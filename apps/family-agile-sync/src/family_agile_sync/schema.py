@@ -17,11 +17,16 @@ class Miembros:
 class Rutinas:
     NOMBRE = "Nombre"
     MIEMBRO = "Miembro"
+    ELEGIBLES = "Elegibles"
     TIPO = "Tipo"
+    MODALIDAD = "Modalidad"
+    PAGA = "Paga"
     DIFICULTAD = "Dificultad"
     PUNTOS_GANA = "Puntos gana"
     PUNTOS_FALLA = "Puntos falla"
+    RECURRENCIA = "Recurrencia"
     DIAS = "Días"
+    DIA_DEL_MES = "Día del mes"
     HORA = "Hora"
     CATEGORIA = "Categoría"
     HABITICA_TASK_ID = "Habitica Task ID"
@@ -33,6 +38,8 @@ class Rutinas:
 class Agenda:
     TITULO = "Título"
     MIEMBRO = "Miembro"
+    # Dificultad, Tipo, Paga and Habitica Task ID are NOT columns on Agenda:
+    # the sync reads them from the linked Rutina / Tarea (see ADR-32).
     RUTINA = "Rutina"
     TAREA = "Tarea"
     ESTADO = "Estado"
@@ -42,7 +49,6 @@ class Agenda:
     MARCADO_EN = "Marcado en"
     MARCADO_POR = "Marcado por"
     ORIGEN = "Origen"
-    HABITICA_TASK_ID = "Habitica Task ID"
     AJUSTADO = "Ajustado"
     MOTIVO = "Motivo del ajuste"
 
@@ -84,3 +90,6 @@ ESTADO_FALLADA = "Fallada"
 
 ORIGEN_HABITICA = "Habitica"
 ORIGEN_MANUAL = "Manual"
+
+MODALIDAD_PERSONAL = "Personal"
+MODALIDAD_POOL = "Pool"

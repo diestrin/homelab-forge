@@ -11,7 +11,7 @@ import pytest
 from family_agile_sync import schema as s
 from family_agile_sync.config import Config
 from family_agile_sync.jobs import pull_completions as job
-from family_agile_sync.repo import AgendaRow, Member, Routine
+from family_agile_sync.repo import AgendaRow, Member, Routine, Tarea
 from family_agile_sync.rules import Difficulty, Kind
 
 TODAY = date(2026, 8, 24)
@@ -49,12 +49,24 @@ def _row(pid="a1", *, members, rutina, estado=s.ESTADO_PENDIENTE):
     )
 
 
+def _tarea(pid="t1", *, member, habitica_task_id, difficulty=Difficulty.INTERMEDIA,
+           estado=None, aprobada=True):
+    return Tarea(
+        page_id=pid, title=pid, member_id=member, difficulty=difficulty,
+        aprobada=aprobada, habitica_task_id=habitica_task_id, estado=estado,
+    )
+
+
 class FakeNotion:
     def __init__(self):
         self.updates = []
+        self.created = []
 
     def update_page(self, page_id, props):
         self.updates.append((page_id, props))
+
+    def create_page(self, database_id, props):
+        self.created.append((database_id, props))
 
 
 class FakeHabitica:
@@ -74,13 +86,14 @@ def wired(monkeypatch):
     """Returns a helper that installs fakes for a given scenario and runs the job."""
     state = {}
 
-    def go(members, routines, rows, completed_by_member):
+    def go(members, routines, rows, completed_by_member, tareas=()):
         notion = FakeNotion()
         habiticas = {name: FakeHabitica(completed_by_member.get(name, []))
                      for name in {m.name for m in members}}
 
         monkeypatch.setattr(job, "load_members", lambda *_: list(members))
         monkeypatch.setattr(job, "load_routines", lambda *_: {r.page_id: r for r in routines})
+        monkeypatch.setattr(job, "load_tareas", lambda *_: {t.page_id: t for t in tareas})
         monkeypatch.setattr(job, "load_agenda", lambda *a, **k: list(rows))
         monkeypatch.setattr(job.n, "NotionClient", lambda *_a, **_k: notion)
         monkeypatch.setattr(job, "habitica_credentials", lambda name: (name, "key"))
@@ -145,3 +158,40 @@ def test_nothing_completed_writes_nothing(wired):
     st = wired([m1], [r], [_row(members=["m1"], rutina="R")], {"M1": []})
     assert st["result"] == 0
     assert st["notion"].updates == []
+
+
+# --- Tareas: the Agenda row doesn't pre-exist, it's created on completion --
+
+
+def test_tarea_completion_creates_agenda_row_and_marks_tarea_hecha(wired):
+    m1 = _member("m1")
+    t = _tarea(member="m1", habitica_task_id="td1", difficulty=Difficulty.INTERMEDIA)
+    st = wired([m1], [], [], {"M1": ["td1"]}, tareas=[t])
+
+    assert st["result"] == 1
+    assert len(st["notion"].created) == 1
+    db_id, props = st["notion"].created[0]
+    assert db_id == "a"
+    assert props[s.Agenda.TAREA] == {"relation": [{"id": "t1"}]}
+    assert props[s.Agenda.MIEMBRO] == {"relation": [{"id": "m1"}]}
+    assert props[s.Agenda.PUNTOS_APLICADOS] == {"number": 10}
+    assert props[s.Agenda.COLONES] == {"number": 100}
+    assert st["notion"].updates == [
+        ("t1", {s.Tareas.ESTADO: {"select": {"name": s.ESTADO_HECHA}}})
+    ]
+
+
+def test_tarea_already_hecha_is_not_recredited(wired):
+    m1 = _member("m1")
+    t = _tarea(member="m1", habitica_task_id="td1", estado=s.ESTADO_HECHA)
+    st = wired([m1], [], [], {"M1": ["td1"]}, tareas=[t])
+    assert st["result"] == 0
+    assert st["notion"].created == []
+
+
+def test_tarea_for_a_different_member_is_not_credited(wired):
+    m1, m2 = _member("m1"), _member("m2")
+    t = _tarea(member="m2", habitica_task_id="td1")
+    st = wired([m1, m2], [], [], {"M1": ["td1"], "M2": []}, tareas=[t])
+    assert st["result"] == 0
+    assert st["notion"].created == []

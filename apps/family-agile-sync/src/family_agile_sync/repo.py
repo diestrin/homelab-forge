@@ -71,6 +71,9 @@ class Routine:
     habitica_task_ids: dict[str, str]
     habitica_tipo: str | None
     retired: bool
+    #: Anchor for Quincenal/Mensual/Trimestral (ADR-26); unused for Semanal.
+    vigente_desde: date | None = None
+    dia_del_mes: int | None = None
 
     @property
     def is_pool(self) -> bool:
@@ -141,8 +144,54 @@ def load_routines(client: n.NotionClient, database_id: str) -> dict[str, Routine
             ),
             habitica_tipo=n.read_select(page, s.Rutinas.HABITICA_TIPO),
             retired=n.read_date(page, s.Rutinas.VIGENTE_HASTA) is not None,
+            vigente_desde=n.read_date(page, s.Rutinas.VIGENTE_DESDE),
+            dia_del_mes=_dia_del_mes(n.read_number(page, s.Rutinas.DIA_DEL_MES)),
         )
     return routines
+
+
+def _dia_del_mes(value: float | None) -> int | None:
+    return int(value) if value else None
+
+
+# --------------------------------------------------------------------------
+# Tareas catalogue -- one-off To-Dos (ADR: Tareas anti-inflation rule). The
+# definition side of a punctual, non-recurring occurrence, same role Rutina
+# plays for recurring ones.
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Tarea:
+    page_id: str
+    title: str
+    member_id: str | None
+    difficulty: Difficulty | None
+    aprobada: bool
+    habitica_task_id: str | None
+    estado: str | None
+
+
+def load_tareas(client: n.NotionClient, database_id: str) -> dict[str, Tarea]:
+    """Every to-do in the catalogue, indexed by its Notion page id.
+
+    Only a Tarea with a Dificultad and ``Aprobada = sí`` ever pays -- the
+    anti-inflation rule: a To-Do created straight in Habitica, with no mirror
+    row here, is worth gold but zero colones.
+    """
+    tareas: dict[str, Tarea] = {}
+    for page in client.query(database_id):
+        member_ids = n.read_relation_ids(page, s.Tareas.MIEMBRO)
+        tareas[page["id"]] = Tarea(
+            page_id=page["id"],
+            title=n.read_title(page, s.Tareas.TITULO),
+            member_id=member_ids[0] if member_ids else None,
+            difficulty=_difficulty(n.read_select(page, s.Tareas.DIFICULTAD)),
+            aprobada=n.read_checkbox(page, s.Tareas.APROBADA),
+            habitica_task_id=n.read_text(page, s.Tareas.HABITICA_TASK_ID) or None,
+            estado=n.read_select(page, s.Tareas.ESTADO),
+        )
+    return tareas
 
 
 # --------------------------------------------------------------------------
@@ -173,6 +222,13 @@ class AgendaRow:
         for rid in self.rutina_ids:
             if rid in routines:
                 return routines[rid]
+        return None
+
+    def tarea(self, tareas: dict[str, Tarea]) -> Tarea | None:
+        """The linked Tarea, if any of this row's relations resolves."""
+        for tid in self.tarea_ids:
+            if tid in tareas:
+                return tareas[tid]
         return None
 
 
@@ -208,47 +264,77 @@ def load_agenda(
     return rows
 
 
+def _outcome(row: AgendaRow) -> Outcome:
+    return (
+        Outcome(row.estado)
+        if row.estado in {o.value for o in Outcome}
+        else Outcome.PENDING
+    )
+
+
+def _adjusted_points(row: AgendaRow) -> int | None:
+    return (
+        int(row.points_applied)
+        if row.adjusted and row.points_applied is not None
+        else None
+    )
+
+
 def to_events(
-    rows: list[AgendaRow], routines: dict[str, Routine]
+    rows: list[AgendaRow],
+    routines: dict[str, Routine],
+    tareas: dict[str, Tarea] | None = None,
 ) -> list[Event]:
     """Convert Agenda rows into the pure Event objects the rules operate on.
 
-    A row only becomes a ledger event when it resolves to a routine that pays
-    (``Paga``) and carries a difficulty and kind. Everything else -- unlinked
-    rows, routines that exist only for the day board -- is worth nothing and is
-    dropped here rather than reaching the money rules.
+    A row becomes a ledger event by resolving to either a Rutina that pays
+    (``Paga``) or a Tarea that is ``Aprobada`` with a Dificultad set -- the
+    anti-inflation rule for To-Dos. Everything else -- unlinked rows, routines
+    or tareas that don't pay -- is worth nothing and is dropped here rather
+    than reaching the money rules.
     """
+    tareas = tareas or {}
     events: list[Event] = []
     for row in rows:
         if row.day is None:
             continue
+
         routine = row.routine(routines)
-        if routine is None:
-            log.warning("agenda row %r has no known routine; ignored", row.title)
-            continue
-        if not routine.paga:
-            continue
-        if routine.difficulty is None or routine.kind is None:
-            log.warning(
-                "routine %r lacks difficulty/kind; row %r ignored",
-                routine.name,
-                row.title,
+        if routine is not None:
+            if not routine.paga:
+                continue
+            if routine.difficulty is None or routine.kind is None:
+                log.warning(
+                    "routine %r lacks difficulty/kind; row %r ignored",
+                    routine.name,
+                    row.title,
+                )
+                continue
+            events.append(
+                Event(
+                    day=row.day,
+                    difficulty=routine.difficulty,
+                    kind=routine.kind,
+                    outcome=_outcome(row),
+                    adjusted_points=_adjusted_points(row),
+                )
             )
             continue
-        outcome = (
-            Outcome(row.estado)
-            if row.estado in {o.value for o in Outcome}
-            else Outcome.PENDING
-        )
-        events.append(
-            Event(
-                day=row.day,
-                difficulty=routine.difficulty,
-                kind=routine.kind,
-                outcome=outcome,
-                adjusted_points=int(row.points_applied)
-                if row.adjusted and row.points_applied is not None
-                else None,
+
+        tarea = row.tarea(tareas)
+        if tarea is not None:
+            if not tarea.aprobada or tarea.difficulty is None:
+                continue
+            events.append(
+                Event(
+                    day=row.day,
+                    difficulty=tarea.difficulty,
+                    kind=Kind.TODO,
+                    outcome=_outcome(row),
+                    adjusted_points=_adjusted_points(row),
+                )
             )
-        )
+            continue
+
+        log.warning("agenda row %r has no known routine or tarea; ignored", row.title)
     return events

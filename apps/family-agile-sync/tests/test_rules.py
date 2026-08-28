@@ -7,9 +7,12 @@ from family_agile_sync.rules import (
     Event,
     Kind,
     Outcome,
+    Recurrencia,
     close_cycle,
+    current_todo_occurrence,
     cycle_bounds,
     cycle_label,
+    is_non_weekly,
     points_failed,
     settle_day,
     signed_points,
@@ -205,3 +208,76 @@ def test_anchor_must_be_a_friday():
 
 def test_cycle_label_is_stable_across_the_period():
     assert cycle_label(date(2026, 8, 20), ANCHOR) == cycle_label(ANCHOR, ANCHOR)
+
+
+# --- non-weekly recurrence (ADR-26) ----------------------------------------
+
+
+def test_is_non_weekly():
+    assert not is_non_weekly(Recurrencia.SEMANAL.value)
+    assert not is_non_weekly(None)
+    assert not is_non_weekly("garbage")
+    for value in (Recurrencia.QUINCENAL, Recurrencia.MENSUAL, Recurrencia.TRIMESTRAL):
+        assert is_non_weekly(value.value)
+
+
+def test_quincenal_steps_in_14_day_blocks_from_the_anchor():
+    anchor = date(2026, 8, 1)
+    assert current_todo_occurrence("Quincenal", anchor, None, anchor) == anchor
+    assert current_todo_occurrence(
+        "Quincenal", anchor, None, date(2026, 8, 10)
+    ) == anchor  # still inside the first block
+    assert current_todo_occurrence(
+        "Quincenal", anchor, None, date(2026, 8, 15)
+    ) == date(2026, 8, 15)  # exactly the next block
+    assert current_todo_occurrence(
+        "Quincenal", anchor, None, date(2026, 8, 28)
+    ) == date(2026, 8, 15)
+
+
+def test_quincenal_never_precedes_vigente_desde():
+    anchor = date(2026, 8, 15)
+    assert current_todo_occurrence(
+        "Quincenal", anchor, None, date(2026, 8, 1)
+    ) == anchor
+
+
+def test_mensual_lands_on_dia_del_mes_each_month():
+    anchor = date(2026, 6, 1)
+    assert current_todo_occurrence("Mensual", anchor, 15, date(2026, 8, 20)) == date(
+        2026, 8, 15
+    )
+    assert current_todo_occurrence("Mensual", anchor, 15, date(2026, 9, 1)) == date(
+        2026, 9, 15
+    )
+
+
+def test_mensual_clamps_dia_del_mes_to_the_days_the_month_has():
+    anchor = date(2026, 1, 1)
+    assert current_todo_occurrence("Mensual", anchor, 31, date(2026, 2, 10)) == date(
+        2026, 2, 28
+    )  # February has no 31st
+
+
+def test_trimestral_steps_by_three_months_from_the_anchor_month():
+    anchor = date(2026, 1, 10)
+    assert current_todo_occurrence(
+        "Trimestral", anchor, 10, date(2026, 3, 1)
+    ) == date(2026, 1, 10)  # still inside the first quarter
+    assert current_todo_occurrence(
+        "Trimestral", anchor, 10, date(2026, 4, 10)
+    ) == date(2026, 4, 10)
+    assert current_todo_occurrence(
+        "Trimestral", anchor, 10, date(2026, 8, 30)
+    ) == date(2026, 7, 10)
+
+
+def test_mensual_and_trimestral_require_dia_del_mes():
+    with pytest.raises(ValueError):
+        current_todo_occurrence("Mensual", date(2026, 1, 1), None, date(2026, 1, 1))
+
+
+def test_semanal_is_rejected():
+    """Semanal stays a Habitica daily; this function is only for the other three."""
+    with pytest.raises(ValueError):
+        current_todo_occurrence("Semanal", date(2026, 1, 1), None, date(2026, 1, 1))

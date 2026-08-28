@@ -9,6 +9,7 @@ from datetime import date
 from family_agile_sync.repo import (
     AgendaRow,
     Routine,
+    Tarea,
     _parse_task_ids,
     to_events,
 )
@@ -37,19 +38,31 @@ def routine(page_id="r1", *, paga=True, difficulty=Difficulty.INTERMEDIA,
     )
 
 
-def row(page_id="a1", *, rutina_ids=("r1",), estado="Hecha", day=D,
+def row(page_id="a1", *, rutina_ids=("r1",), tarea_ids=(), estado="Hecha", day=D,
         origen=None, points_applied=None, adjusted=False):
     return AgendaRow(
         page_id=page_id,
         title=f"row {page_id}",
         member_ids=["m1"],
         rutina_ids=list(rutina_ids),
-        tarea_ids=[],
+        tarea_ids=list(tarea_ids),
         estado=estado,
         day=day,
         origen=origen,
         points_applied=points_applied,
         adjusted=adjusted,
+    )
+
+
+def tarea(page_id="t1", *, difficulty=Difficulty.INTERMEDIA, aprobada=True):
+    return Tarea(
+        page_id=page_id,
+        title=f"tarea {page_id}",
+        member_id="m1",
+        difficulty=difficulty,
+        aprobada=aprobada,
+        habitica_task_id="hd1",
+        estado=None,
     )
 
 
@@ -88,6 +101,56 @@ def test_adjusted_points_override_the_table():
     r = row(estado="Fallada", adjusted=True, points_applied=0)
     events = to_events([r], {"r1": routine(kind=Kind.MANDATORY)})
     assert events[0].points == 0  # would be -5 from the table
+
+
+# --- Agenda -> Tarea join: To-Dos, anti-inflation rule -------------------
+
+
+def test_row_linked_to_an_approved_tarea_becomes_a_todo_event():
+    tareas = {"t1": tarea(difficulty=Difficulty.COMPLEJA)}
+    events = to_events(
+        [row(rutina_ids=(), tarea_ids=("t1",), estado="Hecha")], {}, tareas
+    )
+    assert len(events) == 1
+    assert events[0].kind is Kind.TODO
+    assert events[0].difficulty is Difficulty.COMPLEJA
+    assert events[0].points == 25
+
+
+def test_unapproved_tarea_is_dropped():
+    tareas = {"t1": tarea(aprobada=False)}
+    assert to_events([row(rutina_ids=(), tarea_ids=("t1",))], {}, tareas) == []
+
+
+def test_tarea_without_difficulty_is_dropped():
+    tareas = {"t1": tarea(difficulty=None)}
+    assert to_events([row(rutina_ids=(), tarea_ids=("t1",))], {}, tareas) == []
+
+
+def test_todo_never_subtracts_even_when_failed():
+    """Kind.TODO: absence is neutral, same rule as rules.points_failed."""
+    tareas = {"t1": tarea()}
+    events = to_events(
+        [row(rutina_ids=(), tarea_ids=("t1",), estado="Fallada")], {}, tareas
+    )
+    assert events[0].points == 0
+
+
+def test_row_with_neither_routine_nor_tarea_is_dropped():
+    assert to_events([row(rutina_ids=(), tarea_ids=())], {}, {}) == []
+    assert to_events([row(rutina_ids=(), tarea_ids=("ghost",))], {}, {}) == []
+
+
+def test_routine_takes_precedence_when_a_row_somehow_links_both():
+    tareas = {"t1": tarea(difficulty=Difficulty.FACIL)}
+    events = to_events(
+        [row(rutina_ids=("r1",), tarea_ids=("t1",), estado="Hecha")],
+        {"r1": routine(difficulty=Difficulty.COMPLEJA)},
+        tareas,
+    )
+    assert len(events) == 1
+    assert events[0].kind is Kind.MANDATORY
+    assert events[0].difficulty is Difficulty.COMPLEJA
 
 
 def test_is_manual_flag():

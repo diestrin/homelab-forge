@@ -28,8 +28,8 @@ from .. import notion as n
 from .. import schema as s
 from ..config import Config, habitica_credentials
 from ..habitica import HabiticaClient
-from ..repo import Member, Routine, load_agenda, load_members, load_routines
-from ..rules import signed_points
+from ..repo import Member, Routine, Tarea, load_agenda, load_members, load_routines, load_tareas
+from ..rules import points_earned, signed_points
 
 log = logging.getLogger(__name__)
 
@@ -59,11 +59,32 @@ def _hecha_props(member: Member, points: int, colones: int, *, claim: bool) -> d
     return props
 
 
+def _tarea_agenda_props(
+    tarea: Tarea, member: Member, today: date, points: int, colones: int
+) -> dict:
+    """A Tarea has no pre-existing Pendiente row (unlike Rutinas): completing
+    it in Habitica creates the Agenda row on the spot -- steps 4-5 of the
+    Tareas flow."""
+    return {
+        s.Agenda.TITULO: n.w_title(tarea.title),
+        s.Agenda.MIEMBRO: n.w_relation([member.page_id]),
+        s.Agenda.TAREA: n.w_relation([tarea.page_id]),
+        s.Agenda.ESTADO: n.w_status(s.ESTADO_HECHA),
+        s.Agenda.INICIA: n.w_date(today),
+        s.Agenda.PUNTOS_APLICADOS: n.w_number(points),
+        s.Agenda.COLONES: n.w_number(colones),
+        s.Agenda.MARCADO_EN: n.w_date(datetime.now(TZ)),
+        s.Agenda.MARCADO_POR: n.w_relation([member.page_id]),
+        s.Agenda.ORIGEN: n.w_select(s.ORIGEN_HABITICA),
+    }
+
+
 def run(config: Config, today: date | None = None) -> int:
     today = today or date.today()
     client = n.NotionClient(config.notion_token)
     members = {m.page_id: m for m in load_members(client, config.db_miembros)}
     routines = load_routines(client, config.db_rutinas)
+    tareas = load_tareas(client, config.db_tareas)
     rows = load_agenda(client, config.db_agenda, today, today)
 
     # habitica task id -> (routine, page id of the member that mirror belongs to)
@@ -106,7 +127,14 @@ def run(config: Config, today: date | None = None) -> int:
             for tid in completed_ids
             if tid in mirror and mirror[tid][1] == member.page_id
         }
-        if not hit_routines:
+        # Tareas whose mirror To-Do this member ticked, not yet credited.
+        hit_tareas = [
+            t for t in tareas.values()
+            if t.member_id == member.page_id
+            and t.habitica_task_id in completed_ids
+            and t.estado != s.ESTADO_HECHA
+        ]
+        if not hit_routines and not hit_tareas:
             continue
 
         for routine in hit_routines.values():
@@ -189,6 +217,28 @@ def run(config: Config, today: date | None = None) -> int:
                 )
             updated += 1
             log.info("%s: %s -> Hecha (%+d pts)", member.name, row.title, points)
+
+        # To-Dos: no pre-existing Pendiente row -- the Agenda row is created
+        # here, on completion (steps 4-5 of the Tareas flow).
+        for tarea in hit_tareas:
+            points = points_earned(tarea.difficulty) if tarea.difficulty else 0
+            colones = points * member.colones_por_punto
+
+            if config.dry_run:
+                log.info(
+                    "[dry-run] %s: %s -> Hecha (%+d pts, %d colones)",
+                    member.name, tarea.title, points, colones,
+                )
+            else:
+                client.create_page(
+                    config.db_agenda,
+                    _tarea_agenda_props(tarea, member, today, points, colones),
+                )
+                client.update_page(
+                    tarea.page_id, {s.Tareas.ESTADO: n.w_select(s.ESTADO_HECHA)}
+                )
+            updated += 1
+            log.info("%s: to-do %r -> Hecha (%+d pts)", member.name, tarea.title, points)
 
     log.info("pull-completions finished: %d rows updated", updated)
     return updated

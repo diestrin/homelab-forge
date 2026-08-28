@@ -68,6 +68,24 @@ are deleted so no one else can be credited. Two ticks inside the same hourly
 window: the first one processed wins, the second keeps its Habitica gold and
 earns nothing.
 
+**To-Dos have no pre-existing Agenda row.** Unlike a Rutina occurrence (which
+already exists as `Pendiente` before anything happens), a Tarea only gets its
+Agenda row once its Habitica mirror is completed -- `pull-completions` creates
+it on the spot, links it back via `Tarea`, and marks the Tarea `Estado =
+Hecha` in the same pass. A Tarea only pays once: `push-definitions` mirrors it
+exactly once (a `Habitica Task ID` already set is never re-pushed), and
+`pull-completions` skips a Tarea whose `Estado` is already `Hecha`.
+
+**Non-weekly Rutinas (ADR-26) mirror as a `todo`, recreated by the sync
+itself.** Quincenal/Mensual/Trimestral routines don't get a repeating Habitica
+Daily -- `push-definitions` computes the current period's date from
+`Vigente desde` (+ `Día del mes` for Mensual/Trimestral) and creates a fresh
+To-Do once the previous one is gone or completed. **An open, uncompleted
+mirror is left alone even after its period has technically rolled over** --
+the sync never deletes or duplicates a child's in-progress work. A Mandatory
+routine missing its window still gets `Puntos falla` through the normal
+Agenda/`reconcile` path, independent of what the Habitica mirror looks like.
+
 **`close-cycle` fires weekly but settles biweekly.** Cron cannot express "every
 second Friday", so the job checks the payday calendar itself and exits quietly
 on off-Fridays. Set `FORCE_CLOSE=1` only for the parallel dry run.

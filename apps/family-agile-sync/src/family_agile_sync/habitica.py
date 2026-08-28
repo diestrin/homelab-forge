@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import date
 from typing import Any
 
 import requests
@@ -121,12 +122,17 @@ def build_task_payload(
     days: list[str] | None = None,
     notes: str = "",
     applies_damage: bool = True,
+    due_date: date | None = None,
 ) -> dict:
-    """Translate a Family Agile routine into a Habitica task.
+    """Translate a Family Agile routine or tarea into a Habitica task.
 
     ``applies_damage`` maps to Habitica's per-task damage confirmation. It is
     switched off for everything except mandatory dailies: optional work must
     never be able to cost a child money for simply not happening.
+
+    ``due_date`` only applies to ``habitica_type == "todo"``: a Tareas To-Do
+    uses it for ``Fecha límite``, and a non-weekly Rutina (ADR-26) uses it for
+    the occurrence date the sync itself computed.
     """
     priority = {"Fácil": 1, "Intermedia": 1.5, "Compleja": 2}.get(difficulty, 1)
     payload: dict[str, Any] = {
@@ -144,6 +150,8 @@ def build_task_payload(
     if habitica_type == "habit":
         payload["up"] = True
         payload["down"] = False  # optional work only ever adds
+    if habitica_type == "todo" and due_date is not None:
+        payload["date"] = due_date.isoformat()
     return payload
 
 

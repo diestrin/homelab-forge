@@ -15,7 +15,7 @@ from datetime import date
 from .. import notion as n
 from .. import schema as s
 from ..config import Config
-from ..repo import load_agenda, load_members, load_routines, to_events
+from ..repo import load_agenda, load_members, load_routines, load_tareas, to_events
 from ..rules import close_cycle as settle
 from ..rules import cycle_bounds, cycle_label
 
@@ -38,6 +38,7 @@ def run(config: Config, today: date | None = None) -> int:
     client = n.NotionClient(config.notion_token)
     members = [m for m in load_members(client, config.db_miembros) if m.active]
     routines = load_routines(client, config.db_rutinas)
+    tareas = load_tareas(client, config.db_tareas)
     rows = load_agenda(client, config.db_agenda, start, end)
 
     written = 0
@@ -47,7 +48,7 @@ def run(config: Config, today: date | None = None) -> int:
             continue
 
         summary = settle(
-            to_events(member_rows, routines), start, end, member.colones_por_punto
+            to_events(member_rows, routines, tareas), start, end, member.colones_por_punto
         )
 
         log.info(

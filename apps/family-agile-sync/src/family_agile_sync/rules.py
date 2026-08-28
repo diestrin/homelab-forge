@@ -10,6 +10,7 @@ value the ledger needs is computed here and written back as a plain number.
 
 from __future__ import annotations
 
+import calendar
 import math
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -251,3 +252,77 @@ def cycle_label(day: date, anchor_friday: date) -> str:
     year_start = date(end.year, 1, 1)
     index = ((end - year_start).days // CYCLE_DAYS) + 1
     return f"{end.year}-C{index:02d}"
+
+
+# --------------------------------------------------------------------------
+# Non-weekly recurrence (ADR-26)
+# --------------------------------------------------------------------------
+#
+# A Rutina with Recurrencia = Quincenal/Mensual/Trimestral is mirrored in
+# Habitica as a `todo`, never as a repeating Daily: Habitica's native
+# repetition isn't confirmed to cover arbitrary month intervals, so the sync
+# computes the date itself and recreates the mirror when a period turns over.
+# This is the pure calendar math; the mirror's create/leave-alone lifecycle
+# lives in jobs/push_definitions.py.
+
+
+class Recurrencia(str, Enum):
+    SEMANAL = "Semanal"
+    QUINCENAL = "Quincenal"
+    MENSUAL = "Mensual"
+    TRIMESTRAL = "Trimestral"
+
+
+NON_WEEKLY = {Recurrencia.QUINCENAL, Recurrencia.MENSUAL, Recurrencia.TRIMESTRAL}
+
+
+def is_non_weekly(recurrencia: str | None) -> bool:
+    try:
+        return recurrencia is not None and Recurrencia(recurrencia) in NON_WEEKLY
+    except ValueError:
+        return False
+
+
+def _add_months(day: date, months: int) -> date:
+    total = day.year * 12 + (day.month - 1) + months
+    year, month = divmod(total, 12)
+    month += 1
+    clamped_day = min(day.day, calendar.monthrange(year, month)[1])
+    return date(year, month, clamped_day)
+
+
+def current_todo_occurrence(
+    recurrencia: str,
+    vigente_desde: date,
+    dia_del_mes: int | None,
+    today: date,
+) -> date:
+    """The scheduled date of the period containing ``today``.
+
+    This is the date the Habitica To-Do mirror should carry: the start of
+    whichever Quincenal/Mensual/Trimestral window ``today`` falls in.
+    ``vigente_desde`` anchors the calendar (see ADR-26) -- for Quincenal it
+    counts in 14-day steps from that date; for Mensual/Trimestral it anchors
+    the starting month and steps by 1 or 3 months, landing on ``dia_del_mes``
+    (clamped to the days that month actually has). A period never starts
+    before ``vigente_desde`` itself.
+    """
+    recurrencia_ = Recurrencia(recurrencia)
+    if recurrencia_ not in NON_WEEKLY:
+        raise ValueError(f"{recurrencia!r} is not a non-weekly recurrence")
+
+    if recurrencia_ is Recurrencia.QUINCENAL:
+        steps = max(0, (today - vigente_desde).days // 14)
+        return vigente_desde + timedelta(days=steps * 14)
+
+    if dia_del_mes is None:
+        raise ValueError(f"{recurrencia_.value} requires Día del mes")
+
+    step_months = 1 if recurrencia_ is Recurrencia.MENSUAL else 3
+    months_elapsed = (today.year - vigente_desde.year) * 12 + (
+        today.month - vigente_desde.month
+    )
+    steps = max(0, months_elapsed // step_months)
+    target = _add_months(vigente_desde, steps * step_months)
+    clamped_day = min(dia_del_mes, calendar.monthrange(target.year, target.month)[1])
+    return date(target.year, target.month, clamped_day)

@@ -43,7 +43,7 @@ const components = [
   {
     name: "Agentic factory",
     detail:
-      "Git-backed tasks, Slack plan gate, Cursor SDK workers, and human review before anything reaches production.",
+      "forge-site is the Slack↔agent hub: thin intake, durable runs, one pinned PR per task, human review, then Argo.",
     Icon: IconFactory,
   },
   {
@@ -57,22 +57,22 @@ const components = [
 const factorySteps = [
   {
     label: "Intake",
-    text: "You describe work in Slack. The orchestrator drafts a plan PR with a task YAML and scope.",
+    text: "You describe work in Slack. A thin Socket Mode client posts intent to forge-site; the host never runs the LLM, git, or gh.",
     Icon: IconIntake,
   },
   {
     label: "Plan gate",
-    text: "Thread feedback refines the plan. Explicit approval moves the task from planning to proposed.",
+    text: "The control plane enqueues a plan job and pins one branch and one PR. Thread feedback updates that PR — it does not open a second one.",
     Icon: IconPlanGate,
   },
   {
     label: "Worker",
-    text: "A sandboxed worker claims the task, implements in a git worktree, and opens or updates the PR.",
+    text: "A sandboxed worker claims the job, implements on the pinned branch, lints locally, and pushes the same PR. Concurrent tasks use separate worktrees.",
     Icon: IconWorker,
   },
   {
     label: "Review",
-    text: "Humans run the review checklist. Production-facing changes never auto-merge.",
+    text: "CI is watched until green. Humans run the checklist and merge. Agents never merge, even when checks pass.",
     Icon: IconReview,
   },
   {
@@ -91,17 +91,27 @@ const faqItems = [
   {
     question: "How does the factory pipeline work?",
     answer:
-      "Work starts as a git-backed task YAML. The orchestrator drafts a plan PR; after operator approval a worker implements in an isolated worktree and opens an implementation PR. Humans review against the checklist, merge to main, and Argo CD deploys cluster changes. Code history on main is the audit trail.",
+      "Slack records intent. forge-site (the control plane) creates the task, pins a branch, and enqueues plan or implement jobs. A sandboxed Cursor SDK worker pushes the one PR for that task. After human merge, Argo CD syncs cluster state from main. Git on main is the code audit trail; Postgres holds runtime status and redacted agent transcripts.",
+  },
+  {
+    question: "What is the control plane?",
+    answer:
+      "This site. forge-site is the communication hub between Slack and agents: HTTP API, pg-boss jobs, outbound Slack notify, and the dashboard. The host Slack process is only a Socket Mode client. You can inspect agent runs and transcripts from the task dashboard — they are not fire-and-forget.",
+  },
+  {
+    question: "Why only one PR per task?",
+    answer:
+      "A planner that rewrites the branch name used to open a second PR for the same work. The control plane pins the branch and PR URL on first open; later plan and implement pushes update that PR. Duplicate plan PRs are a bug, not a workflow.",
   },
   {
     question: "How do operators interact with the factory?",
     answer:
-      "Primary intake is Slack: describe the goal in a thread, iterate on the plan, and approve with an explicit command when ready. The task dashboard on this site shows live status, messages, and PR links. Operators do not kubectl apply Argo-managed apps for steady-state deploys.",
+      "Primary intake is Slack (/forge plan, thread replies, explicit approve). The dashboard shows live status, messages, PR links, and agent transcripts. Operators do not kubectl apply Argo-managed apps for steady-state deploys.",
   },
   {
     question: "What is automated vs what needs a human?",
     answer:
-      "Agents draft plans, implement code, and run CI — but plan approval, PR review, and merge to main stay human-gated. Argo CD automates cluster convergence after merge; it does not bypass review. Secrets never land in git; Vault is the system of record.",
+      "Agents draft plans, implement code, lint before push, and watch CI until green — but plan approval, PR review, and merge to main stay human-gated. Argo CD automates cluster convergence after merge; it does not bypass review. Secrets never land in git; Vault is the system of record.",
   },
   {
     question: "How does Argo CD fit into deploys?",
@@ -111,7 +121,7 @@ const faqItems = [
   {
     question: "Is this safe to expose on the public internet?",
     answer:
-      "The repo and this landing page are public by design. SSH is hardened, UFW default-denies, host-watch alerts on unexpected listeners, and admin surfaces stay off WAN. It is a homelab demo — not multi-tenant production — but the posture is documented and intentional.",
+      "The repo and this landing page are public by design. SSH is hardened, UFW default-denies, host-watch alerts on unexpected listeners, and admin surfaces stay off WAN. Transcripts on the dashboard are redacted before they leave the host. It is a homelab demo — not multi-tenant production — but the posture is documented and intentional.",
   },
 ];
 
@@ -132,7 +142,8 @@ export default function Home() {
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-forge-steel">
             homelab-forge turns a home workstation into a declarative platform: remote
             development, sandboxed agents, local Kubernetes, Vault-backed secrets, and a
-            git-native factory pipeline — public, review-gated, and GitOps-deployed.
+            factory whose public dashboard is the Slack↔agent hub — review-gated and
+            GitOps-deployed.
           </p>
           <div className="mt-10 flex flex-wrap gap-4">
             <Link
@@ -192,8 +203,8 @@ export default function Home() {
               From Slack thread to running cluster
             </h2>
             <p className="mt-3 text-forge-smoke">
-              Every change follows the same path: plan, approve, implement, review, merge,
-              sync. Order matters — each stage gates the next.
+              Every change follows the same path: intake, plan, implement, review, merge,
+              sync. The control plane pins one PR; order still gates the next stage.
             </p>
           </div>
           <ol className="relative space-y-0">

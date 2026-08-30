@@ -24,7 +24,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Forge Software Factory",
   description:
-    "Open-source homelab platform: declarative host, k3s, Vault, Argo CD, and an agentic software factory.",
+    "Open-source homelab platform: declarative host, k3s, Vault, Argo CD, and a factory control plane that is the Slack↔agent hub.",
 };
 
 export default function RootLayout({

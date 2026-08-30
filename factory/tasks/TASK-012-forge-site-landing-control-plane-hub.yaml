@@ -1,0 +1,53 @@
+id: TASK-012
+title: Redesign forge-site landing for the control-plane hub
+goal: >
+  Refresh the public forge-site landing page (apps/forge-site, route /) using the
+  frontend-design Cursor skill, and tell the ADR-011 story: forge-site is the
+  Slack↔agent communication hub. Keep the existing pinned PR (#19, branch
+  factory/task-009) — do not open a duplicate. PR preview runner work stays on
+  TASK-010 / PR #18. Dashboard routes stay functionally unchanged except shared
+  header/layout required by the landing type system.
+acceptance_criteria:
+- >-
+  Landing route at / in apps/forge-site is redesigned following the frontend-design
+  Cursor skill (distinctive aesthetic, deliberate typography/palette, not generic
+  AI-template defaults)
+- Forge components and factory workflow sections use in-repo SVG icons
+- >-
+  FAQ has at least five Q&A entries covering Forge, the ADR-011 control-plane hub
+  (thin Slack intake, one pinned PR, inspectable agent runs, lint+CI watch),
+  and what stays human-gated
+- Interactive background respects prefers-reduced-motion and stays usable on mobile
+- >-
+  Factory pipeline copy matches ADR-011 (thin Slack intake, forge-site owns
+  tasks/jobs/notify, workers push the pinned branch, merge remains human)
+- TASK-009 Family Agile YAML and plan on main are not overwritten
+- Dashboard and API routes unchanged except shared layout/header; no secrets in git
+- >-
+  This PR (#19) is the only landing PR; CI green (ci.yml, forge-site-image.yml, gitleaks)
+- >-
+  After human merge to main, Argo Application forge-site is Healthy/Synced and HTTPS
+  root path shows the redesigned landing
+sandbox_profile: agent-cell
+repo_path: .
+status: review
+risk_level: medium
+budget_minutes: 90
+branch: factory/task-009
+worker_hook: null
+artifacts:
+- kind: pr
+  path: artifacts/TASK-012-pr.txt
+  url: https://github.com/diestrin/homelab-forge/pull/19
+notes: >
+  Original landing work was TASK-009 on PRs #16 then #19 (the duplicate-PR
+  failure that motivated ADR-011). TASK-009 on main is now Family Agile
+  ledger sync. ADR-011 says keep the first open PR and pinned branch:
+  continue on factory/task-009 / #19 as TASK-012 rather than opening #N+1.
+
+  Preview environments remain TASK-010 (PR #18). Do not fold the in-cluster
+  runner into this landing PR.
+
+  Operator request (2026-08-30): update PR #19 in the context of ADR-011.
+updated_at: '2026-08-30T17:30:00Z'
+github_project_item_id: null

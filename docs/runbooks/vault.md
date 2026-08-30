@@ -39,7 +39,7 @@ Phase 3 verified: `vault operator seal` then unseal with the stored key succeeds
 
 | Policy | Path | Use |
 | --- | --- | --- |
-| `platform` | `secret/data/forge/*` | Operators / ESO |
+| `platform` | `secret/data/forge/*`, `secret/data/family-agile/*` | Operators / ESO |
 | `ci-deployer` | `secret/data/forge/ci/*` | CI read |
 | `agent` | `secret/data/forge/agents/*` | AppRole for Phase 4 workers |
 
@@ -63,8 +63,19 @@ Slack + Cursor SDK (ADR-009):
 
 ## ESO
 
-`ClusterSecretStore/vault-backend` uses Secret `forge-system/vault-eso-token`.
-Example: `ExternalSecret` → `forge-system/ntfy` from `secret/forge/ntfy`.
+`ClusterSecretStore/vault-backend` uses Secret `forge-system/vault-eso-token`
+(token created with the `platform` policy). Example: `ExternalSecret` →
+`forge-system/ntfy` from `secret/forge/ntfy`. Family Agile sync reads
+`secret/family-agile/notion` (`token`) and `secret/family-agile/habitica`
+(`<member>_user` and `<member>_key` for each account).
+
+After unseal, if the store stays `Ready=False` with "Vault is sealed", restart
+the operator so it re-validates:
+
+```bash
+kubectl -n default rollout restart deploy/external-secrets
+kubectl get clustersecretstore vault-backend   # Ready True
+```
 
 ## Bootstrap migration
 

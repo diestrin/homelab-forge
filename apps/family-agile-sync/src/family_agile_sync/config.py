@@ -18,6 +18,11 @@ def _require(name: str) -> str:
     return value
 
 
+def _optional(name: str) -> str | None:
+    value = os.environ.get(name, "").strip()
+    return value or None
+
+
 def _int(name: str, default: int) -> int:
     raw = os.environ.get(name, "").strip()
     return int(raw) if raw else default
@@ -30,7 +35,6 @@ class Config:
     db_rutinas: str
     db_agenda: str
     db_tareas: str
-    db_corte: str
     anchor_friday: date
     habitica_client: str
     """X-Client header value: '<owner UserID>-<tool name>', required by Habitica."""
@@ -38,6 +42,12 @@ class Config:
     dry_run: bool
     force_close: bool
     """Bypass the payday guard in close-cycle; for the parallel dry run only."""
+    db_corte: str | None = None
+    """Corte quincenal database id. Only close-cycle needs it, and only on an
+    actual payday -- the other three jobs never touch it, and Fase 5 (which
+    creates this base) hasn't started. Left unset, push-definitions,
+    pull-completions and reconcile run normally; close-cycle raises clearly
+    the first time it actually needs to write a Corte row."""
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -47,7 +57,7 @@ class Config:
             db_rutinas=_require("NOTION_DB_RUTINAS"),
             db_agenda=_require("NOTION_DB_AGENDA"),
             db_tareas=_require("NOTION_DB_TAREAS"),
-            db_corte=_require("NOTION_DB_CORTE"),
+            db_corte=_optional("NOTION_DB_CORTE"),
             anchor_friday=date.fromisoformat(_require("CYCLE_ANCHOR_FRIDAY")),
             habitica_client=_require("HABITICA_CLIENT"),
             request_delay_seconds=_int("HABITICA_REQUEST_DELAY", 30),

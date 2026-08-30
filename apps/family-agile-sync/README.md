@@ -104,7 +104,8 @@ Secrets (ADR-007).
 | Variable | Source | Notes |
 | --- | --- | --- |
 | `NOTION_TOKEN` | Vault | Internal integration token; each database must be shared with it |
-| `NOTION_DB_*` | ConfigMap | Database ids for Miembros, Rutinas, Agenda, Tareas, Corte |
+| `NOTION_DB_*` | ConfigMap | Database ids for Miembros, Rutinas, Agenda, Tareas -- required |
+| `NOTION_DB_CORTE` | ConfigMap | Corte quincenal database id -- **optional**; Fase 5 hasn't created that base yet. `push-definitions`, `pull-completions` and `reconcile` don't touch it. `close-cycle` only needs it on an actual payday Friday, and raises a clear error there if it's unset -- it doesn't block startup |
 | `CYCLE_ANCHOR_FRIDAY` | ConfigMap | Any payday Friday, `YYYY-MM-DD` |
 | `HABITICA_CLIENT` | ConfigMap | `<owner UserID>-family-agile-sync`, required on every request |
 | `HABITICA_REQUEST_DELAY` | ConfigMap | Seconds between calls, default 30 |

@@ -35,6 +35,13 @@ def run(config: Config, today: date | None = None) -> int:
                  today, label, end)
         return 0
 
+    if not config.db_corte:
+        raise RuntimeError(
+            "NOTION_DB_CORTE is not set -- Corte quincenal doesn't exist yet "
+            "(Fase 5). close-cycle cannot write a summary without it; the "
+            "other three jobs don't need this value and are unaffected."
+        )
+
     client = n.NotionClient(config.notion_token)
     members = [m for m in load_members(client, config.db_miembros) if m.active]
     routines = load_routines(client, config.db_rutinas)

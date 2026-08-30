@@ -1,0 +1,142 @@
+id: TASK-011
+title: Factory control-plane hub, CI watch, and agent observability
+goal: |
+  Make the forge-site control plane the coordinator between Slack and Cursor
+  SDK agents, with inspectable runs, one stable PR per task, sandbox-aware
+  agents, local lint plus CI-watch until green, and concurrent tasks.
+  Failures flow LLM → control plane → Slack. Slack intake only records
+  intent; it does not run the LLM itself.
+acceptance_criteria:
+- >-
+  Cursor SDK plan and implement runs persist a redacted conversation transcript
+  (assistant + tool calls/results, no secrets) in Postgres, keyed to the task
+  and to a durable run/job id; GET API returns that transcript
+- >-
+  forge-site task detail (/dashboard/[id]) lists runs/jobs for the task and
+  lets the operator inspect the SDK transcript for a selected run
+- >-
+  Slack plan iteration reuses the first plan PR and pinned tasks.branch;
+  gh pr create must not open a second PR when slack_threads.pr_url or a
+  pr artifact already exists (regression of TASK-009 #16 then #19 and
+  TASK-010 #18 then #20)
+- >-
+  Planner YAML must not rewrite branch after the first worktree/PR; worker
+  and orchestrator always push to the DB-pinned branch
+- >-
+  After approve, Slack thread replies are stored on the task via the control
+  plane and are not treated as a fresh plan-PR cycle; implementation
+  requests do not spawn a host planner that tries to sudo/apt/implement
+- >-
+  Orchestrator and worker prompts include an explicit runtime card covering
+  role (plan-only vs implement), sandbox_profile, no TTY, no host sudo/apt,
+  and ADR-002 restrictions; failed shell/SDK/sudo attempts are reported to
+  the control plane and posted to the Slack thread by the control plane
+- >-
+  systemd journal for orchestrator and worker logs each Slack/API action,
+  task id, pinned branch, PR URL, SDK run id, subprocess command+exit
+  (redacted), and failures; runbook documents journalctl plus artifact log
+  paths
+- >-
+  Before every git push that updates a factory PR, the worker (and planner
+  when it commits markdown/YAML) runs the same in-repo linters CI runs,
+  at least markdownlint-cli2 per .markdownlint-cli2.yaml plus any other
+  local checks documented in ci.yml that can run without GitHub-hosted
+  secrets; lint failures are fixed in the same run, not left for the
+  operator to notice on GitHub
+- >-
+  After a plan or implement push, the control plane (or a claimed watch
+  job it dispatches) polls GitHub checks on that PR until they are green
+  or budget/timeout expires; on failure it enqueues a fix run against the
+  same branch/PR, then re-watches; the operator is not required to paste
+  "CI is failing" into Slack; Slack is notified only when green, when
+  retries are exhausted, or when human merge/review is the next step
+- >-
+  Slack Socket Mode is a thin intake client: slash and thread events POST
+  to the control plane API; the control plane creates/updates the task,
+  enqueues plan/implement/watch/notify jobs, and is the only path that
+  posts agent progress and failures back to Slack (ADR-010 notify queue);
+  host slack_intake.py must not call Cursor SDK, git, or gh directly
+- >-
+  Multiple tasks run at the same time: control plane allows concurrent
+  in_progress tasks; host workers claim and execute more than one job
+  (separate worktrees, documented FORGE_WORKER_CONCURRENCY); worker
+  PLAYBOOK "one task at a time" is updated; two Slack /forge plan requests
+  must not serialize behind a single SDK process
+- >-
+  ADR-010 is amended (or a short follow-on ADR) so forge-site is the
+  communication bridge; Slack bot token for outbound posts comes from
+  Vault via ExternalSecret, never git
+- >-
+  CI green on this implementation PR; factory/review/CHECKLIST.md
+  completed; merge remains human-gated (ADR-008)
+sandbox_profile: agent-cell
+repo_path: .
+status: proposed
+risk_level: high
+budget_minutes: 180
+branch: factory/task-011-factory-agent-observability-pr-identity
+worker_hook: null
+notes: |
+  Operator request (2026-08-14, Cursor chat) after live factory failures,
+  then plan amendments the same day.
+
+  SDK logs: today Agent.prompt() is fire-and-forget (cursor_plan.py,
+  cursor_implement.py) so there is no conversation to inspect. Switch to
+  Agent.create + run.messages() / run.stream() (Cursor SDK skill) and
+  persist events. Prefer a durable agent_runs table plus events/transcript
+  JSONB over stuffing megabytes into task_messages.body; expose GET
+  /api/v1/tasks/{id}/runs and GET /api/v1/runs/{id} (names flexible).
+  Redact tokens, env, Slack user ids. pg-boss jobs are completed on claim
+  today — do not rely on pg-boss history as the operator-visible job.
+
+  Duplicate PRs: open_or_update_plan_pr always gh pr create --head using
+  doc.branch after the planner runs. The SDK rewrote branch from
+  factory/task-009-let-s-update-forge-website-to-use-the-fr (#16) to
+  factory/task-009 (#19), and from
+  factory/task-010-i-want-to-have-deployment-previews-for-t (#18) to
+  factory/task-010 (#20). Slack reply "Updated TASK-010 plan. PR:" had an
+  empty URL when create/view failed. Pin branch + pr_url in Postgres
+  (tasks.branch, slack_threads.pr_url, artifact kind: pr) at first open;
+  subsequent updates only git push that branch.
+
+  Lost context / sudo: journal _CMDLINE=sudo apt-get update -qq in
+  forge-factory-orchestrator.service after Slack "the CI checks are failing
+  on pr #18". Thread handler always runs cursor_plan.py update even after
+  approve, so a CI-fix message spawned a host planner with no TTY. PAM
+  conversation failed (expected). Inject runtime/sandbox card; report
+  failures to the control plane; do not implement from the planner.
+
+  Journal: slack_intake.py uses capture_output=True and only prints Socket
+  Mode startup. Worker daemon.sh tees a host log file but journal is
+  idle-noise. Log to stdout (systemd) without secrets.
+
+  Lint before push (2026-08-14): operator has to remind the worker to fix
+  failing GitHub checks, especially markdownlint on edited *.md (MD047
+  trailing newline on TASK-009 frontend-design skill). Pre-push must run
+  markdownlint-cli2 locally (same action as .github/workflows/ci.yml) and
+  fix findings before updating the PR.
+
+  CI watch (2026-08-14): watching checks until green is factory work, not
+  an operator chore. After push, poll gh pr checks / Checks API; on red,
+  enqueue a fix implement/plan job on the same PR; loop until green or
+  budget. Do not merge from this loop.
+
+  Control plane as hub (2026-08-14): forge-site backend is the
+  communication bridge between Slack and the LLM. Slack jobs land on the
+  API first; pg-boss coordinates plan, implement, watch-checks, and
+  notify. LLM/worker failures POST to the control plane; control plane
+  posts to the Slack thread. Today slack_intake.py runs SDK+git+gh on the
+  host and enqueuePlan is unused by Slack — invert that. Outbound Slack
+  uses Vault secret/forge/agents/slack via ExternalSecret on forge-site
+  (no new Ingress; Socket Mode stays outbound WebSocket on the host).
+
+  Concurrency (2026-08-14): factory/worker/PLAYBOOK.md says one task at a
+  time; daemon.sh is a serial claim loop. Operator wants multiple tasks
+  in flight (separate worktrees). Document FORGE_WORKER_CONCURRENCY and
+  allow several in_progress rows.
+
+  Out of scope: NOPASSWD sudo, disabling UFW/host-watch, kubectl apply to
+  Argo apps, merging from Slack or when CI goes green, closing leftover
+  PRs #19/#20 (operator). Public repo: no secrets in transcripts, tasks,
+  or runbooks.
+github_project_item_id: PVTI_lAHOAA3gD84Bfo-Bzg2jK7g

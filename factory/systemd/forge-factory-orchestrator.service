@@ -1,5 +1,5 @@
 [Unit]
-Description=homelab-forge Slack factory orchestrator (ADR-009 Socket Mode)
+Description=homelab-forge Slack intake (ADR-011 thin Socket Mode client)
 After=network-online.target
 Wants=network-online.target
 

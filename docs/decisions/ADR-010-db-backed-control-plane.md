@@ -6,6 +6,10 @@ Accepted (2026-08-12) — supersedes **runtime coordination** aspects of ADR-004
 Git remains code/config SoT and GitOps deploy path (ADR-008). ADR-004/009 orchestrator and
 worker **contracts** (state machine, review gate, Slack plan gate) are preserved.
 
+Amended by [ADR-011](./ADR-011-control-plane-hub.md) (2026-08-30): forge-site is the
+Slack↔LLM communication hub — thin Socket Mode intake, `notify` queue consumed
+in-process, `watch-checks` job kind, and durable `agent_runs` transcripts.
+
 ## Context
 
 ADR-004 made git-backed YAML under `factory/tasks/` the task store. ADR-009 added Slack

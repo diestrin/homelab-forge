@@ -42,12 +42,27 @@ if cmd == "get-env":
     emit("TASK_GOAL", d.get("goal") or "")
     ac = d.get("acceptance_criteria") or []
     emit("TASK_AC", "\n".join("- " + str(x) for x in ac))
+    # Pinned PR (TASK-011): once a pr artifact exists, never gh-pr-create again.
+    pr = ""
+    for a in d.get("artifacts") or []:
+        if a.get("kind") == "pr" and a.get("url"):
+            pr = str(a["url"])
+    emit("TASK_PR_URL", pr)
 elif cmd == "set-status":
     assignee = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] else None
     cp.set_status(sys.argv[2], sys.argv[3], assignee)
 elif cmd == "add-artifact":
     url = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] else None
     cp.add_artifact(sys.argv[2], sys.argv[3], sys.argv[4], url)
+elif cmd == "notify":
+    cp.notify(sys.argv[2], sys.argv[3])
+elif cmd == "message":
+    cp.append_message(sys.argv[2], "worker", sys.argv[3], author=os.environ.get("FORGE_WORKER_ID"))
+elif cmd == "enqueue-watch":
+    meta = {"attempt": int(sys.argv[3] or 0)}
+    if len(sys.argv) > 4 and sys.argv[4]:
+        meta["pr_url"] = sys.argv[4]
+    cp.enqueue_job(sys.argv[2], "watch-checks", meta)
 PY
 }
 
@@ -61,9 +76,17 @@ fi
 export REPO_ROOT
 eval "$(REPO_ROOT="$REPO_ROOT" cp_py get-env "$TASK_ID")"
 
+# Job meta from the claimed pg-boss job (fix runs carry CI failure context).
+FIX_CONTEXT=""
+WATCH_ATTEMPT=0
+if [[ -n "${FORGE_JOB_META_FILE:-}" && -f "${FORGE_JOB_META_FILE:-}" ]]; then
+  FIX_CONTEXT="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("fix_context") or "")' "$FORGE_JOB_META_FILE" 2>/dev/null || true)"
+  WATCH_ATTEMPT="$(python3 -c 'import json,sys; print(int(json.load(open(sys.argv[1])).get("watch_attempt") or 0))' "$FORGE_JOB_META_FILE" 2>/dev/null || echo 0)"
+fi
+
 LOG="$LOG_DIR/${TASK_ID}.log"
 exec > >(tee -a "$LOG") 2>&1
-log "task=$TASK_ID worker=$WORKER_ID budget=${TASK_BUDGET}m profile=$TASK_PROFILE"
+log "task=$TASK_ID worker=$WORKER_ID budget=${TASK_BUDGET}m profile=$TASK_PROFILE branch=$TASK_BRANCH job=${FORGE_JOB_ID:-none} fix=${FIX_CONTEXT:+yes}"
 
 cleanup_cell() {
   local name="${CELL_NAME:-}"
@@ -78,6 +101,9 @@ fail_task() {
   log "FAIL: $reason"
   REPO_ROOT="$REPO_ROOT" cp_py set-status "$TASK_ID" failed "$WORKER_ID" || true
   REPO_ROOT="$REPO_ROOT" cp_py add-artifact "$TASK_ID" log "$LOG" || true
+  # Failures flow worker → control plane → Slack thread (TASK-011).
+  REPO_ROOT="$REPO_ROOT" cp_py message "$TASK_ID" "Worker failed: $reason (log: $LOG)" || true
+  REPO_ROOT="$REPO_ROOT" cp_py notify "$TASK_ID" "❌ Worker failed \`$TASK_ID\`: $reason" || true
   cleanup_cell
   exit 1
 }
@@ -102,6 +128,7 @@ case "$TASK_STATUS" in
     ;;
   claimed) ;;
   in_progress) log "resuming in_progress task" ;;
+  review) log "review task re-entering in_progress (CI fix run)" ;;
   *) die "cannot run task in status=$TASK_STATUS" ;;
 esac
 
@@ -228,12 +255,19 @@ else
     export FORGE_TASK_AC="$TASK_AC"
     export FORGE_TASK_BRANCH="$TASK_BRANCH"
     export FORGE_TASK_REPO="$WORK_REPO"
+    export FORGE_TASK_PROFILE="$TASK_PROFILE"
+    export FORGE_TASK_FIX_CONTEXT="$FIX_CONTEXT"
     set +e
     log "using python $FORGE_PY"
     "$FORGE_PY" "$REPO_ROOT/factory/worker/cursor_implement.py"
     sdk_rc=$?
     set -e
-    [[ "$sdk_rc" -eq 0 ]] || fail_task "Cursor SDK implement failed (rc=$sdk_rc)"
+    case "$sdk_rc" in
+      0) ;;
+      3) fail_task "Cursor SDK agent blocked (see run transcript on the dashboard)" ;;
+      4) fail_task "lint failures remain after in-run fix attempts" ;;
+      *) fail_task "Cursor SDK implement failed (rc=$sdk_rc)" ;;
+    esac
   else
     log "no worker_hook and no Cursor SDK key — preparing worktree only (attach Cursor/agent to continue)"
     NOTE="$ART_ROOT/${TASK_ID}-awaiting-agent.md"
@@ -287,14 +321,27 @@ else
   log "no file changes from hook"
 fi
 
+# Lint gate (TASK-011): the same in-repo checks CI runs, before every push
+# that updates a factory PR. The SDK path already fixed findings in-run;
+# this is the hard stop for hook runs and regressions.
+if [[ -n "$(git log "$BASE_REF"..HEAD --oneline 2>/dev/null || true)" ]]; then
+  log "running pre-push lint (factory/scripts/lint-local.sh)"
+  if ! bash "$REPO_ROOT/factory/scripts/lint-local.sh"; then
+    fail_task "pre-push lint failed (see log)"
+  fi
+fi
+
 PR_URL=""
+PR_WAS_PINNED=0
 if git remote get-url origin >/dev/null 2>&1; then
   if [[ -n "$(git log "$BASE_REF"..HEAD --oneline 2>/dev/null || true)" ]]; then
     PUSH_OK=0
     if [[ -n "${GH_TOKEN:-}" ]]; then
-      # Push as the GitHub App (HTTPS), not the operator's SSH user key
+      # Push as the GitHub App (HTTPS), not the operator's SSH user key.
+      # Output is redacted so the token never reaches log/journal.
       PUSH_URL="https://x-access-token:${GH_TOKEN}@github.com/diestrin/homelab-forge.git"
-      if git push "$PUSH_URL" "HEAD:refs/heads/$TASK_BRANCH" 2>&1; then
+      if git push "$PUSH_URL" "HEAD:refs/heads/$TASK_BRANCH" 2>&1 \
+        | sed -E 's#x-access-token:[^@]+@#x-access-token:[REDACTED]@#g'; then
         git branch --set-upstream-to="origin/$TASK_BRANCH" "$TASK_BRANCH" >/dev/null 2>&1 || true
         PUSH_OK=1
       fi
@@ -304,7 +351,19 @@ if git remote get-url origin >/dev/null 2>&1; then
     fi
     if [[ "$PUSH_OK" -eq 1 ]]; then
       if command -v gh >/dev/null; then
-        PR_URL="$(gh pr create --repo diestrin/homelab-forge --base "$DEFAULT_BRANCH" --head "$TASK_BRANCH" \
+        # One stable PR per task (TASK-011): reuse the pinned artifact URL or
+        # any open PR on the branch; gh pr create only when neither exists.
+        if [[ -n "${TASK_PR_URL:-}" ]]; then
+          PR_URL="$TASK_PR_URL"
+          PR_WAS_PINNED=1
+          log "reusing pinned PR $PR_URL (no gh pr create)"
+        else
+          PR_URL="$(gh pr view "$TASK_BRANCH" --repo diestrin/homelab-forge \
+            --json url,state -q 'select(.state == "OPEN") | .url' 2>/dev/null || true)"
+          [[ -n "$PR_URL" ]] && log "reusing open PR $PR_URL for branch $TASK_BRANCH"
+        fi
+        if [[ -z "$PR_URL" ]]; then
+          PR_URL="$(gh pr create --repo diestrin/homelab-forge --base "$DEFAULT_BRANCH" --head "$TASK_BRANCH" \
           --title "factory($TASK_ID): $TASK_TITLE" \
           --body "$(cat <<EOF
 ## Factory task
@@ -323,12 +382,13 @@ Do **not** kubectl-apply. After human review + merge to \`main\`, Argo CD syncs 
 See \`factory/review/CHECKLIST.md\`.
 EOF
 )" 2>/dev/null || true)"
-        if [[ -z "$PR_URL" ]]; then
-          PR_URL="$(gh pr view "$TASK_BRANCH" --repo diestrin/homelab-forge --json url -q .url 2>/dev/null || true)"
+          if [[ -z "$PR_URL" ]]; then
+            PR_URL="$(gh pr view "$TASK_BRANCH" --repo diestrin/homelab-forge --json url -q .url 2>/dev/null || true)"
+          fi
         fi
       fi
     else
-      log "push failed (auth?) — artifacts only"
+      fail_task "git push failed (auth?)"
     fi
   else
     log "no commits ahead of $BASE_REF — skip push/PR"
@@ -340,8 +400,14 @@ git diff "$BASE_REF...HEAD" >"$DIFF_ART" 2>/dev/null || true
 REPO_ROOT="$REPO_ROOT" cp_py add-artifact "$TASK_ID" log "$LOG"
 REPO_ROOT="$REPO_ROOT" cp_py add-artifact "$TASK_ID" other "$DIFF_ART"
 if [[ -n "$PR_URL" ]]; then
-  REPO_ROOT="$REPO_ROOT" cp_py add-artifact "$TASK_ID" pr "artifacts/${TASK_ID}-pr.txt" "$PR_URL"
+  if [[ "$PR_WAS_PINNED" -eq 0 ]]; then
+    REPO_ROOT="$REPO_ROOT" cp_py add-artifact "$TASK_ID" pr "artifacts/${TASK_ID}-pr.txt" "$PR_URL"
+  fi
   printf '%s\n' "$PR_URL" >"$ART_ROOT/${TASK_ID}-pr.txt"
+  # CI watch loop (TASK-011): control plane dispatches a watch job; on red
+  # checks it enqueues a fix run on this same branch/PR.
+  REPO_ROOT="$REPO_ROOT" cp_py enqueue-watch "$TASK_ID" "$WATCH_ATTEMPT" "$PR_URL" || \
+    log "watch-checks enqueue failed (CI must be watched manually)"
 fi
 
 if git diff --name-only "$BASE_REF...HEAD" 2>/dev/null | grep -q '^k8s/'; then

@@ -44,3 +44,29 @@ CREATE TABLE IF NOT EXISTS slack_threads (
   pr_url TEXT,
   PRIMARY KEY (channel_id, thread_ts)
 );
+
+CREATE INDEX IF NOT EXISTS slack_threads_task_id_idx ON slack_threads (task_id);
+
+-- Durable agent run records (TASK-011): pg-boss jobs are completed on claim,
+-- so this table is the operator-visible run/job history + SDK transcript store.
+CREATE TABLE IF NOT EXISTS agent_runs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id TEXT NOT NULL REFERENCES tasks (id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'running',
+  worker_id TEXT,
+  model TEXT,
+  branch TEXT,
+  agent_id TEXT,
+  sdk_run_id TEXT,
+  job_id TEXT,
+  summary TEXT,
+  error TEXT,
+  transcript JSONB NOT NULL DEFAULT '[]'::jsonb,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  finished_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS agent_runs_task_id_idx ON agent_runs (task_id, started_at DESC);

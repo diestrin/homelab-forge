@@ -1,0 +1,54 @@
+# Notion -> Habitica. Weekly refresh of the mirrored task definitions.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: family-agile-push-definitions
+  namespace: family-agile
+  labels:
+    app: family-agile-sync
+    job: push-definitions
+spec:
+  schedule: "0 5 * * 1"
+  timeZone: America/Costa_Rica
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3000
+      template:
+        metadata:
+          labels:
+            app: family-agile-sync
+            job: push-definitions
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: sync
+              image: ghcr.io/diestrin/homelab-forge/family-agile-sync:main
+              imagePullPolicy: Always
+              args: ["push-definitions"]
+              envFrom:
+                - configMapRef:
+                    name: family-agile-sync-config
+                - secretRef:
+                    name: family-agile-sync-secrets
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 64Mi
+                limits:
+                  cpu: 250m
+                  memory: 256Mi

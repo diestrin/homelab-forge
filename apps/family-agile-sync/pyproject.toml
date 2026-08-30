@@ -1,0 +1,17 @@
+[project]
+name = "family-agile-sync"
+version = "0.1.0"
+description = "Two-way sync between the Family Agile Notion workspace and Habitica"
+requires-python = ">=3.11"
+dependencies = ["requests>=2.32,<3"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

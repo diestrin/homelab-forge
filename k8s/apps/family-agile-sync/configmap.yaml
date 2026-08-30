@@ -20,6 +20,6 @@ data:
   # Blocked on the pending decision "viernes ancla del calendario de ciclos".
   CYCLE_ANCHOR_FRIDAY: "REPLACE_ME"
   # Habitica requires "<owner UserID>-<tool name>" on every request.
-  # Use the owner account's (Diego/Fer) Habitica User ID.
-  HABITICA_CLIENT: "REPLACE_ME-family-agile-sync"
+  # Fer's Habitica User ID (owner account).
+  HABITICA_CLIENT: "c6ec3cd2-6b57-47fb-858d-a0f8c23b8fdd-family-agile-sync"
   HABITICA_REQUEST_DELAY: "30"

@@ -49,6 +49,14 @@ vault status                            # Sealed: false
 Keep the port-forward running (or restart it later) if factory workers need
 AppRole logins; the demo app serves fine with Vault sealed.
 
+Confirm ESO re-validated the store (it caches "Vault is sealed" across unseal):
+
+```bash
+kubectl get clustersecretstore vault-backend   # Ready True
+# If still InvalidProviderConfig / "Vault is sealed":
+kubectl -n default rollout restart deploy/external-secrets
+```
+
 ### 4. Let's Encrypt / Traefik
 
 cert-manager renews automatically while 80/443 are reachable. Verify:

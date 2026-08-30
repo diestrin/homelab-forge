@@ -1,5 +1,5 @@
 [Unit]
-Description=homelab-forge factory worker daemon (ADR-004)
+Description=homelab-forge factory worker daemon (ADR-004/ADR-011: plan+implement+watch jobs)
 After=network-online.target
 Wants=network-online.target
 
@@ -9,11 +9,15 @@ WorkingDirectory=/media/diestrin/data/Projects/homelab-forge
 Environment=FORGE_WORKER_ID=worker-%H
 Environment=FORGE_DATA_ROOT=/media/diestrin/data/forge
 Environment=FORGE_CONTROL_PLANE_URL=https://localpower.diegobarahona.com
-# FORGE_API_TOKEN via EnvironmentFile below
+# FORGE_API_TOKEN from control-plane.env; CURSOR_API_KEY from slack-orchestrator.env
+# when Vault AppRole is unavailable (worker still needs the SDK key at runtime).
 EnvironmentFile=-/media/diestrin/data/secrets/forge/control-plane.env
+EnvironmentFile=-/media/diestrin/data/secrets/forge/slack-orchestrator.env
 Environment=FORGE_SECRETS_ROOT=/media/diestrin/data/secrets
 Environment=VAULT_ADDR=http://127.0.0.1:8200
 Environment=FORGE_WORKER_POLL_SECONDS=30
+# Parallel job slots (plan/implement/watch-checks) — TASK-011 concurrency.
+Environment=FORGE_WORKER_CONCURRENCY=2
 Environment=PATH=/home/diestrin/.nix-profile/bin:/home/diestrin/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=/media/diestrin/data/Projects/homelab-forge/factory/worker/daemon.sh
 Restart=on-failure

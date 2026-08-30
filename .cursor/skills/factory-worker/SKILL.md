@@ -10,9 +10,11 @@ Read and follow `factory/worker/PLAYBOOK.md` — it is the source of truth
 
 ## Hard rules
 
-1. One task at a time, inside an `agent-cell` sandbox by default
-   (`./forge factory claim`, `factory/worker/run-task.sh`). Never mount the host
-   Docker socket, `$HOME`, or sibling project trees.
+1. Work inside an `agent-cell` sandbox by default (`./forge factory claim`,
+   `factory/worker/run-task.sh`). Concurrent tasks are allowed with separate
+   worktrees (`FORGE_WORKER_CONCURRENCY`, ADR-011); never run two jobs on the
+   same task at once, and never mount the host Docker socket, `$HOME`, or
+   sibling project trees.
 2. Secrets come from Vault AppRole `forge-agent`
    (`factory/scripts/vault-agent-login.sh`); GitHub identity is a minted App
    installation token (`factory/scripts/github-app-token.sh`). Never write tokens to

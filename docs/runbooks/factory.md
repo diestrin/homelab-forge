@@ -55,6 +55,20 @@ printf 'ROLE_ID=%s\nSECRET_ID=%s\n' "$ROLE_ID" "$SECRET_ID" \
 chmod 600 /media/diestrin/data/secrets/vault/approle-forge-agent.env
 ```
 
+`secret_id_ttl` is unlimited (`0`); each login still mints a 15m agent token. If
+`vault-agent-login.sh` returns 403, Vault likely locked the role after failed
+logins (`core: login attempts exceeded, user is locked out`). Unlock, then
+regenerate the host `SECRET_ID` as above:
+
+```bash
+export VAULT_ADDR=http://127.0.0.1:8200
+export VAULT_TOKEN="$(cat /media/diestrin/data/secrets/vault/root.token)"
+ROLE_ID=$(vault read -field=role_id auth/approle/role/forge-agent/role-id)
+ACCESSOR=$(vault auth list -format=json | jq -r '."approle/".accessor')
+vault write -force "sys/locked-users/${ACCESSOR}/unlock/${ROLE_ID}"
+# then rewrite approle-forge-agent.env with a fresh SECRET_ID
+```
+
 ### 2. GitHub App credentials (bot identity — not a personal PAT)
 
 Workers mint a short-lived **installation access token** and push/open PRs as the App.
@@ -120,15 +134,9 @@ Workers load it via `factory/scripts/fetch-cursor-key.sh` after AppRole login.
 Create a Slack app with **Socket Mode** enabled (no Request URL / no Ingress). Register
 slash command `/forge`. Bot scopes include `chat:write`, `commands`, and channel history.
 
-Host env file must include control plane URL + API token:
-
-```bash
-FORGE_CONTROL_PLANE_URL=https://localpower.diegobarahona.com
-FORGE_API_TOKEN=…
-SLACK_BOT_TOKEN=xoxb-…
-SLACK_APP_TOKEN=xapp-…
-FORGE_SLACK_ALLOWLIST=U0…
-```
+The systemd unit loads `control-plane.env` (`FORGE_API_TOKEN` from Vault
+`secret/forge/control-plane`) and `slack-orchestrator.env` (bot tokens + allowlist).
+Do not copy the API token into the Slack env file — a stale duplicate caused 401s.
 
 Smoke-test: `/forge plan …` → plan PR (`planning`) → thread reply → `approve` → worker
 implements → human merges.
@@ -185,7 +193,49 @@ journalctl --user -u forge-factory-worker -f
 
 Or foreground: `./forge factory worker` / `./forge factory worker --once`.
 
+The daemon claims `plan`, `implement`, and `watch-checks` jobs and runs up to
+`FORGE_WORKER_CONCURRENCY` (default 2) in parallel — two `/forge plan` requests
+no longer serialize behind one SDK process. Same-task jobs serialize on a lock.
+
 Ensure Vault is reachable (port-forward) so workers can AppRole-login and mint GitHub App + Cursor tokens.
+
+### 7. Slack bot token for forge-site notify (ADR-011)
+
+The control plane posts agent progress/failures to Slack threads (notify
+queue). It reads `SLACK_BOT_TOKEN` from the `forge-site-secrets` ExternalSecret
+(Vault `secret/forge/agents/slack`, property `bot_token` — same secret as the
+host intake, step 5). No new Ingress: outbound `chat.postMessage` only.
+
+### 8. Lint tooling for the pre-push gate (TASK-011)
+
+Workers run `factory/scripts/lint-local.sh` before every push. Required on the
+worker host: `markdownlint-cli2` (`npm i -g markdownlint-cli2`) and `python3`.
+Optional but recommended (checked when installed): `shellcheck`, `actionlint`,
+`kubeconform`. Missing optional tools are skipped with a note; missing
+markdownlint fails the gate.
+
+## Observability (TASK-011)
+
+- **systemd journal** — every Slack/API action, task id, pinned branch, PR URL,
+  SDK run id, subprocess exit, and failure is logged (redacted; no tokens or
+  Slack user IDs):
+
+```bash
+journalctl --user -u forge-factory-orchestrator -f   # thin Slack intake
+journalctl --user -u forge-factory-worker -f          # plan/implement/watch jobs
+```
+
+- **Artifact logs** — per-task worker logs and diffs:
+  `/media/diestrin/data/forge/factory/artifacts/logs/TASK-NNN.log`,
+  `…/artifacts/TASK-NNN-git.diff`; daemon log
+  `/media/diestrin/data/forge/factory/worker/<worker-id>.log`.
+- **SDK transcripts** — every plan/implement/fix run streams a redacted
+  conversation into Postgres (`agent_runs`). Inspect via the dashboard task
+  page (`/dashboard/TASK-NNN` → Agent runs → Transcript) or the API:
+  `GET /api/v1/tasks/{id}/runs`, `GET /api/v1/runs/{id}`.
+- **CI watch** — after each plan/implement push a `watch-checks` job polls the
+  PR until green, enqueuing fix runs on red (`FORGE_CI_FIX_ATTEMPTS`, default 2).
+  Slack is pinged only on green / exhausted retries / timeout.
 
 ## Daily commands
 

@@ -1,5 +1,6 @@
 import PgBoss from "pg-boss";
-import type { JobKind } from "./types";
+import { JOB_KINDS, type JobKind } from "./types";
+import { notifyTaskThread } from "./slack";
 
 let boss: PgBoss | null = null;
 let started = false;
@@ -20,9 +21,22 @@ async function getBoss(): Promise<PgBoss | null> {
   if (!started) {
     await boss.start();
     started = true;
-    for (const queue of ["plan", "implement", "notify", "sync-projects"] as JobKind[]) {
+    for (const queue of JOB_KINDS) {
       await boss.createQueue(queue);
     }
+    // The control plane is the only Slack-posting path for agent progress and
+    // failures (ADR-010 notify queue, TASK-011) — consume notify in-process.
+    await boss.work<JobPayload>("notify", async (jobs) => {
+      for (const job of jobs) {
+        const { taskId, meta } = job.data;
+        const body = typeof meta?.body === "string" ? meta.body : "";
+        if (!taskId || !body) continue;
+        const res = await notifyTaskThread(taskId, body);
+        console.log(
+          `notify task=${taskId} posted=${res.posted}${res.reason ? ` reason=${res.reason}` : ""}`,
+        );
+      }
+    });
   }
   return boss;
 }
@@ -65,8 +79,11 @@ export async function claimJob(
   return null;
 }
 
-export async function enqueueImplement(taskId: string): Promise<string | null> {
-  return enqueueJob("implement", { taskId });
+export async function enqueueImplement(
+  taskId: string,
+  meta?: Record<string, unknown>,
+): Promise<string | null> {
+  return enqueueJob("implement", { taskId, meta });
 }
 
 export async function enqueuePlan(taskId: string, meta?: Record<string, unknown>): Promise<string | null> {
@@ -78,6 +95,13 @@ export async function enqueueNotify(
   meta?: Record<string, unknown>,
 ): Promise<string | null> {
   return enqueueJob("notify", { taskId, meta });
+}
+
+export async function enqueueWatchChecks(
+  taskId: string,
+  meta?: Record<string, unknown>,
+): Promise<string | null> {
+  return enqueueJob("watch-checks", { taskId, meta });
 }
 
 export async function enqueueSyncProjects(taskId?: string): Promise<string | null> {

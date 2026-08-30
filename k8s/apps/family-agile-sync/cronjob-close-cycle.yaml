@@ -1,0 +1,55 @@
+# Settles the cycle and writes Corte quincenal. Fires every Friday; the job
+# itself skips any Friday that is not a payday (cron cannot do biweekly).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: family-agile-close-cycle
+  namespace: family-agile
+  labels:
+    app: family-agile-sync
+    job: close-cycle
+spec:
+  schedule: "0 18 * * 5"
+  timeZone: America/Costa_Rica
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app: family-agile-sync
+            job: close-cycle
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: sync
+              image: ghcr.io/diestrin/homelab-forge/family-agile-sync:main
+              imagePullPolicy: Always
+              args: ["close-cycle"]
+              envFrom:
+                - configMapRef:
+                    name: family-agile-sync-config
+                - secretRef:
+                    name: family-agile-sync-secrets
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 64Mi
+                limits:
+                  cpu: 250m
+                  memory: 256Mi

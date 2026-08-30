@@ -1,136 +1,158 @@
-# TASK-009 plan — forge-site landing redesign + PR preview infra
+# TASK-009 plan — Family Agile ledger sync (Notion ↔ Habitica)
 
 ## What
 
-Two deliverables on one task:
+A scheduled two-way sync between the household's **Family Agile** Notion workspace and
+**Habitica**, deployed as Kubernetes CronJobs on k3s and delivered by Argo CD from `main`.
 
-1. **Landing redesign** — refresh the public **forge-site** landing page (`apps/forge-site`,
-   route `/`) using the **frontend-design** Cursor skill:
-   - Images and icons for Forge components and the factory workflow
-   - FAQ section for common Forge/factory questions
-   - Interactive background effects on the hero/ambient layer
+- **`apps/family-agile-sync/`** — Python service, one subcommand per job, no long-running
+  process.
+- **`k8s/apps/family-agile-sync/`** — namespace, NetworkPolicies, ExternalSecret,
+  ConfigMap and four CronJobs.
+- **`docs/decisions/ADR-011-family-agile-sync.md`** — records why Notion stays the system
+  of record for money and why Habitica's own economy is never used for it.
 
-2. **PR preview bridge** — install a **GitHub Actions self-hosted runner inside the k3s
-   cluster** so CI jobs that need cluster access can reach the k3s control plane without
-   exposing the API publicly. Use it to stand up **ephemeral preview environments** for
-   open PRs at:
-
-   `https://pr-{PR_NUMBER}.localpower.diegobarahona.com`
-
-   (e.g. PR #16 → `https://pr-16.localpower.diegobarahona.com`)
-
-The task YAML targets `apps/forge-site` (operator said "forge-website"; same app from
-TASK-007). The `/dashboard` control-plane UI is out of scope unless a shared header/layout
-change is unavoidable.
+The chore points this service settles are the children's **real allowance**, converted at
+a fixed rate to colones. This is a financial ledger with a game skin, not a gamification
+feature.
 
 ## Why
 
-The v1 landing (TASK-007) is functional but text-heavy and visually plain. A deliberate
-design pass — guided by `.cursor/skills/frontend-design/SKILL.md` — gives visitors a
-memorable, scannable story about Forge and reduces repeated questions the FAQ can answer
-directly on the site.
+The previous iteration of the household system collapsed, and the cause is measurable. A
+snapshot of the Notion workspace on 2026-08-24 found:
 
-Hosted GitHub runners cannot reach the homelab k3s API. An in-cluster runner is the
-communication bridge for ephemeral preview deploys: workflow jobs labeled for the cluster
-runner build the PR image, apply a short-lived preview Deployment/Ingress in-cluster, and
-tear it down when the PR closes. Operators can review landing changes on a real HTTPS URL
-before merge without overwriting steady-state `localpower.diegobarahona.com`.
+| Signal | Value |
+| --- | --- |
+| Penalty rows vs credit rows in the chore ledger | 2,240 vs 1,223 (65% punishment) |
+| Members with any activity after 2026-08-06 | 1 of 5 |
+| Rows dated in the future, any table | 0 |
+| Distinct free-text fields naming a person in one table | 4, none a relation |
+
+Points were credited only when a parent reviewed each row, and "not done" was the
+**default** for anything not reviewed in time. When the reviewer fell behind, the
+allowance stopped tracking effort and the children disengaged.
+
+The design constraint that follows is the whole point of this task: **the system must
+keep working on days nobody reviews it.**
 
 ## How
 
-1. **Plan gate:** task stays `planning` until the operator approves in the Slack thread
-   and `./forge factory approve TASK-009` moves status to `proposed`. Thread feedback
-   refines this plan before approval.
-2. **Fix CI on the implementation PR** ([#16](https://github.com/diestrin/homelab-forge/pull/16)):
-   resolve markdown lint and any other failing checks; re-run all workflows until green.
-3. **Design pass:** worker reads `frontend-design` skill, drafts a compact token system
-   (palette, type, layout, signature element) grounded in Forge/homelab subject matter;
-   self-critiques against generic AI-template defaults before coding.
-4. **Implement landing in `apps/forge-site`:**
-   - Redesign `src/app/page.tsx` (and supporting components/styles as needed)
-   - Add in-repo icons/images/SVGs under `public/` or as React components
-   - Add FAQ block with accessible expand/collapse and real copy (factory flow, Slack
-     intake, Argo deploy path, what is/isn't automated)
-   - Add interactive background (canvas/CSS) with `prefers-reduced-motion` fallback
-5. **In-cluster GitHub runner (k3s):**
-   - Add Argo-managed manifests under `k8s/` (suggested home: `forge-agents` namespace,
-     alongside existing agent workload isolation and NetworkPolicies)
-   - Deploy `actions-runner-controller` or a pinned single-runner Deployment pattern;
-     runner registration token sourced from Vault via External Secrets (never in git)
-   - Label runner(s) for preview jobs (e.g. `homelab-k3s`, `forge-preview`)
-   - Runner ServiceAccount RBAC: scoped to create/update/delete preview resources in a
-     dedicated namespace (e.g. `forge-previews`), not cluster-admin
-6. **Ephemeral PR preview workflow:**
-   - Extend `.github/workflows/forge-site-image.yml` (or add a sibling workflow) so PR
-     jobs that need previews run on the in-cluster runner label
-   - On `pull_request` (opened/synchronize): build forge-site image tagged with PR number,
-     apply preview Deployment + Service + Ingress with host
-     `pr-{number}.localpower.diegobarahona.com` and cert-manager HTTP-01 TLS
-   - On `pull_request` (closed): delete preview resources and drop the PR-tagged image
-   - Steady-state root host `localpower.diegobarahona.com` remains the Argo-managed
-     forge-site Application; previews must not mutate it
-7. **DNS/TLS prerequisites (operator):**
-   - Ensure `*.localpower.diegobarahona.com` resolves to the homelab public IP (No-IP
-     wildcard or equivalent); HTTP-01 per preview host requires each `pr-NNNN` name to
-     resolve before cert issuance
-8. **PR:** worker opens/updates the implementation PR on branch
-   `factory/task-009-let-s-update-forge-website-to-use-the-fr`; complete
-   [`factory/review/CHECKLIST.md`](../review/CHECKLIST.md).
-9. **CI:** all GitHub Actions checks green — `ci.yml`, `forge-site-image.yml`, gitleaks.
-10. **Deploy:** **human merge to `main` only.** CI builds and publishes the forge-site
-    container image; **Argo CD** syncs Application `forge-site` and the runner manifests —
-    this is the **sole steady-state deploy path** (ADR-008). Ephemeral previews are applied
-    by the in-cluster runner workflow, not by worker `kubectl apply` to Argo-managed apps.
+1. **Plan gate:** task stays `planning` until the operator approves and
+   `./forge factory approve TASK-009` moves status to `proposed`.
+2. **Rules as pure code:** every value that decides money lives in
+   `src/family_agile_sync/rules.py`, which performs no I/O and is unit-tested. Notion
+   formula and rollup fields return null over the API, so nothing the ledger depends on
+   may be a Notion formula — the sync computes and writes plain numbers.
+3. **Four jobs, one loop:**
+
+   | Job | Schedule (`America/Costa_Rica`) | Direction |
+   | --- | --- | --- |
+   | `push-definitions` | Mondays 05:00 | Notion → Habitica |
+   | `pull-completions` | Hourly 06:00–22:00 | Habitica → Notion |
+   | `reconcile` | Daily 04:45 | Notion only |
+   | `close-cycle` | Fridays 18:00 | Notion only |
+
+4. **Secrets:** Vault paths `secret/family-agile/notion` and
+   `secret/family-agile/habitica`, projected by External Secrets (ADR-007). Habitica API
+   tokens grant full account control including task deletion; they never enter Notion or
+   git.
+5. **Network:** the target namespace carries its own default-deny plus DNS and egress
+   HTTPS, mirroring `k8s/platform/network-policies/`.
+6. **CI:** `family-agile-sync-image.yml` runs `pytest` before building, and gates the
+   image push on `main`. All existing checks must be green — `ci.yml`, gitleaks,
+   kustomize/kubeconform, markdownlint.
+7. **Deploy:** **human merge to `main` only.** Argo CD syncs the new Application (ADR-008).
+   No worker `kubectl apply`.
+
+## Requirements
+
+### Functional
+
+- **R1** — Mirror every active routine and every approved to-do from Notion into Habitica
+  as the matching task type: mandatory recurring → Daily, optional recurring → Habit with
+  only the positive side enabled, one-off → To-Do.
+- **R2** — Record each completion into the pre-existing Agenda row with signed points,
+  colones, and the timestamp at which the sync observed it.
+- **R3** — Mark yesterday's unfinished **mandatory** work as failed. Optional work and
+  to-dos left undone stay pending and are worth nothing.
+- **R4** — Settle a 14-day cycle on every second Friday and write one summary row per
+  member into the Corte quincenal ledger.
+- **R5** — Skip any member without Habitica credentials rather than failing the run, so
+  onboarding one account at a time is possible.
+
+### Economic rules
+
+- **R6** — Points by difficulty: Fácil 5, Intermedia 10, Compleja 25. Penalties are half,
+  rounded down: 2, 5, 12.
+- **R7** — Only mandatory work can subtract. Absence of a completion is neutral.
+- **R8** — A single day may not subtract more than 50% of that day's mandatory value.
+- **R9** — A cycle never closes negative. Penalties reduce earnings; they never create
+  debt.
+- **R10** — Conversion to colones uses the per-member rate stored in Notion, not a global
+  constant.
+- **R11** — To-Dos only pay when a parent assigned the difficulty. A to-do created by a
+  child in Habitica with no mirror row in Notion earns Habitica gold and zero colones.
+
+### Non-functional
+
+- **R12** — Idempotent: jobs only transition rows out of `Pendiente`, so a re-run after a
+  crash cannot double-credit.
+- **R13** — Habitica API **v3 only**. v4 is incomplete and unsuitable for third-party
+  tools.
+- **R14** — Every Habitica request carries an `X-Client` header; background calls are
+  paced 30s apart per the API guidelines. Jobs are slow by design and deadlines allow for
+  it.
+- **R15** — The client never calls `/api/v3/cron`. Running cron on a user's behalf applies
+  damage for every incomplete Daily.
+- **R16** — Rows with `Origen = Manual` are never overwritten, giving a parent a way to
+  record something the sync missed.
+
+## Acceptance criteria
+
+- `pytest` green in CI; `rules.py` covered including the floor, the cap and the cycle
+  calendar
+- `kubectl kustomize k8s/apps/family-agile-sync` renders cleanly and passes kubeconform
+- No credential in git; gitleaks green
+- ExternalSecret resolves against Vault and the CronJobs start with a complete environment
+- `close-cycle` exits without writing on a Friday that is not a payday
+- A full cycle runs with `DRY_RUN=1` and the computed summary is reconciled against a
+  manual estimate **before any money changes hands**
+- ADR-011 merged; app README documents the operating constraints
 
 ## Risks
 
-- **Medium** — public-facing UI change visible after merge; rollback is git revert +
-  Argo sync + image rebuild.
-- **Medium** — self-hosted runner in-cluster is a trust boundary; scope RBAC narrowly,
-  rotate registration credentials, and audit preview namespace NetworkPolicies.
-- **Medium** — stale preview resources if cleanup workflow fails; add TTL or periodic
-  janitor and document manual `kubectl delete` fallback.
-- Wildcard DNS or per-PR DNS must be in place before HTTPS previews work; HTTP-01 rate
-  limits apply when many PRs are open concurrently.
-- Heavy animation or large assets can hurt mobile performance — keep effects lightweight
-  and test at narrow viewports.
-- New npm dependencies (icon libs, animation helpers) need license/size review; prefer
-  minimal additions.
-- Do **not** auto-approve into the worker queue without operator review of this plan.
+- **High** — this service computes payments owed to children. An arithmetic or mapping
+  error is a real financial error, and the people affected will notice it before the
+  operator does. Hence the mandatory dry-run cycle.
+- **Data loss window** — Habitica resets a Daily's completed flag at each cron and its
+  history keeps the cron timestamp rather than the moment the task was ticked. If
+  `pull-completions` is down for a full day, that day's completions may be
+  unrecoverable. Mitigation is manual entry, not retroactive reconstruction.
+- **Habitica punishes by default** — its cron damages incomplete Dailies automatically.
+  That is the same failure mode the refactor removes, so per-task damage must be off for
+  everything except mandatory dailies. A misconfigured push job silently reintroduces the
+  original bug.
+- **Cron cannot express "every second Friday"** — the payday calendar is enforced in code
+  from an anchor date. A wrong anchor shifts every future payment.
+- **External API dependency** — rate limits, 429s and outages are handled with backoff,
+  but a prolonged Habitica outage stalls the ledger.
 
-## Out of scope
+## Out of scope (v1)
 
-- `/dashboard` redesign, new API routes, auth, or control-plane behavior changes
-- Changing steady-state forge-site Ingress/TLS on `localpower.diegobarahona.com`
-- SSH, UFW, Vault unseal, disabling host-watch, force-push, or silent prod deploy
-- Real Slack user IDs, tokens, GitHub runner registration tokens, or private ntfy topics
-  in git
-- Scripted `worker_hook` (Cursor SDK worker implements per task YAML)
+- Generating Agenda occurrences from the Rutinas catalogue — this task consumes rows that
+  already exist; the generator is a separate refactor phase
+- Migrating the 3,960 legacy Horario rows, and the cleanup of the 924-row stale backlog
+- Habitica Group Plan ($9/mo + $3/member) — evaluated and deferred; assignment already
+  comes from Notion and task approval is the bottleneck being removed
+- Any use of Habitica gold, XP or levels in a monetary calculation
+- A custom mobile app; Habitica is the children's interface for now
+- Automated payment execution — the ledger computes what is owed, a human pays it
 
-## Slack iteration
+## Multi-phase / iteration
 
-The originating Slack thread may refine FAQ topics, aesthetic direction, preview workflow
-details, or background effect intensity before approval. Scope changes require an updated
-plan and explicit re-approval — not drive-by scope creep after `proposed`.
+This task ships the sync only. It depends on refactor phases that create the `Rutinas`
+and `Corte quincenal` databases and add the `Miembro` relation to Agenda; until those
+land, the ConfigMap keeps `REPLACE_ME` placeholders and the CronJobs stay suspended.
 
-## Operator feedback (2026-08-14)
-
-**CI checks are failing** on the draft implementation PR
-([#16](https://github.com/diestrin/homelab-forge/pull/16)).
-
-| Check | Result (2026-08-14 early runs) |
-| --- | --- |
-| markdown lint (`ci.yml`) | **FAIL** — `.cursor/skills/frontend-design/SKILL.md` MD047 (single trailing newline) |
-| nix flake check, kustomize/kubeconform, factory schema, shellcheck, actionlint | pass |
-| forge-site image (Next.js build, container build) | pass |
-| gitleaks | pass |
-
-A later push may have cleared markdown lint; **worker must confirm all checks green on
-the PR head** before requesting review/merge. Run markdownlint locally on any new/edited
-`*.md` (see `.markdownlint-cli2.yaml`).
-
-**Ephemeral previews:** install a **GitHub Actions runner inside the k3s cluster** as the
-bridge to the control plane when a PR needs a short-lived environment. Preview hostname
-pattern: **`pr-{PR_NUMBER}.localpower.diegobarahona.com`** (e.g. `pr-16.localpower.diegobarahona.com`).
-
-Task stays **`planning`** until the operator re-approves this updated plan.
+Follow-on work lands as new `TASK-NNN` entries, not scope creep here: the occurrence
+generator, per-member Notion dashboards, and the quarterly purge of settled rows.

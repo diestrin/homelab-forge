@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Cursor SDK helper for Slack orchestrator plan create/update (ADR-009).
+"""Cursor SDK planner for factory plan jobs (ADR-009 / ADR-011, TASK-011).
 
 Modes:
-  create  — draft task YAML + short plan markdown from a Slack prompt
+  create  — draft task YAML + short plan markdown from an operator request
   update  — revise existing task YAML + plan given thread feedback
 
-Writes files under --out-dir. Does not push or open PRs (caller does).
+The branch is pinned by the control plane at intake and passed in; the planner
+must never invent or rewrite it (TASK-009 #16→#19 / TASK-010 #18→#20 regression).
+Runs stream a redacted transcript to the control plane agent_runs record.
+Does not push or open PRs (the plan job runner does).
 """
 from __future__ import annotations
 
@@ -15,10 +18,14 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-CREATE_PROMPT = """You are the homelab-forge factory orchestrator (ADR-004 / ADR-009).
+from sdk_session import SdkSession, SdkStartupError, log, runtime_card  # noqa: E402
 
-Given the operator Slack request below, produce TWO files in the working directory:
+CREATE_PROMPT = """{runtime_card}
+You are the homelab-forge factory orchestrator (ADR-004 / ADR-009) in PLAN mode.
+
+Given the operator request below, produce TWO files in the working directory:
 1) factory/tasks/{task_id}-{slug}.yaml — a valid factory task with:
    - id: {task_id}
    - status: planning  (NOT proposed — workers must not claim yet)
@@ -26,9 +33,9 @@ Given the operator Slack request below, produce TWO files in the working directo
    - sandbox_profile + risk_level from the orchestrator playbook table
    - repo_path: .
    - budget_minutes (default 30, raise if needed)
-   - branch: factory/{task_id_lower}-{slug}
+   - branch: {branch}   ← copy EXACTLY; this is pinned by the control plane
    - worker_hook: null
-   - notes: capture Slack-derived decisions; mention Slack thread will iterate the plan
+   - notes: capture decisions; mention the Slack thread iterates the plan
 2) factory/plans/{task_id}.md — a short plan for the PR body (what/why/how, risks, out of scope).
 
 Hard rules:
@@ -45,12 +52,13 @@ Operator request:
 ---
 """
 
-UPDATE_PROMPT = """You are the homelab-forge factory orchestrator updating an existing plan.
+UPDATE_PROMPT = """{runtime_card}
+You are the homelab-forge factory orchestrator updating an existing plan (PLAN mode).
 
 Task id: {task_id}
 Revise factory/tasks/{task_file} and factory/plans/{task_id}.md according to the
-operator feedback below. Keep status: planning. Do not implement the feature.
-No secrets in files.
+operator feedback below. Keep status: planning. Keep branch: {branch} exactly as it is.
+Do not implement the feature. No secrets in files.
 
 Feedback:
 ---
@@ -64,42 +72,13 @@ def slugify(text: str, max_len: int = 40) -> str:
     return (s[:max_len] or "request").strip("-")
 
 
-def run_sdk(prompt: str, cwd: str, api_key: str, model: str) -> int:
-    try:
-        from cursor_sdk import Agent, AgentOptions, LocalAgentOptions, CursorAgentError
-    except ImportError:
-        print("cursor_plan: cursor-sdk not installed", file=sys.stderr)
-        return 1
-    try:
-        result = Agent.prompt(
-            prompt,
-            AgentOptions(
-                api_key=api_key,
-                model=model,
-                local=LocalAgentOptions(cwd=cwd),
-            ),
-        )
-    except CursorAgentError as err:
-        print(f"cursor_plan: startup failed: {err}", file=sys.stderr)
-        return 1
-    status = getattr(result, "status", None)
-    if status == "error":
-        print(f"cursor_plan: run failed id={getattr(result, 'id', '?')}", file=sys.stderr)
-        return 2
-    return 0
-
-
-def write_fallback_create(
-    repo: Path, task_id: str, request: str, slug: str
-) -> Path:
-    """Deterministic stub when SDK unavailable — still produces schema-valid planning task."""
+def write_fallback_create(repo: Path, task_id: str, request: str, slug: str, branch: str) -> Path:
+    """Deterministic stub when SDK unavailable — still schema-valid planning task."""
     tasks = repo / "factory" / "tasks"
     plans = repo / "factory" / "plans"
     tasks.mkdir(parents=True, exist_ok=True)
     plans.mkdir(parents=True, exist_ok=True)
-    branch = f"factory/{task_id.lower()}-{slug}"
     path = tasks / f"{task_id}-{slug}.yaml"
-    # Quote multiline fields safely
     goal = request.strip().replace("'", "''")
     path.write_text(
         f"""id: {task_id}
@@ -120,7 +99,7 @@ budget_minutes: 60
 branch: {branch}
 worker_hook: null
 notes: |
-  Created by Slack orchestrator fallback (Cursor SDK unavailable).
+  Created by plan-job fallback (Cursor SDK unavailable).
   Operator should refine via Slack thread before approve.
 claimed_at: null
 updated_at: null
@@ -150,8 +129,95 @@ After human merge to `main`, Argo CD syncs (ADR-008).
 """,
         encoding="utf-8",
     )
-    print(path)
+    log(task_id, f"fallback plan files written: {path.name}")
     return path
+
+
+def enforce_pinned_branch(repo: Path, task_id: str, branch: str) -> None:
+    """Rewrite the branch field back to the pin if the planner changed it."""
+    import yaml  # type: ignore
+
+    for path in (repo / "factory" / "tasks").glob("TASK-*.yaml"):
+        try:
+            doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except Exception:  # noqa: BLE001
+            continue
+        if doc.get("id") != task_id:
+            continue
+        if str(doc.get("branch") or "") != branch:
+            log(task_id, f"planner rewrote branch to {doc.get('branch')!r} — restoring pin {branch}")
+            doc["branch"] = branch
+            path.write_text(yaml.safe_dump(doc, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+
+def run_plan(
+    mode: str,
+    repo: Path,
+    task_id: str,
+    branch: str,
+    request: str = "",
+    feedback: str = "",
+    task_file: str = "",
+    worker_id: str | None = None,
+    job_id: str | None = None,
+    sandbox_profile: str = "agent-cell",
+    allow_fallback: bool = False,
+    lint_attempts: int = 2,
+) -> tuple[int, str | None]:
+    """Run the planner. Returns (exit code, blocked reason or None)."""
+    api_key = os.environ.get("CURSOR_API_KEY", "").strip()
+    model = os.environ.get("FORGE_CURSOR_MODEL", "composer-2.5")
+    slug = slugify(request or task_id)
+    card = runtime_card("plan", sandbox_profile, branch)
+
+    if mode == "create":
+        prompt = CREATE_PROMPT.format(
+            runtime_card=card, task_id=task_id, slug=slug, branch=branch, request=request
+        )
+    else:
+        if not task_file:
+            log(task_id, "plan update requires task_file")
+            return 1, None
+        prompt = UPDATE_PROMPT.format(
+            runtime_card=card, task_id=task_id, task_file=task_file, branch=branch, feedback=feedback
+        )
+
+    if not api_key:
+        if mode == "create" and allow_fallback:
+            write_fallback_create(repo, task_id, request, slug, branch)
+            return 0, None
+        log(task_id, "CURSOR_API_KEY missing")
+        return 1, None
+
+    try:
+        with SdkSession(
+            task_id,
+            "plan",
+            str(repo),
+            api_key,
+            model,
+            worker_id=worker_id,
+            branch=branch,
+            job_id=job_id,
+        ) as session:
+            status = session.send(prompt)
+            blocked = session.blocked_reason()
+            if blocked:
+                session.finish("error", error=f"agent blocked: {blocked}")
+                return 2, blocked
+            if status == "error":
+                return 2, None
+            enforce_pinned_branch(repo, task_id, branch)
+            if not session.ensure_lint_clean(str(repo), attempts=lint_attempts):
+                return 3, "lint failures remain after fix attempts"
+            enforce_pinned_branch(repo, task_id, branch)
+    except SdkStartupError as err:
+        if mode == "create" and allow_fallback:
+            write_fallback_create(repo, task_id, request, slug, branch)
+            return 0, None
+        log(task_id, f"planner startup failed: {err}")
+        return 1, None
+    return 0, None
 
 
 def main() -> int:
@@ -159,49 +225,32 @@ def main() -> int:
     p.add_argument("mode", choices=("create", "update"))
     p.add_argument("--repo", type=Path, required=True)
     p.add_argument("--task-id", required=True)
+    p.add_argument("--branch", required=True, help="pinned branch from the control plane")
     p.add_argument("--request", default="")
     p.add_argument("--feedback", default="")
     p.add_argument("--task-file", default="")
+    p.add_argument("--worker-id", default=None)
+    p.add_argument("--job-id", default=None)
+    p.add_argument("--sandbox-profile", default="agent-cell")
     p.add_argument("--allow-fallback", action="store_true")
     args = p.parse_args()
 
-    repo = args.repo.resolve()
-    api_key = os.environ.get("CURSOR_API_KEY", "").strip()
-    model = os.environ.get("FORGE_CURSOR_MODEL", "composer-2.5")
-    slug = slugify(args.request or args.task_id)
-
-    if args.mode == "create":
-        prompt = CREATE_PROMPT.format(
-            task_id=args.task_id,
-            task_id_lower=args.task_id.lower(),
-            slug=slug,
-            request=args.request,
-        )
-        if not api_key:
-            if args.allow_fallback:
-                write_fallback_create(repo, args.task_id, args.request, slug)
-                return 0
-            print("cursor_plan: CURSOR_API_KEY missing", file=sys.stderr)
-            return 1
-        rc = run_sdk(prompt, str(repo), api_key, model)
-        if rc != 0 and args.allow_fallback:
-            write_fallback_create(repo, args.task_id, args.request, slug)
-            return 0
-        return rc
-
-    # update
-    if not args.task_file:
-        print("cursor_plan: --task-file required for update", file=sys.stderr)
-        return 1
-    prompt = UPDATE_PROMPT.format(
-        task_id=args.task_id,
-        task_file=args.task_file,
+    rc, blocked = run_plan(
+        args.mode,
+        args.repo.resolve(),
+        args.task_id,
+        args.branch,
+        request=args.request,
         feedback=args.feedback,
+        task_file=args.task_file,
+        worker_id=args.worker_id,
+        job_id=args.job_id,
+        sandbox_profile=args.sandbox_profile,
+        allow_fallback=args.allow_fallback,
     )
-    if not api_key:
-        print("cursor_plan: CURSOR_API_KEY missing (update requires SDK)", file=sys.stderr)
-        return 1
-    return run_sdk(prompt, str(repo), api_key, model)
+    if blocked:
+        print(f"cursor_plan: blocked: {blocked}", file=sys.stderr)
+    return rc
 
 
 if __name__ == "__main__":

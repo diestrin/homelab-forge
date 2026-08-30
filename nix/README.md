@@ -14,7 +14,7 @@ Declarative user + selected host config for Ubuntu (ADR-001).
 | `scripts/apply-system-privileged.sh` | `sudo` apply for system-manager |
 
 SSH / UFW / fail2ban stay under [`../security/scripts/`](../security/scripts/) (Phase 0).
-Phase 3 CLIs via HM: `kubectl`, `helm`, `vault` (Vault BSL allowed via flake `allowUnfreePredicate`).
+Phase 3 CLIs via HM: `kubectl`, `helm`, `vault`, `claude-code` (unfree allowed via flake `allowUnfreePredicate`).
 k3s itself is installed by [`../k8s/bootstrap/install-k3s.sh`](../k8s/bootstrap/install-k3s.sh), not Nix.
 
 ## Apply (agents / humans)

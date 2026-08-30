@@ -24,9 +24,13 @@
       system = "x86_64-linux";
       pkgs = import nixpkgs {
         inherit system;
-        # HashiCorp Vault CLI is BSL (unfree). Image/server still runs in-cluster.
+        # Vault CLI is BSL; claude-code is Anthropic's proprietary CLI (both unfree).
         config.allowUnfreePredicate =
-          pkg: builtins.elem (nixpkgs.lib.getName pkg) [ "vault" ];
+          pkg:
+          builtins.elem (nixpkgs.lib.getName pkg) [
+            "vault"
+            "claude-code"
+          ];
       };
     in
     {

@@ -105,6 +105,24 @@ def claim(worker_id: str, task_id: str | None = None, via_queue: bool = False) -
     return data.get("task")
 
 
+def claim_job(worker_id: str, kinds: list[str]) -> dict | None:
+    """Claim the next queued job of the given kinds (TASK-011 multi-kind worker).
+
+    Returns {"job": {...}, "task": {...}} or None when the queues are empty.
+    """
+    data = _request(
+        "POST",
+        "/jobs/claim",
+        {"worker_id": worker_id, "via_queue": True, "kinds": kinds},
+    )
+    if not data.get("claimed") or not data.get("job"):
+        # Fallback path may claim a proposed task without a queue job.
+        if data.get("claimed") and data.get("task"):
+            return {"job": None, "task": data["task"]}
+        return None
+    return {"job": data["job"], "task": data.get("task")}
+
+
 def set_status(task_id: str, status: str, assignee: str | None = None) -> dict:
     patch: dict[str, Any] = {"status": status}
     if assignee is not None:
@@ -148,3 +166,87 @@ def update_slack_thread_pr(channel: str, thread_ts: str, pr_url: str) -> None:
     if not task_id:
         return
     save_slack_thread(channel, thread_ts, task_id, pr_url)
+
+
+# --- TASK-011: Slack intake, durable agent runs, notify, job enqueue ---
+
+
+def slack_intake(kind: str, channel_id: str, thread_ts: str, text: str, author: str = "operator") -> dict:
+    """Record Slack intent on the control plane (thin intake client)."""
+    return _request(
+        "POST",
+        "/slack/intake",
+        {
+            "kind": kind,
+            "channel_id": channel_id,
+            "thread_ts": thread_ts,
+            "text": text,
+            "author": author,
+        },
+    )
+
+
+def create_run(
+    task_id: str,
+    kind: str,
+    worker_id: str | None = None,
+    model: str | None = None,
+    branch: str | None = None,
+    job_id: str | None = None,
+) -> dict:
+    return _request(
+        "POST",
+        "/runs",
+        {
+            "task_id": task_id,
+            "kind": kind,
+            "worker_id": worker_id,
+            "model": model,
+            "branch": branch,
+            "job_id": job_id,
+        },
+    )["run"]
+
+
+def append_run_events(run_id: str, events: list[dict]) -> None:
+    if not events:
+        return
+    _request("POST", f"/runs/{run_id}/events", {"events": events})
+
+
+def update_run(run_id: str, patch: dict) -> dict:
+    return _request("PATCH", f"/runs/{run_id}", patch)["run"]
+
+
+def finish_run(
+    run_id: str,
+    status: str,
+    summary: str | None = None,
+    error: str | None = None,
+    agent_id: str | None = None,
+    sdk_run_id: str | None = None,
+) -> dict:
+    patch: dict[str, Any] = {"status": status}
+    if summary is not None:
+        patch["summary"] = summary
+    if error is not None:
+        patch["error"] = error
+    if agent_id is not None:
+        patch["agent_id"] = agent_id
+    if sdk_run_id is not None:
+        patch["sdk_run_id"] = sdk_run_id
+    return update_run(run_id, patch)
+
+
+def list_runs(task_id: str) -> list[dict]:
+    return _request("GET", f"/tasks/{task_id}/runs").get("runs", [])
+
+
+def notify(task_id: str, body: str) -> None:
+    """Report progress/failure; control plane posts to the bound Slack thread."""
+    _request("POST", f"/tasks/{task_id}/notify", {"body": body})
+
+
+def enqueue_job(task_id: str, kind: str, meta: dict | None = None) -> str | None:
+    data = _request("POST", f"/tasks/{task_id}/jobs", {"kind": kind, "meta": meta or {}})
+    return data.get("job_id")

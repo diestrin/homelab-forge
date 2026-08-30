@@ -157,7 +157,194 @@ paths:
                 via_queue: { type: boolean }
                 kinds:
                   type: array
-                  items: { type: string }
+                  items:
+                    type: string
+                    enum: [plan, implement, watch-checks, notify, sync-projects]
       responses:
         "200":
           description: Claim result
+  /tasks/{id}/runs:
+    get:
+      summary: List agent runs for a task (transcript event counts, no bodies)
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Runs
+  /tasks/{id}/notify:
+    post:
+      summary: Enqueue Slack notification for the task thread (control plane posts)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string }
+      responses:
+        "202":
+          description: Notify job enqueued
+  /tasks/{id}/jobs:
+    post:
+      summary: Enqueue a job for a task (CI watch dispatches fix runs here)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                kind:
+                  type: string
+                  enum: [plan, implement, watch-checks, notify, sync-projects]
+                meta: { type: object }
+      responses:
+        "202":
+          description: Job enqueued
+  /runs:
+    post:
+      summary: Create a durable agent run record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [task_id, kind]
+              properties:
+                task_id: { type: string }
+                kind: { type: string }
+                worker_id: { type: string }
+                model: { type: string }
+                branch: { type: string }
+                job_id: { type: string }
+      responses:
+        "201":
+          description: Run created
+  /runs/{id}:
+    get:
+      summary: Get a run including its redacted SDK transcript
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Run with transcript
+    patch:
+      summary: Update run status/ids/summary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [running, finished, error, cancelled]
+                agent_id: { type: string }
+                sdk_run_id: { type: string }
+                summary: { type: string }
+                error: { type: string }
+      responses:
+        "200":
+          description: Updated run
+  /runs/{id}/events:
+    post:
+      summary: Append redacted transcript events to a run
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [events]
+              properties:
+                events:
+                  type: array
+                  items: { type: object }
+      responses:
+        "200":
+          description: Events appended
+  /slack/intake:
+    post:
+      summary: Slack intake (thin Socket Mode client records intent here)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, channel_id, thread_ts, text]
+              properties:
+                kind:
+                  type: string
+                  enum: [plan, thread_reply]
+                channel_id: { type: string }
+                thread_ts: { type: string }
+                text: { type: string }
+                author: { type: string }
+      responses:
+        "201":
+          description: Intake result (action + task + job id)
+  /slack/threads:
+    get:
+      summary: Get Slack thread binding
+      parameters:
+        - name: channel_id
+          in: query
+          required: true
+          schema: { type: string }
+        - name: thread_ts
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Binding
+    post:
+      summary: Save Slack thread binding (pins pr_url once known)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel_id, thread_ts, task_id]
+              properties:
+                channel_id: { type: string }
+                thread_ts: { type: string }
+                task_id: { type: string }
+                pr_url: { type: string }
+      responses:
+        "201":
+          description: Binding saved

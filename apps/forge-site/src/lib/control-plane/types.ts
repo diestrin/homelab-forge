@@ -57,7 +57,43 @@ export type TaskMessage = {
   created_at: string;
 };
 
-export type JobKind = "plan" | "implement" | "notify" | "sync-projects";
+export type JobKind = "plan" | "implement" | "watch-checks" | "notify" | "sync-projects";
+
+export const JOB_KINDS: JobKind[] = [
+  "plan",
+  "implement",
+  "watch-checks",
+  "notify",
+  "sync-projects",
+];
+
+export const RUN_STATUSES = ["running", "finished", "error", "cancelled"] as const;
+
+export type RunStatus = (typeof RUN_STATUSES)[number];
+
+/** One redacted SDK transcript event (assistant message, tool call/result, lifecycle). */
+export type RunEvent = Record<string, unknown>;
+
+export type AgentRun = {
+  id: string;
+  task_id: string;
+  kind: string;
+  status: RunStatus;
+  worker_id: string | null;
+  model: string | null;
+  branch: string | null;
+  agent_id: string | null;
+  sdk_run_id: string | null;
+  job_id: string | null;
+  summary: string | null;
+  error: string | null;
+  transcript?: RunEvent[];
+  event_count?: number;
+  started_at: string;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
 
 export type ControlAction = "approve" | "cancel" | "retry";
 
@@ -94,6 +130,34 @@ export function rowToTask(row: Record<string, unknown>): FactoryTask {
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
   };
+}
+
+export function rowToRun(row: Record<string, unknown>): AgentRun {
+  const run: AgentRun = {
+    id: String(row.id),
+    task_id: String(row.task_id),
+    kind: String(row.kind),
+    status: row.status as RunStatus,
+    worker_id: row.worker_id ? String(row.worker_id) : null,
+    model: row.model ? String(row.model) : null,
+    branch: row.branch ? String(row.branch) : null,
+    agent_id: row.agent_id ? String(row.agent_id) : null,
+    sdk_run_id: row.sdk_run_id ? String(row.sdk_run_id) : null,
+    job_id: row.job_id ? String(row.job_id) : null,
+    summary: row.summary ? String(row.summary) : null,
+    error: row.error ? String(row.error) : null,
+    started_at: String(row.started_at),
+    finished_at: row.finished_at ? String(row.finished_at) : null,
+    created_at: String(row.created_at),
+    updated_at: String(row.updated_at),
+  };
+  if (Array.isArray(row.transcript)) {
+    run.transcript = row.transcript as RunEvent[];
+  }
+  if (row.event_count !== undefined) {
+    run.event_count = Number(row.event_count);
+  }
+  return run;
 }
 
 export function rowToMessage(row: Record<string, unknown>): TaskMessage {

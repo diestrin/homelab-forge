@@ -193,7 +193,49 @@ journalctl --user -u forge-factory-worker -f
 
 Or foreground: `./forge factory worker` / `./forge factory worker --once`.
 
+The daemon claims `plan`, `implement`, and `watch-checks` jobs and runs up to
+`FORGE_WORKER_CONCURRENCY` (default 2) in parallel — two `/forge plan` requests
+no longer serialize behind one SDK process. Same-task jobs serialize on a lock.
+
 Ensure Vault is reachable (port-forward) so workers can AppRole-login and mint GitHub App + Cursor tokens.
+
+### 7. Slack bot token for forge-site notify (ADR-011)
+
+The control plane posts agent progress/failures to Slack threads (notify
+queue). It reads `SLACK_BOT_TOKEN` from the `forge-site-secrets` ExternalSecret
+(Vault `secret/forge/agents/slack`, property `bot_token` — same secret as the
+host intake, step 5). No new Ingress: outbound `chat.postMessage` only.
+
+### 8. Lint tooling for the pre-push gate (TASK-011)
+
+Workers run `factory/scripts/lint-local.sh` before every push. Required on the
+worker host: `markdownlint-cli2` (`npm i -g markdownlint-cli2`) and `python3`.
+Optional but recommended (checked when installed): `shellcheck`, `actionlint`,
+`kubeconform`. Missing optional tools are skipped with a note; missing
+markdownlint fails the gate.
+
+## Observability (TASK-011)
+
+- **systemd journal** — every Slack/API action, task id, pinned branch, PR URL,
+  SDK run id, subprocess exit, and failure is logged (redacted; no tokens or
+  Slack user IDs):
+
+```bash
+journalctl --user -u forge-factory-orchestrator -f   # thin Slack intake
+journalctl --user -u forge-factory-worker -f          # plan/implement/watch jobs
+```
+
+- **Artifact logs** — per-task worker logs and diffs:
+  `/media/diestrin/data/forge/factory/artifacts/logs/TASK-NNN.log`,
+  `…/artifacts/TASK-NNN-git.diff`; daemon log
+  `/media/diestrin/data/forge/factory/worker/<worker-id>.log`.
+- **SDK transcripts** — every plan/implement/fix run streams a redacted
+  conversation into Postgres (`agent_runs`). Inspect via the dashboard task
+  page (`/dashboard/TASK-NNN` → Agent runs → Transcript) or the API:
+  `GET /api/v1/tasks/{id}/runs`, `GET /api/v1/runs/{id}`.
+- **CI watch** — after each plan/implement push a `watch-checks` job polls the
+  PR until green, enqueuing fix runs on red (`FORGE_CI_FIX_ATTEMPTS`, default 2).
+  Slack is pinged only on green / exhausted retries / timeout.
 
 ## Daily commands
 

@@ -1,0 +1,22 @@
+id: TASK-012
+title: 'a monitoring and alerting system for the forge, capable of sending alert'
+goal: |
+  a monitoring and alerting system for the forge, capable of sending alerts via ntfy and slack when deployments are failing or the host resources are going to dangerous levels
+acceptance_criteria:
+- Plan refined via Slack thread and approved before worker claim
+- Implementation lands on the plan PR after Cursor SDK worker run
+- No secrets in git; merge remains human-gated (ADR-008)
+sandbox_profile: agent-cell
+repo_path: .
+status: planning
+assignee_agent: null
+artifacts: []
+risk_level: medium
+budget_minutes: 60
+branch: factory/task-012-a-monitoring-and-alerting-system-for-the
+worker_hook: null
+notes: |
+  Created by plan-job fallback (Cursor SDK unavailable).
+  Operator should refine via Slack thread before approve.
+claimed_at: null
+updated_at: null

@@ -121,7 +121,7 @@ In Cursor Dashboard (cursor.com/agents):
 
 From Slack:
 
-```
+```text
 @Cursor help
 ```
 
@@ -236,17 +236,19 @@ systemctl --user status cursor-my-machines-worker.service
 
 From Slack:
 
-```
+```text
 @Cursor create a simple test file in homelab-forge with today's date
 ```
 
 Expected:
+
 1. Cursor routes request to localpower-forge worker
 2. Agent creates file, commits, pushes branch
 3. Agent opens PR
 4. Slack thread shows progress and PR link
 
 Verify:
+
 - PR appears on GitHub
 - File exists in repository
 - Agent transcript visible in Cursor dashboard
@@ -425,23 +427,27 @@ argocd app get forge-demo  # Should show Synced status
 If My Machines doesn't meet needs (within 30-day window):
 
 1. Stop worker:
+
    ```bash
    systemctl --user stop cursor-my-machines-worker.service
    ```
 
 2. Restore forge-site control plane:
+
    ```bash
    git checkout factory/task-008-db-backed-factory-control-plane
    kubectl apply -k k8s/apps/forge-site/
    ```
 
 3. Restore Postgres (if backed up):
+
    ```bash
    kubectl -n forge-system exec -it postgres-0 -- \
      psql -U forge forge < /tmp/factory-postgres-backup-YYYYMMDD.sql
    ```
 
 4. Restart factory services:
+
    ```bash
    systemctl --user start forge-factory-orchestrator.service
    systemctl --user start forge-factory-worker.service

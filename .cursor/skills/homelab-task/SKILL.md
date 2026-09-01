@@ -12,12 +12,14 @@ following these conventions.
 ## When to Create an Issue
 
 Create an issue when:
+
 - User requests a new feature or infrastructure change
 - User reports a bug or problem to fix
 - Planning work that will result in a PR
 - User says "create a task for..." or similar
 
 Do NOT create an issue for:
+
 - Direct questions about the codebase
 - Immediate one-line changes user asks you to make now
 - Exploratory work with no clear deliverable
@@ -26,11 +28,12 @@ Do NOT create an issue for:
 
 Use component prefix for categorization:
 
-```
+```text
 [component] Brief description (imperative mood)
 ```
 
 **Component prefixes:**
+
 - `[k8s]` — Kubernetes manifests, deployments, services
 - `[docs]` — Documentation, runbooks, ADRs
 - `[security]` — host-watch, firewall, SSH, secrets
@@ -42,6 +45,7 @@ Use component prefix for categorization:
 - `[infra]` — Host-level infrastructure, systemd
 
 **Examples:**
+
 - `[k8s] Add Redis deployment for session storage`
 - `[docs] Update operations runbook for Cursor My Machines`
 - `[security] Rotate Vault AppRole tokens`
@@ -86,18 +90,22 @@ Structure the issue body as:
 Apply these labels when creating the issue:
 
 **Required:**
+
 - `task` (always, marks this as an agent-implementable task)
 - `needs-triage` (operator reviews and removes this)
 
 **Risk level (pick one):**
+
 - `risk:low` — Safe changes, no infrastructure impact
 - `risk:medium` — Feature work, new dependencies
 - `risk:high` — Infrastructure, host changes, secrets, public exposure
 
 **Component (optional but recommended):**
+
 - `k8s`, `docs`, `security`, `nix`, `ci`, `ingress`, `vault`, `argo`, `infra`
 
 **Example `gh` command:**
+
 ```bash
 gh issue create \
   --title "[k8s] Add Redis deployment" \
@@ -108,6 +116,7 @@ gh issue create \
 ## Risk Level Guidelines
 
 ### Low Risk
+
 - Documentation updates (ADRs, runbooks, README)
 - Code comments and docstrings
 - Refactors with tests passing
@@ -115,6 +124,7 @@ gh issue create \
 - Non-functional changes
 
 ### Medium Risk
+
 - New application features
 - Adding dependencies (npm, pip, Nix packages)
 - Database schema changes (with migrations)
@@ -122,6 +132,7 @@ gh issue create \
 - MCP server changes
 
 ### High Risk
+
 - Host systemd units
 - SSH configuration
 - UFW firewall rules

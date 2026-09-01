@@ -33,7 +33,7 @@ interface.**
 
 **Before (ADR-009/010/011):**
 
-```
+```text
 Slack Socket Mode (host) → POST /api/v1/slack/intake
                            ↓
                     forge-site control plane
@@ -48,7 +48,7 @@ Slack Socket Mode (host) → POST /api/v1/slack/intake
 
 **After (ADR-012):**
 
-```
+```text
 Cursor Slack / mobile / web → Cursor backend
                               ↓
                         My Machines worker (host)
@@ -108,6 +108,7 @@ agent worker --name "localpower-forge" start
 ```
 
 Worker configuration:
+
 - **Name:** `localpower-forge` (recognizable in Cursor UI)
 - **Repository:** homelab-forge checkout on host
 - **Network:** Outbound HTTPS to Cursor backend (no inbound ports)
@@ -116,6 +117,7 @@ Worker configuration:
 ### Cursor Slack Integration
 
 Enable native Cursor Slack app in operator's workspace:
+
 - Install from Slack App Directory or Cursor Dashboard
 - Authorize bot permissions
 - Request changes by mentioning @Cursor in channels/threads
@@ -123,7 +125,7 @@ Enable native Cursor Slack app in operator's workspace:
 
 ### Migration Runbook
 
-**Phase 1: Setup My Machines (non-disruptive)**
+#### Phase 1: Setup My Machines (non-disruptive)
 
 1. Install Cursor CLI on localpower host
 2. Authenticate with operator's Cursor account
@@ -132,29 +134,31 @@ Enable native Cursor Slack app in operator's workspace:
 5. Configure Vault MCP server for local worker
 6. Create `.cursor/environment.json` for homelab-forge
 
-**Phase 2: Enable Cursor Slack**
+#### Phase 2: Enable Cursor Slack
 
 1. Install Cursor Slack app in operator's workspace
 2. Configure workspace settings
 3. Test agent request flow: Slack → Cursor → My Machines worker
 4. Verify PR creation and iteration workflow
 
-**Phase 3: Cutover (disruptive)**
+#### Phase 3: Cutover (disruptive)
 
 1. Stop accepting new tasks in forge-site control plane
 2. Let in-flight worker jobs complete
 3. Stop systemd services:
+
    ```bash
    systemctl --user stop forge-factory-worker.service
    systemctl --user stop forge-factory-orchestrator.service
    systemctl --user disable forge-factory-worker.service
    systemctl --user disable forge-factory-orchestrator.service
    ```
+
 4. Archive factory task YAML and Postgres data (optional backup)
 5. Start My Machines worker on homelab-forge repository
 6. Create systemd unit for My Machines worker (optional: for auto-restart)
 
-**Phase 4: Cleanup**
+#### Phase 4: Cleanup
 
 1. Remove forge-site deployment from k3s (if deployed)
 2. Archive or delete Postgres PVC

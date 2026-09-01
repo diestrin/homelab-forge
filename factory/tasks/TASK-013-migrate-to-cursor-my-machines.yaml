@@ -9,7 +9,7 @@ goal: |
   plan-then-implement task flow.
 
 branch: factory/task-013-migrate-to-cursor-my-machines
-status: in_progress
+status: review
 assignee_agent: worker-cursor
 sandbox_profile: agent-cell
 repo_path: .

@@ -64,8 +64,15 @@ Slack + Cursor SDK (ADR-009):
 ## ESO
 
 `ClusterSecretStore/vault-backend` uses Secret `forge-system/vault-eso-token`
-(token created with the `platform` policy). Example: `ExternalSecret` →
-`forge-system/ntfy` from `secret/forge/ntfy`. Family Agile sync reads
+(token created with the `platform` policy). Examples:
+
+| ExternalSecret (namespace) | Vault path | Use |
+| --- | --- | --- |
+| `monitoring/alertmanager-*` | `secret/forge/ntfy`, `secret/forge/alerts/slack` | Alertmanager → ntfy + Slack ops |
+| `monitoring/grafana-admin` | `secret/forge/grafana` | Grafana admin login |
+| `forge-system/forge-postgres` | `secret/forge/postgres` | Platform Postgres |
+
+Family Agile sync reads
 `secret/family-agile/notion` (`token`) and `secret/family-agile/habitica`
 (`<member>_user` and `<member>_key` for each account).
 

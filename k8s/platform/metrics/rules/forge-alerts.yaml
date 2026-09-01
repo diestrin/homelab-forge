@@ -1,0 +1,130 @@
+# Forge platform alerts A1–A8 (see factory/plans/TASK-012.md).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: forge-alerts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/part-of: homelab-forge
+spec:
+  groups:
+    - name: forge.node
+      interval: 30s
+      rules:
+        - alert: ForgeNodeNotReady
+          expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+          for: 5m
+          labels:
+            severity: critical
+            forge_alert_id: A1
+          annotations:
+            summary: Kubernetes node is not Ready
+            description: Node {{ $labels.node }} has been NotReady for more than 5 minutes.
+
+        - alert: ForgeNodePressure
+          expr: kube_node_status_condition{condition=~"MemoryPressure|DiskPressure|PIDPressure",status="true"} == 1
+          for: 5m
+          labels:
+            severity: critical
+            forge_alert_id: A2
+          annotations:
+            summary: Node resource pressure detected
+            description: Node {{ $labels.node }} reports {{ $labels.condition }}.
+
+        - alert: ForgeNodeHighMemory
+          expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+          for: 10m
+          labels:
+            severity: warning
+            forge_alert_id: A3
+          annotations:
+            summary: Node memory utilization above 85%
+            description: Instance {{ $labels.instance }} memory use exceeds 85% for 10 minutes.
+
+        - alert: ForgeNodeHighCPU
+          expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+          for: 10m
+          labels:
+            severity: warning
+            forge_alert_id: A3
+          annotations:
+            summary: Node CPU utilization above 90%
+            description: Instance {{ $labels.instance }} CPU use exceeds 90% for 10 minutes.
+
+    - name: forge.argocd
+      interval: 30s
+      rules:
+        - alert: ForgeArgoAppUnhealthy
+          expr: |
+            argocd_app_info{health_status=~"Degraded|Missing|Unknown",name=~"forge-site|family-agile-sync|forge-root"} == 1
+          for: 15m
+          labels:
+            severity: critical
+            forge_alert_id: A4
+          annotations:
+            summary: Argo CD application unhealthy
+            description: Application {{ $labels.name }} health is {{ $labels.health_status }}.
+
+        - alert: ForgeArgoAppOutOfSync
+          expr: |
+            argocd_app_info{sync_status="OutOfSync",name=~"forge-site|family-agile-sync|forge-root"} == 1
+          for: 30m
+          labels:
+            severity: warning
+            forge_alert_id: A5
+          annotations:
+            summary: Argo CD application OutOfSync
+            description: Application {{ $labels.name }} has been OutOfSync for 30 minutes.
+
+    - name: forge.workloads
+      interval: 30s
+      rules:
+        - alert: ForgePodCrashLooping
+          expr: |
+            kube_pod_container_status_waiting_reason{reason=~"CrashLoopBackOff|ImagePullBackOff",namespace=~"forge-demo|forge-system|family-agile|forge-agents"} == 1
+          for: 10m
+          labels:
+            severity: warning
+            forge_alert_id: A6
+          annotations:
+            summary: Pod container in error state
+            description: Pod {{ $labels.namespace }}/{{ $labels.pod }} container {{ $labels.container }} is {{ $labels.reason }}.
+
+        - alert: ForgeDeploymentNotReady
+          expr: |
+            (
+              kube_deployment_spec_replicas{namespace=~"forge-demo|forge-system|family-agile|forge-agents"} > 0
+            )
+            and
+            (
+              kube_deployment_status_replicas_available{namespace=~"forge-demo|forge-system|family-agile|forge-agents"}
+              != kube_deployment_spec_replicas{namespace=~"forge-demo|forge-system|family-agile|forge-agents"}
+            )
+          for: 15m
+          labels:
+            severity: warning
+            forge_alert_id: A7
+          annotations:
+            summary: Deployment replicas not ready
+            description: Deployment {{ $labels.namespace }}/{{ $labels.deployment }} has unavailable replicas for 15 minutes.
+
+    - name: forge.platform
+      interval: 30s
+      rules:
+        - alert: ForgeVaultNotRunning
+          expr: |
+            (
+              kube_deployment_spec_replicas{namespace="forge-system",deployment="vault"} > 0
+            )
+            unless
+            (
+              kube_deployment_status_replicas_available{namespace="forge-system",deployment="vault"}
+              == kube_deployment_spec_replicas{namespace="forge-system",deployment="vault"}
+            )
+          for: 5m
+          labels:
+            severity: critical
+            forge_alert_id: A8
+          annotations:
+            summary: Vault deployment is not fully available
+            description: Vault in forge-system has fewer ready replicas than desired for 5 minutes.

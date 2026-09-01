@@ -1,0 +1,220 @@
+# kube-prometheus-stack values for homelab-forge (single-node k3s NUC).
+# Chart: prometheus-community/kube-prometheus-stack @ 88.6.2 (pinned in Argo Application).
+# Estimated incremental RAM budget: ~1.5–2 GiB (see k8s/platform/metrics/README.md).
+
+fullnameOverride: monitoring
+
+crds:
+  enabled: true
+
+defaultRules:
+  create: true
+  rules:
+    alertmanager: true
+    etcd: false
+    configReloaders: true
+    general: true
+    k8sContainerCpuUsageSecondsTotal: true
+    k8sContainerMemoryCache: true
+    k8sContainerMemoryRss: true
+    k8sContainerMemorySwap: true
+    k8sContainerResource: true
+    k8sContainerMemoryWorkingSetBytes: true
+    k8sPodOwner: true
+    kubeApiserverAvailability: true
+    kubeApiserverBurnrate: true
+    kubeApiserverHistogram: true
+    kubeApiserverSlos: true
+    kubeControllerManager: false
+    kubelet: true
+    kubeProxy: false
+    kubePrometheusGeneral: true
+    kubePrometheusNodeRecording: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubernetesStorage: true
+    kubernetesSystem: true
+
+alertmanager:
+  enabled: true
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: ntfy-default
+      group_by: ['alertname', 'namespace', 'severity']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      routes:
+        - receiver: "null"
+          matchers:
+            - alertname = "Watchdog"
+        - receiver: ntfy-critical
+          matchers:
+            - severity = critical
+          repeat_interval: 15m
+        - receiver: ntfy-warning
+          matchers:
+            - severity = warning
+          repeat_interval: 60m
+        - receiver: ntfy-info
+          matchers:
+            - severity = info
+          repeat_interval: 12h
+    receivers:
+      - name: "null"
+      - name: ntfy-default
+        webhook_configs:
+          - url_file: /etc/alertmanager/secrets/alertmanager-notifications/ntfy_url
+            send_resolved: true
+      - name: ntfy-critical
+        webhook_configs:
+          - url_file: /etc/alertmanager/secrets/alertmanager-notifications/ntfy_url
+            send_resolved: true
+        slack_configs:
+          - api_url_file: /etc/alertmanager/secrets/alertmanager-notifications/slack_webhook_url
+            channel: "#forge-alerts"
+            send_resolved: false
+            title: '{{ .GroupLabels.alertname }}'
+            text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+      - name: ntfy-warning
+        webhook_configs:
+          - url_file: /etc/alertmanager/secrets/alertmanager-notifications/ntfy_url
+            send_resolved: true
+        slack_configs:
+          - api_url_file: /etc/alertmanager/secrets/alertmanager-notifications/slack_webhook_url
+            channel: "#forge-alerts"
+            send_resolved: false
+            title: '{{ .GroupLabels.alertname }}'
+            text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+      - name: ntfy-info
+        webhook_configs:
+          - url_file: /etc/alertmanager/secrets/alertmanager-notifications/ntfy_url
+            send_resolved: true
+    inhibit_rules:
+      - source_matchers:
+          - severity = critical
+        target_matchers:
+          - severity =~ warning|info
+        equal: ['namespace', 'alertname']
+      - source_matchers:
+          - severity = warning
+        target_matchers:
+          - severity = info
+        equal: ['namespace', 'alertname']
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+    secrets:
+      - alertmanager-notifications
+
+grafana:
+  enabled: true
+  defaultDashboardsEnabled: true
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  ingress:
+    enabled: false
+  persistence:
+    enabled: true
+    type: pvc
+    storageClassName: local-path
+    accessModes:
+      - ReadWriteOnce
+    size: 2Gi
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
+      searchNamespace: ALL
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+prometheus:
+  enabled: true
+  prometheusSpec:
+    retention: 7d
+    ruleSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1536Mi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+
+  additionalServiceMonitors:
+    - name: argocd-application-controller
+      namespaceSelector:
+        matchNames:
+          - forge-system
+      selector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-metrics
+      endpoints:
+        - port: metrics
+          interval: 30s
+          path: /metrics
+    - name: argocd-server
+      namespaceSelector:
+        matchNames:
+          - forge-system
+      selector:
+        matchLabels:
+          app.kubernetes.io/name: argocd-server-metrics
+      endpoints:
+        - port: metrics
+          interval: 30s
+          path: /metrics
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 64Mi
+
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi

@@ -1,0 +1,53 @@
+id: TASK-012
+title: 'a monitoring and alerting system for the forge, capable of sending alert'
+goal: |
+  Deploy a Prometheus + Grafana observability stack on k3s so the operator has
+  portfolio-grade dashboards and declarative alerts when steady-state deployments
+  (Argo CD Applications and their workloads) are unhealthy or the single-node host
+  shows resource pressure. Notifications route to ntfy and Slack via Alertmanager —
+  without modifying host-watch, UFW, or factory task-thread Slack routing (TASK-011).
+acceptance_criteria:
+- kube-prometheus-stack (Prometheus Operator, Prometheus, Grafana, Alertmanager,
+  kube-state-metrics, node-exporter) deployed via Argo CD Helm Application in a
+  dedicated monitoring namespace; worker does not kubectl apply Argo-managed apps
+- Grafana reachable on HTTPS Ingress (TLS via cert-manager) with admin credentials
+  from Vault via ExternalSecret; at least three provisioned dashboards documented for
+  portfolio use (cluster overview, node resources, workload health)
+- PrometheusRule resources in git encode alert conditions A1–A8 (see plan); firing
+  alerts reach ntfy and a dedicated Slack ops channel through Alertmanager receivers
+- ExternalSecret projects secret/forge/ntfy (existing) and secret/forge/alerts/slack
+  webhook_url into monitoring; no secrets, webhook URLs, or Slack user IDs in git
+- Minimal shell CronJob forge-node-alert in k8s/platform/metrics/alerts.yaml removed
+  or superseded by Prometheus rules; no parallel custom alert checker
+- k8s/platform/metrics/README.md documents Vault bootstrap, Grafana URL, dashboard
+  tour, and operator smoke-test procedure (including safe alert trigger)
+- kubectl kustomize k8s/platform/metrics (and helm values lint/template in CI) passes
+  review; factory/review/CHECKLIST.md completed on the PR
+- After human merge to main, Argo CD syncs metrics overlay and monitoring Application
+  only (ADR-008)
+sandbox_profile: agent-cell
+repo_path: .
+status: planning
+assignee_agent: null
+artifacts: []
+risk_level: medium
+budget_minutes: 90
+branch: factory/task-012-a-monitoring-and-alerting-system-for-the
+worker_hook: null
+notes: |
+  Operator request: monitoring + alerting via ntfy and Slack for failing deployments
+  and dangerous host resource levels.
+
+  Slack iteration (2026-09-01): plan expanded with forge-alerts Python service —
+  superseded by portfolio feedback below.
+
+  Portfolio iteration (2026-09-01): operator prefers Prometheus + Grafana (dashboards
+  to showcase, alerts configured from the observability stack) over a bespoke Python
+  CronJob checker. Plan revised: kube-prometheus-stack via Argo CD Helm, PrometheusRule
+  alerts, Alertmanager → ntfy + Slack, Grafana Ingress. Boundary vs TASK-011
+  task-thread Slack and security/host-watch (ADR-005) unchanged.
+
+  Do not auto-approve; ephemeral cluster alert smoke uses throwaway pods in forge-agents
+  only, never committed to git.
+claimed_at: null
+updated_at: null

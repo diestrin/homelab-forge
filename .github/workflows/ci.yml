@@ -52,6 +52,20 @@ jobs:
           done
           exit "$status"
 
+      - name: Validate kube-prometheus-stack values
+        env:
+          CHART_VERSION: "88.6.2"
+        run: |
+          set -euo pipefail
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo update prometheus-community
+          helm template monitoring prometheus-community/kube-prometheus-stack \
+            --version "${CHART_VERSION}" \
+            -f k8s/platform/metrics/helm/kube-prometheus-stack-values.yaml \
+            --namespace monitoring \
+            > /dev/null
+          echo "helm template kube-prometheus-stack OK"
+
       - name: Validate preview templates
         run: |
           set -euo pipefail

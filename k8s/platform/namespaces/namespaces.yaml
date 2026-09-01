@@ -18,3 +18,10 @@ metadata:
   name: forge-agents
   labels:
     forge.homelab/plane: agents
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    forge.homelab/plane: platform

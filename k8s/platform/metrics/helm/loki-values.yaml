@@ -54,12 +54,7 @@ singleBinary:
       - ReadWriteOnce
     size: 10Gi
     enableStatefulSetAutoDeletePVC: false
-  extraVolumes:
-    - name: tmp
-      emptyDir: {}
-  extraVolumeMounts:
-    - name: tmp
-      mountPath: /tmp
+  # Do not extra-mount /tmp — the chart already does, and Argo SSA rejects duplicates.
   resources:
     requests:
       cpu: 100m

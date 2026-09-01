@@ -46,6 +46,18 @@ def test_mandatory_earns_nothing_and_only_fails_for_points():
         assert signed_points(difficulty, Kind.MANDATORY, Outcome.FAILED) == -penalty
 
 
+def test_mandatory_earns_zero_is_global_not_category_scoped():
+    """The policy was written for Casa chores, but rules.py has no category
+    concept: a Mandatory routine earns 0 on completion no matter what area it
+    belongs to. This is a deliberate choice (2026-09) -- there are no active
+    Mandatory routines outside Casa today. If a future area (Escuela, Salud...)
+    ever needs its Mandatory work to pay on completion, that requires threading
+    the routine's Categoría into the Event and gating signed_points on it; it
+    is not something to bolt on silently."""
+    for difficulty in Difficulty:
+        assert signed_points(difficulty, Kind.MANDATORY, Outcome.DONE) == 0
+
+
 @pytest.mark.parametrize("kind", [Kind.OPCIONAL, Kind.TODO])
 def test_optional_and_todo_earn_face_value_and_never_fail(kind):
     for difficulty, face in (

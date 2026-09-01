@@ -1,11 +1,25 @@
 id: TASK-012
 title: 'a monitoring and alerting system for the forge, capable of sending alert'
 goal: |
-  a monitoring and alerting system for the forge, capable of sending alerts via ntfy and slack when deployments are failing or the host resources are going to dangerous levels
+  Extend platform monitoring so the operator gets ntfy and Slack alerts when
+  steady-state deployments (Argo CD Applications and their workloads) are unhealthy
+  or the single-node k3s host shows resource pressure — without modifying
+  host-watch, UFW, or factory task-thread Slack routing (TASK-011).
 acceptance_criteria:
-- Plan refined via Slack thread and approved before worker claim
-- Implementation lands on the plan PR after Cursor SDK worker run
-- No secrets in git; merge remains human-gated (ADR-008)
+- apps/forge-alerts Python checker with unit tests (pytest) covering Argo app health/sync,
+  failing pods, node pressure/utilization, Vault pod, alert dedupe, and dual notify paths
+- CronJob forge-alerts in k8s/platform/metrics/ runs the forge-alerts image (*/5 schedule),
+  replaces the inline shell alert script; RBAC read-only on nodes, pods, applications, metrics
+- ExternalSecret projects secret/forge/ntfy (existing) and secret/forge/alerts/slack
+  webhook_url into forge-system; no secrets, webhook URLs, or Slack user IDs in git
+- Alerts fire per plan thresholds (A1–A8) with cooldown deduplication; DRY_RUN documented
+- .github/workflows/forge-alerts-image.yml builds/pushes image on main; ci green on PR
+- apps/forge-alerts/README.md documents Vault bootstrap, Slack Incoming Webhook setup,
+  and operator smoke-test procedure
+- kubectl kustomize k8s/platform/metrics passes kubeconform; factory/review/CHECKLIST.md
+  completed on the PR
+- After human merge to main, Argo CD syncs metrics overlay only (ADR-008); worker does not
+  kubectl apply Argo-managed apps
 sandbox_profile: agent-cell
 repo_path: .
 status: planning
@@ -16,7 +30,15 @@ budget_minutes: 60
 branch: factory/task-012-a-monitoring-and-alerting-system-for-the
 worker_hook: null
 notes: |
-  Created by plan-job fallback (Cursor SDK unavailable).
-  Operator should refine via Slack thread before approve.
+  Operator request: monitoring + alerting via ntfy and Slack for failing deployments
+  and dangerous host resource levels.
+
+  Slack iteration (2026-09-01): operator needed concrete implementation detail before
+  approve — plan expanded with forge-alerts Python service, k8s/platform/metrics
+  CronJob, Vault paths (forge/ntfy, forge/alerts/slack), alert matrix A1–A8, and
+  explicit boundary vs TASK-011 task-thread Slack and security/host-watch (ADR-005).
+
+  Do not auto-approve; ephemeral cluster alert smoke uses throwaway pods in forge-agents
+  only, never committed to git.
 claimed_at: null
 updated_at: null

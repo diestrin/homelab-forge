@@ -1,0 +1,34 @@
+id: TASK-012
+title: Family Agile occurrence generator (Rutinas -> Agenda)
+goal: 'Add a fifth CronJob to family-agile-sync that materialises the Pendiente
+  Agenda rows from the Rutinas catalogue on a rolling horizon. TASK-009 left this
+  out of scope ("the occurrence generator is a separate refactor phase"); every
+  other job assumes those rows already exist. Implements ADR-27''s v0 algorithm
+  as a pure, tested function.
+
+  '
+branch: feat/family-agile-occurrence-generator
+status: review
+assignee_agent: null
+sandbox_profile: devcontainer
+repo_path: .
+risk_level: medium
+budget_minutes: 120
+acceptance_criteria:
+- rules.occurs_on is pure and unit-tested for Semanal/Quincenal/Mensual/Trimestral, the vigente_desde guard and day-of-month clamping
+- generate-occurrences only ever creates Agenda rows, never updates or deletes; Origen = Manual rows are left alone
+- Idempotent - an occurrence that already has a row (earlier run or hand-entered) is not duplicated
+- Personal routine yields one row per listed Miembro (ADR-28); Pool routine yields one unclaimed row (ADR-33)
+- Non-weekly routines get Agenda rows too, so reconcile can fail a missed mandatory window
+- DRY_RUN logs intended rows and writes nothing
+- New CronJob wired into kustomization; GENERATE_HORIZON_DAYS in the ConfigMap (default 14)
+- pytest green in CI; kustomize build + kubeconform clean
+notes: 'Follow-on to TASK-009. Notion-only job (no Habitica). The matching
+  calendar is ADR-27''s v0 algorithm, previously run once by hand for 25-31 Aug
+  2026; this lifts it into rules.occurs_on. Quincenal fires once per fortnight on
+  vigente_desde''s weekday - extra Días entries are inert, matching the accepted
+  ADR; flagged for Fer to confirm against a DRY_RUN diff on real data.
+
+  '
+github_project_item_id: null
+updated_at: '2026-09-01T00:00:00Z'

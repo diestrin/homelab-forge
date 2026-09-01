@@ -51,6 +51,7 @@ class Agenda:
     ORIGEN = "Origen"
     AJUSTADO = "Ajustado"
     MOTIVO = "Motivo del ajuste"
+    TABLA = "Tabla"
 
 
 class Tareas:
@@ -89,6 +90,7 @@ ESTADO_HECHA = "Hecha"
 ESTADO_FALLADA = "Fallada"
 
 ORIGEN_HABITICA = "Habitica"
+ORIGEN_NOTION = "Notion"
 ORIGEN_MANUAL = "Manual"
 
 MODALIDAD_PERSONAL = "Personal"

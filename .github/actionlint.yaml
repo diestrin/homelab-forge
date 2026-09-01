@@ -1,0 +1,5 @@
+# Custom labels for the in-cluster forge-site preview runner (TASK-010).
+self-hosted-runner:
+  labels:
+    - k3s
+    - forge-preview

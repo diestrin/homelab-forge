@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: forge-site
+  namespace: forge-preview-${PREVIEW_PR_NUMBER}
+  labels:
+    app: forge-site
+    forge.homelab/preview: "true"
+spec:
+  selector:
+    app: forge-site
+  ports:
+    - port: 80
+      targetPort: 3000

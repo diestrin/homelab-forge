@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: forge-site
+  namespace: forge-preview-${PREVIEW_PR_NUMBER}
+  labels:
+    app: forge-site
+    forge.homelab/preview: "true"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - ${PREVIEW_HOST}
+      secretName: forge-site-preview-${PREVIEW_PR_NUMBER}-tls
+  rules:
+    - host: ${PREVIEW_HOST}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: forge-site
+                port:
+                  number: 80

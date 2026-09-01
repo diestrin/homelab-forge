@@ -1,0 +1,162 @@
+name: forge-site preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - "apps/forge-site/**"
+      - "k8s/preview/**"
+      - ".github/workflows/forge-site-preview.yml"
+  delete:
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+
+concurrency:
+  group: forge-site-preview-${{ github.event.pull_request.number || github.event.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build and push preview image
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push preview image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/forge-site/Dockerfile
+          push: true
+          tags: ghcr.io/diestrin/homelab-forge/forge-site:pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: deploy preview to k3s
+    needs: build
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed' &&
+      vars.FORGE_PREVIEW_ENABLED == 'true'
+    runs-on: [self-hosted, k3s, forge-preview]
+    timeout-minutes: 15
+    env:
+      PREVIEW_PR_NUMBER: ${{ github.event.pull_request.number }}
+      PREVIEW_IMAGE: ghcr.io/diestrin/homelab-forge/forge-site:pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+      PREVIEW_HOST: pr-${{ github.event.pull_request.number }}.localpower.diegobarahona.com
+      PREVIEW_BRANCH: ${{ github.head_ref }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Apply preview stack
+        run: |
+          set -euo pipefail
+          ./k8s/preview/forge-site/render.sh | kubectl apply -f -
+          kubectl -n "forge-preview-${PREVIEW_PR_NUMBER}" rollout status deployment/forge-site --timeout=300s
+
+      - name: Preview URL summary
+        run: |
+          url="https://${PREVIEW_HOST}/"
+          {
+            echo "## Forge-site preview"
+            echo ""
+            echo "**URL:** ${url}"
+            echo "**Image:** \`${PREVIEW_IMAGE}\`"
+            echo "**Namespace:** \`forge-preview-${PREVIEW_PR_NUMBER}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Comment preview URL on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request.number;
+            const url = `https://pr-${pr}.localpower.diegobarahona.com/`;
+            const image = `ghcr.io/diestrin/homelab-forge/forge-site:pr-${pr}-${context.sha}`;
+            const marker = '<!-- forge-site-preview -->';
+            const body = [
+              marker,
+              '### Forge-site preview',
+              '',
+              `**URL:** ${url}`,
+              `**Image:** \`${image}\``,
+              `**Namespace:** \`forge-preview-${pr}\``,
+            ].join('\n');
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr,
+            });
+            const existing = comments.find((c) => c.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr,
+                body,
+              });
+            }
+
+  cleanup-pr:
+    name: cleanup preview (PR closed)
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      vars.FORGE_PREVIEW_ENABLED == 'true'
+    runs-on: [self-hosted, k3s, forge-preview]
+    timeout-minutes: 10
+    steps:
+      - name: Delete preview namespace
+        env:
+          PREVIEW_PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          ns="forge-preview-${PREVIEW_PR_NUMBER}"
+          kubectl delete namespace "${ns}" --ignore-not-found --wait=false
+          echo "Deleted (or absent): ${ns}"
+
+  cleanup-branch:
+    name: cleanup preview (branch deleted)
+    if: github.event_name == 'delete' && vars.FORGE_PREVIEW_ENABLED == 'true'
+    runs-on: [self-hosted, k3s, forge-preview]
+    timeout-minutes: 10
+    steps:
+      - name: Delete preview namespace by branch label
+        env:
+          DELETED_BRANCH: ${{ github.event.ref }}
+        run: |
+          set -euo pipefail
+          mapfile -t namespaces < <(
+            kubectl get ns -l "forge.homelab/preview=true" \
+              -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.annotations.forge\.homelab/preview-branch}{"\n"}{end}' \
+              | awk -v branch="${DELETED_BRANCH}" '$2 == branch { print $1 }'
+          )
+          if [[ ${#namespaces[@]} -eq 0 ]]; then
+            echo "No preview namespace for branch ${DELETED_BRANCH}"
+            exit 0
+          fi
+          for ns in "${namespaces[@]}"; do
+            echo "Deleting ${ns} (branch ${DELETED_BRANCH})"
+            kubectl delete namespace "${ns}" --ignore-not-found --wait=false
+          done

@@ -1,4 +1,4 @@
-id: TASK-012
+id: TASK-013
 title: Family Agile occurrence generator (Rutinas -> Agenda)
 goal: 'Add a fifth CronJob to family-agile-sync that materialises the Pendiente
   Agenda rows from the Rutinas catalogue on a rolling horizon. TASK-009 left this

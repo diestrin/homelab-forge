@@ -1,21 +1,44 @@
 # Agent handoff
 
-You are working in **homelab-forge**, a planning-first repo for a home software forge.
+You are working in **homelab-forge**, a portfolio-grade home software forge running
+on Ubuntu + Nix + k3s.
 
-## Before any host change
+## Context for agents
 
-1. Read [`PLAN.md`](./PLAN.md).
-2. Read [`docs/current-state.md`](./docs/current-state.md) and re-verify live facts that matter to your task.
-3. Open the single phase the human authorized under [`docs/phases/`](./docs/phases/).
-4. Respect ADRs in [`docs/decisions/`](./docs/decisions/).
+1. Read [`PLAN.md`](./PLAN.md) for vision and architecture.
+2. Read [`docs/current-state.md`](./docs/current-state.md) for current host state.
+3. Respect ADRs in [`docs/decisions/`](./docs/decisions/).
+4. **Task management:** GitHub Issues with `task` label (see `.cursor/skills/homelab-task/`).
+
+## Key architecture decisions
+
+- **Agent platform:** Cursor My Machines (ADR-012, since 2026-09-01)
+  - Request changes via Cursor Slack, mobile app, or cursor.com/agents
+  - Worker runs locally on localpower host
+  - Environment defined in `.cursor/environment.json`
+  
+- **GitOps:** Merge to `main` → Argo CD syncs `k8s/` (ADR-008)
+  - Never `kubectl apply` to Argo-managed apps
+  - All cluster changes via PR → review → merge
+  
+- **Secrets:** HashiCorp Vault on k3s (ADR-007)
+  - No secrets in git (repo is **public**)
+  - Vault accessed via local MCP server on worker
+  
+- **Host IDS:** `security/host-watch/` monitors processes (ADR-005)
+  - Update allowlists when adding new services
+  - Never disable UFW to "fix" networking
 
 ## Defaults
 
-- No implementation unless the human asks to execute a phase.
-- Phase 0 before ingress/k3s.
-- Adopt [`../host-watch`](../host-watch); do not rewrite it.
-- Prefer reversible, documented changes; never disable the firewall to unblock networking.
-- Repo is **public** — no secrets in git; Vault is SoR after Phase 3 (ADR-007).
-- Import `host-watch` into `security/host-watch/` (ADR-005); do not dual-maintain the sibling.
+- Prefer reversible, documented changes.
+- Never disable the firewall to unblock networking.
+- Repo is **public** — no secrets, no personal data in git.
 - Cluster steady-state deploys go through Argo CD from `main` (ADR-008).
-- Locked product decisions live in [`PLAN.md`](./PLAN.md) (Accepted answers) and ADRs 001–008.
+- For new work, create GitHub Issue with `task` label first (see `.cursor/skills/homelab-task/`).
+
+## Superseded (historical reference)
+
+- **ADR-009/010/011:** Custom factory pipeline (Slack Socket Mode → Postgres control
+  plane → worker daemon) retired 2026-09-01 in favor of Cursor My Machines (ADR-012).
+- Factory task YAML under `factory/tasks/` is legacy; use GitHub Issues.

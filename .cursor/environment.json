@@ -1,0 +1,36 @@
+{
+  "name": "homelab-forge",
+  "version": 1,
+  "description": "Portfolio-grade home software forge on Ubuntu + Nix",
+  "install": [
+    "# Verify Nix is available (should be pre-installed on localpower)",
+    "command -v nix-shell || (echo 'Nix not found; install from https://nixos.org/download' && exit 1)",
+    "",
+    "# Ensure experimental features for flakes",
+    "mkdir -p ~/.config/nix",
+    "grep -q 'experimental-features.*flakes' ~/.config/nix/nix.conf 2>/dev/null || echo 'experimental-features = nix-command flakes' >> ~/.config/nix/nix.conf",
+    "",
+    "# Install/update Home Manager profile (user tools: gh, kubectl, vault, etc.)",
+    "cd nix && nix run nixpkgs#home-manager -- switch --flake .#diestrin",
+    "",
+    "# Verify essential tools are available",
+    "command -v gh || echo 'Warning: gh (GitHub CLI) not found'",
+    "command -v kubectl || echo 'Warning: kubectl not found'",
+    "command -v vault || echo 'Warning: vault not found'",
+    "command -v forge || echo 'Warning: forge CLI not found'"
+  ],
+  "start": [
+    "# Verify k3s is running (localpower should have k3s cluster)",
+    "systemctl is-active --quiet k3s 2>/dev/null || echo 'Warning: k3s not running'",
+    "",
+    "# Verify Vault is accessible",
+    "export VAULT_ADDR='http://127.0.0.1:8200'",
+    "vault status 2>/dev/null || echo 'Warning: Vault not accessible (may need port-forward: kubectl -n forge-system port-forward svc/vault 8200:8200)'"
+  ],
+  "repos": [
+    {
+      "url": "https://github.com/diestrin/homelab-forge",
+      "ref": "main"
+    }
+  ]
+}

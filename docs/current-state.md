@@ -20,18 +20,30 @@ Re-verified 2026-08-08 during Phase 5 on host `localpower`.
 SSH key-only, UFW default-deny, fail2ban, host-watch, Nix HM, forge sandbox CLI, k3s + Traefik/LE,
 Vault, ESO, Argo CD remain in effect (see prior snapshots).
 
-## Phase 4 controls (applied)
+## Phase 4 controls (superseded by ADR-012)
+
+**Note:** Custom factory pipeline (ADR-009/010/011) retired 2026-09-01 in favor of
+Cursor My Machines (ADR-012). Historical records below for reference.
+
+| Control | Status (Legacy) |
+| --- | --- |
+| Task schema | ~~`factory/schema/task.schema.json`~~ → GitHub Issues |
+| Task board | ~~GitHub Projects~~ → GitHub Issues with labels |
+| Worker runtime | ~~host daemon + SDK~~ → Cursor My Machines worker |
+| Vault AppRole | `forge-agent` (still present, unused post-migration) |
+| systemd units | `forge-factory-{worker,orchestrator}.service` **stopped and disabled** |
+
+## Cursor My Machines (active since 2026-09-01, ADR-012)
 
 | Control | Status |
 | --- | --- |
-| Task schema | `factory/schema/task.schema.json` + YAML tasks under `factory/tasks/` |
-| GitHub Projects | Public board [homelab-forge factory](https://github.com/users/diestrin/projects/1); git → board via `./forge factory sync` |
-| Orchestrator / worker playbooks | `factory/orchestrator/PLAYBOOK.md`, `factory/worker/PLAYBOOK.md` |
-| Worker runtime | `forge factory worker` daemon; isolated git worktree + `agent-cell`; budget watchdog |
-| Vault AppRole | `forge-agent`; host file `/media/diestrin/data/secrets/vault/approle-forge-agent.env` (mode 600, not in git) |
-| Review gate | `factory/review/CHECKLIST.md`; demo PR [#2](https://github.com/diestrin/homelab-forge/pull/2) at `review` |
-| systemd unit | `factory/systemd/forge-factory-worker.service` installed under user units; **disabled** until explicitly started |
-| Artifacts | `/media/diestrin/data/forge/factory/artifacts/` (logs, diffs, PR urls) |
+| Agent interface | Cursor My Machines worker on localpower host |
+| Request surfaces | Cursor Slack integration, mobile app, cursor.com/agents |
+| Task management | GitHub Issues with `task` label and risk tags |
+| Environment config | `.cursor/environment.json` (Nix-based setup) |
+| MCP servers | Local stdio servers (Vault, internal tools) |
+| Worker lifecycle | systemd user unit `cursor-my-machines-worker.service` |
+| GitOps | Unchanged: merge to `main` → Argo CD syncs `k8s/` |
 
 ## Phase 5 controls (applied)
 
@@ -52,7 +64,8 @@ Vault, ESO, Argo CD remain in effect (see prior snapshots).
 
 ## Implications
 
-1. After reboot: follow [operations.md](./runbooks/operations.md) (unseal Vault, verify certs/Argo).
+1. After reboot: follow [operations.md](./runbooks/operations.md) (unseal Vault, verify certs/Argo, restart Cursor worker).
 2. Steady-state cluster changes: merge to `main` ([gitops.md](./runbooks/gitops.md)).
-3. Factory: worker daemon is **running**; keep the `proposed` queue intentional.
-4. All planned phases complete — new scope needs a new phase doc + human sign-off.
+3. Agent requests: Use Cursor Slack (@Cursor), mobile app, or cursor.com/agents.
+4. Task management: Create GitHub Issues with `task` label; see `.cursor/skills/homelab-task/`.
+5. All planned phases complete — new scope via GitHub Issues + PR workflow.

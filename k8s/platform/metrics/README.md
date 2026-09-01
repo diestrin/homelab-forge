@@ -1,18 +1,22 @@
-# Platform metrics — Prometheus + Grafana (TASK-012)
+# Platform observability — Prometheus + Grafana + Loki
 
 Observability stack for the homelab-forge k3s cluster: **kube-prometheus-stack**
 (Prometheus Operator, Prometheus, Grafana, Alertmanager, kube-state-metrics,
-node-exporter) plus git-managed `PrometheusRule` alerts and Grafana provisioning.
+node-exporter), **Loki** (log store) + **Grafana Alloy** (log shipper), plus
+git-managed `PrometheusRule` alerts and Grafana provisioning.
 
-Steady-state deploy: merge to `main` → Argo CD syncs two Applications from
+Steady-state deploy: merge to `main` → Argo CD syncs Applications from
 `k8s/overlays/root/applications.yaml` (ADR-008):
 
 1. **`monitoring`** — kube-prometheus-stack Helm chart (installs operator CRDs).
-2. **`monitoring-manifests`** — `k8s/platform/metrics` kustomize overlay (rules, ingress,
-   ExternalSecrets, dashboards). Uses `dependsOn: monitoring` so PrometheusRules are
-   not applied before `monitoring.coreos.com/v1` exists.
+2. **`loki`** — Grafana Loki Helm chart (monolithic, filesystem, 7-day retention).
+3. **`alloy`** — Grafana Alloy DaemonSet that tails pod logs into Loki.
+4. **`monitoring-manifests`** — `k8s/platform/metrics` kustomize overlay (rules, ingress,
+   ExternalSecrets, dashboards, Loki datasource). Sync-wave 1 so PrometheusRules land
+   after `monitoring.coreos.com/v1` exists.
 
-Do **not** `kubectl apply` the Helm release or metrics manifests by hand.
+Do **not** `kubectl apply` the Helm releases or metrics manifests by hand.
+Loki and Alloy stay ClusterIP-only — do not add an Ingress.
 
 ## URLs
 
@@ -22,9 +26,13 @@ Do **not** `kubectl apply` the Helm release or metrics manifests by hand.
 | Grafana Alerting | `https://grafana.localpower.diegobarahona.com/alerting/list` |
 | Prometheus (in-cluster) | `http://monitoring-prometheus.monitoring.svc:9090` |
 | Alertmanager (in-cluster) | `http://monitoring-alertmanager.monitoring.svc:9093` |
+| Loki gateway (in-cluster) | `http://loki-gateway.monitoring.svc:80` |
 
-Slack alert links use the **Grafana Alerting** URL (public Ingress). Prometheus and
-Alertmanager stay ClusterIP-only — do not expose them.
+Slack alert links use the **Grafana Alerting** URL (public Ingress). Prometheus,
+Alertmanager, and Loki stay ClusterIP-only — do not expose them.
+
+Explore logs in Grafana → **Explore** → datasource **Loki** (label filters such as
+`{namespace="family-agile"}` or `{pod=~"vault.*"}`).
 
 Grafana login uses the admin password from Vault (`secret/forge/grafana`). Username
 defaults to `admin` unless overridden in Vault.
@@ -70,9 +78,13 @@ Approximate incremental footprint after sync:
 | Grafana | 100m / 256Mi |
 | Alertmanager | 25m / 64Mi |
 | Operator + exporters | ~100m / ~160Mi |
-| **Total (requests)** | **~325m / ~992Mi** |
+| Loki (single binary) | 100m / 256Mi |
+| Loki gateway | 25m / 32Mi |
+| Alloy (DaemonSet) | 25m / 64Mi |
+| **Total (requests)** | **~475m / ~1.3Gi** |
 
-Prometheus PVC: 10Gi (`local-path`). Grafana PVC: 2Gi. Retention: 7 days.
+Prometheus PVC: 10Gi (`local-path`). Grafana PVC: 2Gi. Loki PVC: 10Gi. Metrics and
+logs both retain **7 days**.
 
 On single-node k3s, **node-exporter** uses pod networking (not `hostNetwork`) so Prometheus
 scrapes a pod IP instead of the node LAN IP (same-node hairpin breaks). **Kubelet**
@@ -92,6 +104,16 @@ Three dashboard layers for demos:
    Vault ready replicas.
 
 Open Grafana → Dashboards → browse folders. Refresh interval 30s on Forge Overview.
+
+## Logs (Loki)
+
+Loki runs as a **single replica** (filesystem store, no MinIO, no memcached caches)
+sized for this NUC. Compactor retention is **168h**; `max_query_lookback` matches so
+Explore cannot query older than a week.
+
+Alloy is a DaemonSet (pod networking, not `hostNetwork`). It keeps only the local
+node's pods via `HOSTNAME` = `spec.nodeName`, tails through the Kubernetes API
+(`loki.source.kubernetes`), and pushes to `loki-gateway`.
 
 ## Alerts (PrometheusRule A1–A8)
 
@@ -130,12 +152,12 @@ port-forward).
 1. **Sync health**
 
    ```bash
-   kubectl -n forge-system get application monitoring monitoring-manifests
+   kubectl -n forge-system get application monitoring loki alloy monitoring-manifests
    kubectl -n monitoring get pods
    kubectl -n monitoring get prometheus,alertmanager
    ```
 
-   Expect both Applications `Synced`/`Healthy`; core pods `Running`.
+   Expect those Applications `Synced`/`Healthy`; Loki, Alloy, and core metrics pods `Running`.
 
 2. **Grafana HTTPS**
 
@@ -172,6 +194,13 @@ port-forward).
 
    In Prometheus, query `argocd_app_info` — series must exist for A4/A5 to work.
 
+6. **Log round-trip**
+
+   In Grafana Explore, datasource Loki, query `{namespace="monitoring"}` over the last
+   15 minutes. Expect lines from Grafana/Prometheus/Loki pods. A missing datasource
+   usually means the Grafana sidecar has not picked up `grafana-datasource-loki` yet
+   (`kubectl -n monitoring rollout restart deploy/monitoring-grafana`).
+
 ## Maintenance silences
 
 During planned work, silence alerts in Grafana (Alerting → Silences) or with
@@ -182,15 +211,19 @@ During planned work, silence alerts in Grafana (Alerting → Silences) or with
 ```text
 k8s/platform/metrics/
 ├── helm/kube-prometheus-stack-values.yaml   # Helm values (Argo $values ref)
+├── helm/loki-values.yaml                    # Loki monolithic + 7d retention
+├── helm/alloy-values.yaml                   # Alloy DaemonSet log shipper
 ├── rules/forge-alerts.yaml                  # PrometheusRule A1–A8
 ├── dashboards/forge-overview.json           # Provisioned via ConfigMap label
 ├── grafana-ingress.yaml                     # HTTPS via cert-manager + Traefik
+├── grafana-datasource-loki.yaml             # Grafana sidecar Loki datasource
 ├── externalsecret-*.yaml                    # Vault → Grafana + Alertmanager secrets
 └── kustomization.yaml
 ```
 
-The Helm release is Application `monitoring`; git-managed rules/ingress/secrets are
-Application `monitoring-manifests` — both declared in `k8s/overlays/root/applications.yaml`.
+Helm releases: Applications `monitoring`, `loki`, and `alloy`. Git-managed
+rules/ingress/secrets/datasource: Application `monitoring-manifests`. All four are
+declared in `k8s/overlays/root/applications.yaml`.
 
 ## Related
 

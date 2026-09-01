@@ -75,7 +75,10 @@ kubectl -n forge-system get application forge-root -w
 ```
 
 After TASK-012, `monitoring` (Helm) must become `Synced`/`Healthy` before
-`monitoring-manifests` can apply `PrometheusRule` resources.
+`monitoring-manifests` can apply `PrometheusRule` resources. Loki (`loki`) and the
+Alloy log shipper (`alloy`) live in the same `monitoring` namespace; they do not
+use `spec.dependsOn` (the Application CRD here drops that field and would leave
+`forge-root` OutOfSync). Sync-wave annotations order Alloy after Loki.
 
 ## Disaster recovery
 

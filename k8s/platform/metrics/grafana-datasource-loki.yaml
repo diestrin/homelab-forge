@@ -1,0 +1,24 @@
+# Grafana sidecar picks this up via label grafana_datasource=1.
+# Loki itself stays ClusterIP; only Grafana (Ingress) is public.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasource-loki
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+    app.kubernetes.io/part-of: homelab-forge
+data:
+  loki-datasource.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        type: loki
+        uid: loki
+        access: proxy
+        url: http://loki-gateway.monitoring.svc:80
+        isDefault: false
+        editable: false
+        jsonData:
+          maxLines: 1000
+          timeout: 60

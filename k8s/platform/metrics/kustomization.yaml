@@ -4,6 +4,7 @@ namespace: monitoring
 resources:
   - rules/forge-alerts.yaml
   - grafana-ingress.yaml
+  - grafana-datasource-loki.yaml
   - externalsecret-grafana.yaml
   - externalsecret-alertmanager-notifications.yaml
 configMapGenerator:

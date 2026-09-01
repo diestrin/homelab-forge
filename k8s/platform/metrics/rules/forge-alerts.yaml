@@ -18,8 +18,8 @@ spec:
             severity: critical
             forge_alert_id: A1
           annotations:
-            summary: Kubernetes node is not Ready
-            description: Node {{ $labels.node }} has been NotReady for more than 5 minutes.
+            summary: "Node {{ $labels.node }} is NotReady (A1)"
+            description: "Kubernetes node {{ $labels.node }} has been NotReady for more than 5 minutes. Check `kubectl get nodes` and kubelet/journal on the host."
 
         - alert: ForgeNodePressure
           expr: kube_node_status_condition{condition=~"MemoryPressure|DiskPressure|PIDPressure",status="true"} == 1
@@ -28,8 +28,8 @@ spec:
             severity: critical
             forge_alert_id: A2
           annotations:
-            summary: Node resource pressure detected
-            description: Node {{ $labels.node }} reports {{ $labels.condition }}.
+            summary: "Node {{ $labels.node }} reports {{ $labels.condition }} (A2)"
+            description: "Node {{ $labels.node }} has active condition {{ $labels.condition }} for more than 5 minutes. Free disk/memory or inspect PID pressure before workloads evict."
 
         - alert: ForgeNodeHighMemory
           expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
@@ -38,8 +38,8 @@ spec:
             severity: warning
             forge_alert_id: A3
           annotations:
-            summary: Node memory utilization above 85%
-            description: Instance {{ $labels.instance }} memory use exceeds 85% for 10 minutes.
+            summary: 'Memory {{ $value | printf "%.0f" }}% on {{ $labels.instance }} (A3)'
+            description: 'Instance {{ $labels.instance }} memory use is {{ $value | printf "%.1f" }}% (threshold 85%) for 10 minutes. Check Grafana Forge Overview / Node Exporter dashboards.'
 
         - alert: ForgeNodeHighCPU
           expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
@@ -48,8 +48,8 @@ spec:
             severity: warning
             forge_alert_id: A3
           annotations:
-            summary: Node CPU utilization above 90%
-            description: Instance {{ $labels.instance }} CPU use exceeds 90% for 10 minutes.
+            summary: 'CPU {{ $value | printf "%.0f" }}% on {{ $labels.instance }} (A3)'
+            description: 'Instance {{ $labels.instance }} CPU use is {{ $value | printf "%.1f" }}% (threshold 90%) for 10 minutes. Check top consumers in Grafana Node Exporter dashboard.'
 
     - name: forge.argocd
       interval: 30s
@@ -62,8 +62,8 @@ spec:
             severity: critical
             forge_alert_id: A4
           annotations:
-            summary: Argo CD application unhealthy
-            description: Application {{ $labels.name }} health is {{ $labels.health_status }}.
+            summary: "Argo app {{ $labels.name }} is {{ $labels.health_status }} (A4)"
+            description: "Application {{ $labels.name }} health has been {{ $labels.health_status }} for 15 minutes. Inspect the app in Argo CD (port-forward) and recent sync/resource events."
 
         - alert: ForgeArgoAppOutOfSync
           expr: |
@@ -73,8 +73,8 @@ spec:
             severity: warning
             forge_alert_id: A5
           annotations:
-            summary: Argo CD application OutOfSync
-            description: Application {{ $labels.name }} has been OutOfSync for 30 minutes.
+            summary: "Argo app {{ $labels.name }} OutOfSync (A5)"
+            description: "Application {{ $labels.name }} has been OutOfSync for 30 minutes. Diff against git `main` and sync (or fix the drift) via Argo CD."
 
     - name: forge.workloads
       interval: 30s
@@ -87,8 +87,8 @@ spec:
             severity: warning
             forge_alert_id: A6
           annotations:
-            summary: Pod container in error state
-            description: Pod {{ $labels.namespace }}/{{ $labels.pod }} container {{ $labels.container }} is {{ $labels.reason }}.
+            summary: "{{ $labels.namespace }}/{{ $labels.pod }} {{ $labels.reason }} (A6)"
+            description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} container {{ $labels.container }} is {{ $labels.reason }} for 10 minutes. Check `kubectl -n {{ $labels.namespace }} describe pod {{ $labels.pod }}` and recent logs."
 
         - alert: ForgeDeploymentNotReady
           expr: |
@@ -105,8 +105,8 @@ spec:
             severity: warning
             forge_alert_id: A7
           annotations:
-            summary: Deployment replicas not ready
-            description: Deployment {{ $labels.namespace }}/{{ $labels.deployment }} has unavailable replicas for 15 minutes.
+            summary: "Deploy {{ $labels.namespace }}/{{ $labels.deployment }} replicas not ready (A7)"
+            description: "Deployment {{ $labels.namespace }}/{{ $labels.deployment }} has unavailable replicas for 15 minutes. Compare desired vs available and inspect ReplicaSet/pod events."
 
     - name: forge.platform
       interval: 30s
@@ -126,5 +126,5 @@ spec:
             severity: critical
             forge_alert_id: A8
           annotations:
-            summary: Vault deployment is not fully available
-            description: Vault in forge-system has fewer ready replicas than desired for 5 minutes.
+            summary: "Vault deployment not fully available (A8)"
+            description: "Vault in forge-system has fewer ready replicas than desired for 5 minutes. Follow docs/runbooks/vault.md (unseal / pod health) before other secrets-dependent apps recover."

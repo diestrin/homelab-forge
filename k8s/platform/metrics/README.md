@@ -19,8 +19,12 @@ Do **not** `kubectl apply` the Helm release or metrics manifests by hand.
 | Service | URL |
 | --- | --- |
 | Grafana | `https://grafana.localpower.diegobarahona.com` |
+| Grafana Alerting | `https://grafana.localpower.diegobarahona.com/alerting/list` |
 | Prometheus (in-cluster) | `http://monitoring-prometheus.monitoring.svc:9090` |
 | Alertmanager (in-cluster) | `http://monitoring-alertmanager.monitoring.svc:9093` |
+
+Slack alert links use the **Grafana Alerting** URL (public Ingress). Prometheus and
+Alertmanager stay ClusterIP-only — do not expose them.
 
 Grafana login uses the admin password from Vault (`secret/forge/grafana`). Username
 defaults to `admin` unless overridden in Vault.
@@ -111,9 +115,15 @@ Routing (Alertmanager):
 - **warning** → ntfy + Slack
 - **info** → ntfy only
 
+Slack messages include status/severity in the title, the alert **description** (not
+summary-only), key labels (ns/pod/job/…), optional runbook link, and a button/title
+link to Grafana Alerting. Chart default rules that cannot scrape on single-node k3s
+(`KubeletDown`, `KubeSchedulerDown`, and related) are disabled.
+
 Factory task-thread Slack (TASK-011) is separate; this stack uses an Incoming Webhook.
 
-Explore firing alerts: Grafana → Alerting → Alert rules, or Prometheus UI → Alerts.
+Explore firing alerts: Grafana → Alerting → Alert rules (or Prometheus UI via
+port-forward).
 
 ## Operator smoke test (post-merge)
 

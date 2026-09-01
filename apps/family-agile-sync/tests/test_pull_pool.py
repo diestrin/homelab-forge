@@ -139,7 +139,7 @@ def test_pool_second_completer_in_same_run_is_not_credited(wired):
     assert len(st["notion"].updates) == 1
 
 
-def test_personal_completion_credits_without_claiming_membership(wired):
+def test_personal_completion_is_recorded_without_claiming_membership(wired):
     m1 = _member("m1")
     r = _routine(modalidad=s.MODALIDAD_PERSONAL, kind=Kind.MANDATORY,
                  members=("m1",), mirror={"m1": "hp"}, difficulty=Difficulty.FACIL)
@@ -147,7 +147,10 @@ def test_personal_completion_credits_without_claiming_membership(wired):
 
     assert st["result"] == 1
     _, props = st["notion"].updates[0]
-    assert props[s.Agenda.PUNTOS_APLICADOS] == {"number": 5}
+    # Mandatory completion earns nothing; the row just records it was done so
+    # reconcile won't later mark it Fallada.
+    assert props[s.Agenda.PUNTOS_APLICADOS] == {"number": 0}
+    assert props[s.Agenda.COLONES] == {"number": 0}
     assert s.Agenda.MIEMBRO not in props  # personal rows already have their member
 
 

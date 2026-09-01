@@ -8,7 +8,7 @@ goal: |
   Cursor Slack integration, mobile app, and web interface while preserving the
   plan-then-implement task flow.
 
-branch: factory/task-013-migrate-to-cursor-my-machines
+branch: factory/task-014-migrate-to-cursor-my-machines
 status: review
 assignee_agent: worker-cursor
 sandbox_profile: agent-cell

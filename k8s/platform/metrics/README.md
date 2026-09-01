@@ -63,10 +63,10 @@ Approximate incremental footprint after sync:
 | Component | Requests (CPU / RAM) |
 | --- | --- |
 | Prometheus | 100m / 512Mi |
-| Grafana | 50m / 128Mi |
+| Grafana | 100m / 256Mi |
 | Alertmanager | 25m / 64Mi |
 | Operator + exporters | ~100m / ~160Mi |
-| **Total (requests)** | **~275m / ~864Mi** |
+| **Total (requests)** | **~325m / ~992Mi** |
 
 Prometheus PVC: 10Gi (`local-path`). Grafana PVC: 2Gi. Retention: 7 days.
 

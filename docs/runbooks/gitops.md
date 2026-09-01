@@ -62,6 +62,21 @@ Browser: `https://localhost:8080` (accept self-signed). Change admin password af
 3. Watch: `kubectl -n forge-system get application forge-site -w`
 4. Confirm pod/config updates without manual apply.
 
+## Troubleshooting sync
+
+If `forge-root` stays `OutOfSync` with a `SyncError` on an **old** git revision after
+`main` advanced (for example `monitoring.coreos.com/v1` not found), Argo may be retrying
+a failed manifest from cache. Force a git refresh:
+
+```bash
+kubectl -n forge-system annotate application forge-root \
+  argocd.argoproj.io/refresh=hard --overwrite
+kubectl -n forge-system get application forge-root -w
+```
+
+After TASK-012, `monitoring` (Helm) must become `Synced`/`Healthy` before
+`monitoring-manifests` can apply `PrometheusRule` resources.
+
 ## Disaster recovery
 
 1. Reinstall k3s (`k8s/bootstrap/README.md`).

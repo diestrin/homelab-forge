@@ -109,7 +109,8 @@ The worker needs the Vault port-forward from step 3 for AppRole + GitHub App tok
 ## Observability
 
 Prometheus + Grafana stack (TASK-012) runs in namespace `monitoring`, synced by Argo CD
-Application `monitoring`. See [k8s/platform/metrics/README.md](../../k8s/platform/metrics/README.md)
+Applications `monitoring` (Helm) and `monitoring-manifests` (rules, ingress, secrets).
+See [k8s/platform/metrics/README.md](../../k8s/platform/metrics/README.md)
 for Vault paths, dashboard tour, and alert smoke-test procedure.
 
 Vault paths used by ExternalSecrets:

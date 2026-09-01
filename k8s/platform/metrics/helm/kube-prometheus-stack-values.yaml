@@ -26,7 +26,7 @@ defaultRules:
     kubeApiserverHistogram: true
     kubeApiserverSlos: true
     kubeControllerManager: false
-    kubelet: true
+    kubelet: false
     kubeProxy: false
     kubePrometheusGeneral: true
     kubePrometheusNodeRecording: true
@@ -192,6 +192,11 @@ prometheus:
           interval: 30s
           path: /metrics
 
+# Single-node k3s: kubelet HTTP-01 targets use the node LAN IP; pods on the same node
+# cannot hairpin to that address reliably. Host metrics come from node-exporter instead.
+kubelet:
+  enabled: false
+
 kube-state-metrics:
   resources:
     requests:
@@ -202,6 +207,8 @@ kube-state-metrics:
       memory: 128Mi
 
 prometheus-node-exporter:
+  # Pod-network endpoints avoid same-node hairpin to the host LAN IP (192.168.x).
+  hostNetwork: false
   resources:
     requests:
       cpu: 25m

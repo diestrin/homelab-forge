@@ -8,7 +8,7 @@ Argo CD syncs cluster desired state from branch **`main`** (ADR-008).
 | --- | --- |
 | `k8s/bootstrap/install-k3s.sh` | `k8s/overlays/root` via Application `forge-root` |
 | `k8s/bootstrap/ufw-k3s.sh` | `k8s/apps/forge-site` |
-| `k8s/bootstrap/apply-cert-manager.sh` (+ ClusterIssuers) | Vault manifests, ESO store, metrics CronJob |
+| `k8s/bootstrap/apply-cert-manager.sh` (+ ClusterIssuers) | Vault manifests, ESO store, monitoring stack |
 | `k8s/bootstrap/apply-argocd.sh` | Child Applications under `k8s/overlays/root/applications.yaml` |
 | `k8s/bootstrap/init-vault.sh` | — |
 | `k8s/ci/` (in-cluster Actions runner) | — |

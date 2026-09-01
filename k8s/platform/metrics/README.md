@@ -4,9 +4,15 @@ Observability stack for the homelab-forge k3s cluster: **kube-prometheus-stack**
 (Prometheus Operator, Prometheus, Grafana, Alertmanager, kube-state-metrics,
 node-exporter) plus git-managed `PrometheusRule` alerts and Grafana provisioning.
 
-Steady-state deploy: merge to `main` → Argo CD syncs the `monitoring` Helm Application
-and the `k8s/platform/metrics` kustomize overlay (ADR-008). Do **not** `kubectl apply`
-the Helm release by hand.
+Steady-state deploy: merge to `main` → Argo CD syncs two Applications from
+`k8s/overlays/root/applications.yaml` (ADR-008):
+
+1. **`monitoring`** — kube-prometheus-stack Helm chart (installs operator CRDs).
+2. **`monitoring-manifests`** — `k8s/platform/metrics` kustomize overlay (rules, ingress,
+   ExternalSecrets, dashboards). Uses `dependsOn: monitoring` so PrometheusRules are
+   not applied before `monitoring.coreos.com/v1` exists.
+
+Do **not** `kubectl apply` the Helm release or metrics manifests by hand.
 
 ## URLs
 
@@ -108,12 +114,12 @@ Explore firing alerts: Grafana → Alerting → Alert rules, or Prometheus UI �
 1. **Sync health**
 
    ```bash
-   kubectl -n forge-system get application monitoring
+   kubectl -n forge-system get application monitoring monitoring-manifests
    kubectl -n monitoring get pods
    kubectl -n monitoring get prometheus,alertmanager
    ```
 
-   Expect Application `Synced`/`Healthy`; core pods `Running`.
+   Expect both Applications `Synced`/`Healthy`; core pods `Running`.
 
 2. **Grafana HTTPS**
 
@@ -167,8 +173,8 @@ k8s/platform/metrics/
 └── kustomization.yaml
 ```
 
-The Helm release is declared in `k8s/overlays/root/applications.yaml` (Application
-`monitoring`).
+The Helm release is Application `monitoring`; git-managed rules/ingress/secrets are
+Application `monitoring-manifests` — both declared in `k8s/overlays/root/applications.yaml`.
 
 ## Related
 

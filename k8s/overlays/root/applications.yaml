@@ -40,11 +40,14 @@ spec:
 ---
 # kube-prometheus-stack: Prometheus Operator, Prometheus, Grafana, Alertmanager,
 # kube-state-metrics, node-exporter. Values live in-repo; chart pinned below.
+# Sync wave 0: install operator CRDs before monitoring-manifests applies PrometheusRules.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: monitoring
   namespace: forge-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   project: default
   sources:
@@ -68,3 +71,28 @@ spec:
     syncOptions:
       - CreateNamespace=false
       - ServerSideApply=true
+---
+# Grafana ingress, ExternalSecrets, dashboards, and PrometheusRule alerts.
+# Depends on monitoring Helm release so monitoring.coreos.com/v1 CRDs exist.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring-manifests
+  namespace: forge-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/diestrin/homelab-forge.git
+    targetRevision: main
+    path: k8s/platform/metrics
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  dependsOn:
+    - name: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

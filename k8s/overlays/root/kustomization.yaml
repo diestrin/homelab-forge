@@ -9,5 +9,6 @@ resources:
   - ../../platform/vault
   - ../../platform/external-secrets
   - ../../platform/postgres
-  - ../../platform/metrics
+  # metrics manifests (PrometheusRule, etc.) sync via Application monitoring-manifests
+  # after the monitoring Helm release installs operator CRDs — see applications.yaml
   - applications.yaml

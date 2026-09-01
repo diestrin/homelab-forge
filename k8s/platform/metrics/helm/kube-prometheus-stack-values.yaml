@@ -54,7 +54,7 @@ grafanaAlertingUrl: &grafanaAlertingUrl https://grafana.localpower.diegobarahona
 x-slack-ops: &slackOps
   api_url_file: /etc/alertmanager/secrets/alertmanager-notifications/slack_webhook_url
   channel: "#forge-alerts"
-  send_resolved: false
+  send_resolved: true
   color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
   title: '[{{ .Status }}{{ if .CommonLabels.severity }} · {{ .CommonLabels.severity }}{{ end }}] {{ .GroupLabels.alertname }}{{ if .CommonLabels.forge_alert_id }} ({{ .CommonLabels.forge_alert_id }}){{ end }}'
   title_link: *grafanaAlertingUrl

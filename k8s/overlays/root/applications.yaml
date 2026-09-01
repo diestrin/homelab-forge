@@ -72,8 +72,73 @@ spec:
       - CreateNamespace=false
       - ServerSideApply=true
 ---
-# Grafana ingress, ExternalSecrets, dashboards, and PrometheusRule alerts.
-# Depends on monitoring Helm release so monitoring.coreos.com/v1 CRDs exist.
+# Loki monolithic log store (filesystem, 7-day retention). ClusterIP only —
+# Grafana queries it in-cluster; do not add an Ingress.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: forge-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  sources:
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: loki
+      targetRevision: "18.11.7"
+      helm:
+        releaseName: loki
+        valueFiles:
+          - $values/k8s/platform/metrics/helm/loki-values.yaml
+    - repoURL: https://github.com/diestrin/homelab-forge.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - ServerSideApply=true
+---
+# Grafana Alloy DaemonSet: ship pod logs to Loki. Wave 1 so the gateway exists.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  namespace: forge-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: alloy
+      targetRevision: "1.12.1"
+      helm:
+        releaseName: alloy
+        valueFiles:
+          - $values/k8s/platform/metrics/helm/alloy-values.yaml
+    - repoURL: https://github.com/diestrin/homelab-forge.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - ServerSideApply=true
+---
+# Grafana ingress, ExternalSecrets, dashboards, PrometheusRule alerts, Loki datasource.
+# Sync-wave 1: PrometheusRules need monitoring.coreos.com/v1 from the Helm release.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -90,8 +155,9 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
-  dependsOn:
-    - name: monitoring
+  # Do not set spec.dependsOn: the Application CRD on this cluster drops the
+  # field, which leaves forge-root permanently OutOfSync (A5). Sync-wave +
+  # selfHeal is the ordering we actually have.
   syncPolicy:
     automated:
       prune: true

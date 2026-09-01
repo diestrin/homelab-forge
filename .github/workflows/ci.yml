@@ -66,6 +66,28 @@ jobs:
             > /dev/null
           echo "helm template kube-prometheus-stack OK"
 
+      - name: Validate Loki and Alloy values
+        env:
+          LOKI_CHART_VERSION: "18.11.7"
+          ALLOY_CHART_VERSION: "1.12.1"
+        run: |
+          set -euo pipefail
+          helm repo add grafana https://grafana.github.io/helm-charts
+          helm repo add grafana-community https://grafana-community.github.io/helm-charts
+          helm repo update grafana grafana-community
+          helm template loki grafana-community/loki \
+            --version "${LOKI_CHART_VERSION}" \
+            -f k8s/platform/metrics/helm/loki-values.yaml \
+            --namespace monitoring \
+            > /dev/null
+          echo "helm template loki OK"
+          helm template alloy grafana/alloy \
+            --version "${ALLOY_CHART_VERSION}" \
+            -f k8s/platform/metrics/helm/alloy-values.yaml \
+            --namespace monitoring \
+            > /dev/null
+          echo "helm template alloy OK"
+
       - name: Validate preview templates
         run: |
           set -euo pipefail

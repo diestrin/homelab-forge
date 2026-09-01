@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Cluster log aggregation: Grafana Loki (7-day filesystem retention) and a Grafana Alloy
+  DaemonSet, queried from Grafana Explore. Loki stays ClusterIP-only.
+
 ## [0.1.0] - 2026-08-07
 
 First tagged release: Phases 0–5 of [`PLAN.md`](./PLAN.md) complete on host

@@ -103,15 +103,16 @@ The worker needs the Vault port-forward from step 3 for AppRole + GitHub App tok
 | GitOps | `kubectl -n forge-system get applications.argoproj.io` | `Synced/Healthy` |
 | Public HTTPS | `curl -fsSI https://localpower.diegobarahona.com` | `HTTP/2 200` |
 | Grafana | `curl -fsSI https://grafana.localpower.diegobarahona.com` | `HTTP/2 200` or `302` |
-| Monitoring | `kubectl -n monitoring get pods` | Prometheus/Grafana/Alertmanager Running |
+| Monitoring | `kubectl -n monitoring get pods` | Prometheus/Grafana/Alertmanager/Loki/Alloy Running |
 | IDS | `systemctl --user status host-watch.timer` | active |
 
 ## Observability
 
-Prometheus + Grafana stack (TASK-012) runs in namespace `monitoring`, synced by Argo CD
-Applications `monitoring` (Helm) and `monitoring-manifests` (rules, ingress, secrets).
+Prometheus + Grafana + Loki (TASK-012 and follow-on log aggregation) run in namespace
+`monitoring`, synced by Argo CD Applications `monitoring` (metrics Helm), `loki`,
+`alloy`, and `monitoring-manifests` (rules, ingress, secrets, Loki datasource).
 See [k8s/platform/metrics/README.md](../../k8s/platform/metrics/README.md)
-for Vault paths, dashboard tour, and alert smoke-test procedure.
+for Vault paths, dashboard tour, log Explore, and alert smoke-test procedure.
 
 Vault paths used by ExternalSecrets:
 

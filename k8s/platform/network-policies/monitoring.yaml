@@ -115,6 +115,10 @@ spec:
           port: 10250
         - protocol: TCP
           port: 6443
+        - protocol: TCP
+          port: 3100
+        - protocol: TCP
+          port: 12345
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

@@ -326,3 +326,73 @@ def current_todo_occurrence(
     target = _add_months(vigente_desde, steps * step_months)
     clamped_day = min(dia_del_mes, calendar.monthrange(target.year, target.month)[1])
     return date(target.year, target.month, clamped_day)
+
+
+# --------------------------------------------------------------------------
+# Occurrence calendar (ADR-27): does a routine fall on a given day?
+# --------------------------------------------------------------------------
+#
+# Every other job assumes the Pendiente Agenda rows already exist. The
+# generate-occurrences job is the one that creates them, and this is the pure
+# calendar it walks: the v0 algorithm from ADR-27, lifted out of the one-off
+# manual run into a tested function.
+
+#: date.weekday() index (Mon=0) -> the one-letter code stored in Rutinas."Días".
+#: K is miércoles, J is jueves -- Spanish initials, not English.
+WEEKDAY_CODES = ("L", "M", "K", "J", "V", "S", "D")
+
+
+def weekday_code(day: date) -> str:
+    return WEEKDAY_CODES[day.weekday()]
+
+
+def occurs_on(
+    day: date,
+    recurrencia: str | None,
+    dias: list[str],
+    vigente_desde: date | None,
+    dia_del_mes: int | None,
+) -> bool:
+    """Whether a routine with this recurrence has an occurrence on ``day``.
+
+    * **Semanal** -- ``day``'s weekday is listed in ``Días``.
+    * **Quincenal** -- weekday listed in ``Días`` *and* ``day`` is a whole
+      number of 14-day steps after ``vigente_desde``. ``vigente_desde`` always
+      lands on the listed day, so a Quincenal routine fires once per fortnight
+      on that weekday; extra entries in ``Días`` are inert (see ADR-27).
+    * **Mensual** -- ``day.day`` equals ``dia_del_mes`` (clamped to the
+      month's length) and ``day >= vigente_desde``.
+    * **Trimestral** -- as Mensual, and the month is a multiple of 3 from
+      ``vigente_desde``'s month.
+
+    A ``vigente_desde`` in the future suppresses every recurrence. An unknown
+    or missing ``recurrencia`` matches nothing.
+    """
+    try:
+        rec = Recurrencia(recurrencia) if recurrencia else None
+    except ValueError:
+        return False
+    if rec is None:
+        return False
+    if vigente_desde is not None and day < vigente_desde:
+        return False
+
+    if rec is Recurrencia.SEMANAL:
+        return weekday_code(day) in dias
+
+    if rec is Recurrencia.QUINCENAL:
+        if vigente_desde is None or weekday_code(day) not in dias:
+            return False
+        return (day - vigente_desde).days % 14 == 0
+
+    # Mensual / Trimestral
+    if dia_del_mes is None:
+        return False
+    last_day = calendar.monthrange(day.year, day.month)[1]
+    if day.day != min(dia_del_mes, last_day):
+        return False
+    if vigente_desde is None:
+        return True
+    months = (day.year - vigente_desde.year) * 12 + (day.month - vigente_desde.month)
+    step = 1 if rec is Recurrencia.MENSUAL else 3
+    return months >= 0 and months % step == 0

@@ -39,9 +39,11 @@ Run a scheduled two-way sync in-cluster as Kubernetes CronJobs.
 
 ## Consequences
 
-- Four CronJobs, one per phase of the loop. `pull-completions` runs hourly
-  because Habitica resets the completed flag at each cron and its history keeps
-  the cron timestamp rather than the moment the child ticked the box.
+- Five CronJobs, one per phase of the loop. `generate-occurrences` runs first
+  each day and materialises the `Pendiente` Agenda rows every other job assumes
+  (ADR-27 in the Notion workspace). `pull-completions` runs hourly because
+  Habitica resets the completed flag at each cron and its history keeps the
+  cron timestamp rather than the moment the child ticked the box.
 - A lost day is a lost day: if the sync is down for 24h, that day's completions
   may be unrecoverable. Mitigated by `Origen = Manual` rows, which the sync
   never overwrites, letting a parent record directly in Notion.

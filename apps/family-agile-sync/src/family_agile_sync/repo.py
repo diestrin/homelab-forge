@@ -74,6 +74,11 @@ class Routine:
     #: Anchor for Quincenal/Mensual/Trimestral (ADR-26); unused for Semanal.
     vigente_desde: date | None = None
     dia_del_mes: int | None = None
+    #: Start time as free text ("5:00 AM"); the occurrence generator parses it
+    #: onto Agenda.Inicia. None -> the generated row carries a date only.
+    hora: str | None = None
+    #: Rutinas.Categoría, used only to tag the generated Agenda row's Tabla.
+    categoria: str | None = None
 
     @property
     def is_pool(self) -> bool:
@@ -146,6 +151,8 @@ def load_routines(client: n.NotionClient, database_id: str) -> dict[str, Routine
             retired=n.read_date(page, s.Rutinas.VIGENTE_HASTA) is not None,
             vigente_desde=n.read_date(page, s.Rutinas.VIGENTE_DESDE),
             dia_del_mes=_dia_del_mes(n.read_number(page, s.Rutinas.DIA_DEL_MES)),
+            hora=n.read_text(page, s.Rutinas.HORA) or None,
+            categoria=n.read_select(page, s.Rutinas.CATEGORIA),
         )
     return routines
 

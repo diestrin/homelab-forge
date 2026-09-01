@@ -6,6 +6,7 @@ resources:
   - networkpolicy.yaml
   - externalsecret.yaml
   - configmap.yaml
+  - cronjob-generate-occurrences.yaml
   - cronjob-pull-completions.yaml
   - cronjob-reconcile.yaml
   - cronjob-push-definitions.yaml

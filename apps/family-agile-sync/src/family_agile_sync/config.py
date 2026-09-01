@@ -42,6 +42,10 @@ class Config:
     dry_run: bool
     force_close: bool
     """Bypass the payday guard in close-cycle; for the parallel dry run only."""
+    generate_horizon_days: int = 14
+    """How many days ahead generate-occurrences materialises Agenda rows.
+    ADR-27's rule is 'at least 7 so the weekly view is never empty'; 14 keeps a
+    fortnight of runway and lines up with the Quincenal step."""
     db_corte: str | None = None
     """Corte quincenal database id. Only close-cycle needs it, and only on an
     actual payday -- the other three jobs never touch it, and Fase 5 (which
@@ -61,6 +65,7 @@ class Config:
             anchor_friday=date.fromisoformat(_require("CYCLE_ANCHOR_FRIDAY")),
             habitica_client=_require("HABITICA_CLIENT"),
             request_delay_seconds=_int("HABITICA_REQUEST_DELAY", 30),
+            generate_horizon_days=_int("GENERATE_HORIZON_DAYS", 14),
             dry_run=os.environ.get("DRY_RUN", "").lower() in {"1", "true", "yes"},
             force_close=os.environ.get("FORCE_CLOSE", "").lower() in {"1", "true", "yes"},
         )

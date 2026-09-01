@@ -27,3 +27,7 @@ data:
   # Fer's Habitica User ID (owner account).
   HABITICA_CLIENT: "c6ec3cd2-6b57-47fb-858d-a0f8c23b8fdd-family-agile-sync"
   HABITICA_REQUEST_DELAY: "30"
+  # Rolling horizon for generate-occurrences: how many days ahead the Pendiente
+  # Agenda rows are materialised. ADR-27's rule is "at least 7 so the weekly
+  # view is never empty"; 14 keeps a fortnight of runway.
+  GENERATE_HORIZON_DAYS: "14"

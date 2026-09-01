@@ -12,6 +12,7 @@ Design rationale and the failure it is fixing: [`docs/decisions/ADR-011-family-a
 
 | Job | Schedule | Direction | Does |
 | --- | --- | --- | --- |
+| `generate-occurrences` | Daily 03:30 | Notion → Notion | Materialises the `Pendiente` Agenda rows from the `Rutinas` catalogue, on a rolling horizon |
 | `push-definitions` | Mondays 05:00 | Notion → Habitica | Mirrors routines and approved to-dos as Habitica tasks |
 | `pull-completions` | Hourly, 06:00–22:00 | Habitica → Notion | Records completions, points and colones |
 | `reconcile` | Daily 04:45 | — | Marks yesterday's unfinished **mandatory** work as `Fallada` |
@@ -38,6 +39,17 @@ and written back as a plain number.
 carefully, since it is the one that decides money.
 
 ## Behaviour worth knowing before operating it
+
+**`generate-occurrences` only ever creates.** It never edits or deletes an
+Agenda row. An occurrence that already has a row — from an earlier run or typed
+in by hand — is skipped, so it is safe to run as often as you like and a
+`Manual` row is left alone. A **Personal** routine produces one row per listed
+`Miembro`; a **Pool** routine produces a single unclaimed row (empty `Miembro`)
+that `pull-completions` assigns to whoever finishes first. Non-weekly routines
+get their Agenda rows here too — `reconcile` needs them to fail a missed
+mandatory window — independently of the Habitica `todo` mirror `push-definitions`
+keeps for them. The matching calendar is ADR-27's v0 algorithm, now in
+`rules.occurs_on`. Horizon: `GENERATE_HORIZON_DAYS` days ahead (default 14).
 
 **`pull-completions` runs hourly on purpose.** Habitica resets a Daily's
 completed flag at each cron, and its history stores the cron's timestamp rather
@@ -109,6 +121,7 @@ Secrets (ADR-007).
 | `CYCLE_ANCHOR_FRIDAY` | ConfigMap | Any payday Friday, `YYYY-MM-DD` |
 | `HABITICA_CLIENT` | ConfigMap | `<owner UserID>-family-agile-sync`, required on every request |
 | `HABITICA_REQUEST_DELAY` | ConfigMap | Seconds between calls, default 30 |
+| `GENERATE_HORIZON_DAYS` | ConfigMap | Days ahead `generate-occurrences` fills Agenda, default 14 |
 | `HABITICA_<NAME>_USER` / `_KEY` | Vault | Per member; a member without credentials is skipped, not failed |
 | `DRY_RUN` | optional | Log intended writes, perform none |
 

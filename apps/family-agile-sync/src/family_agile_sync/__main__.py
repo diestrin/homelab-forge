@@ -7,9 +7,16 @@ import logging
 import sys
 
 from .config import Config
-from .jobs import close_cycle, pull_completions, push_definitions, reconcile
+from .jobs import (
+    close_cycle,
+    generate_occurrences,
+    pull_completions,
+    push_definitions,
+    reconcile,
+)
 
 JOBS = {
+    "generate-occurrences": generate_occurrences.run,
     "push-definitions": push_definitions.run,
     "pull-completions": pull_completions.run,
     "reconcile": reconcile.run,

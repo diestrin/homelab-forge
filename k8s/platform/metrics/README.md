@@ -137,10 +137,12 @@ Routing (Alertmanager):
 - **warning** → ntfy + Slack
 - **info** → ntfy only
 
-Slack messages include status/severity in the title, the alert **description** (not
-summary-only), key labels (ns/pod/job/…), optional runbook link, and a button/title
-link to Grafana Alerting. Chart default rules that cannot scrape on single-node k3s
-(`KubeletDown`, `KubeSchedulerDown`, and related) are disabled.
+Slack messages include status/severity in the title (firing and resolved), the alert
+**description** (not summary-only), key labels (ns/pod/job/…), optional runbook link,
+and a button/title link to Grafana Alerting. Resolved posts use the same webhook;
+the attachment color switches from danger to good. Chart default rules that cannot
+scrape on single-node k3s (`KubeletDown`, `KubeSchedulerDown`, and related) are
+disabled.
 
 Factory task-thread Slack (TASK-011) is separate; this stack uses an Incoming Webhook.
 

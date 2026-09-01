@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { loadMessagesFromDb, loadTaskFromDb } from "@/lib/tasks";
+import { loadMessagesFromDb, loadRunsFromDb, loadTaskFromDb } from "@/lib/tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -26,12 +26,30 @@ function statusBadgeClass(status: string): string {
   }
 }
 
+function runStatusClass(status: string): string {
+  switch (status) {
+    case "finished":
+      return "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30";
+    case "error":
+      return "bg-red-500/15 text-red-300 ring-red-500/30";
+    case "running":
+      return "bg-sky-500/15 text-sky-300 ring-sky-500/30";
+    case "cancelled":
+      return "bg-zinc-500/15 text-zinc-300 ring-zinc-500/30";
+    default:
+      return "bg-zinc-500/15 text-zinc-300 ring-zinc-500/30";
+  }
+}
+
 export default async function TaskDetailPage({ params }: PageProps) {
   const { id } = await params;
   const task = await loadTaskFromDb(id);
   if (!task) notFound();
 
-  const messages = await loadMessagesFromDb(id);
+  const [messages, runs] = await Promise.all([
+    loadMessagesFromDb(id),
+    loadRunsFromDb(id),
+  ]);
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-12">
@@ -111,6 +129,44 @@ export default async function TaskDetailPage({ params }: PageProps) {
           </ul>
         </section>
       )}
+
+      <section className="mb-8 rounded-xl border border-zinc-800 bg-zinc-900/40 p-6">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+          Agent runs
+        </h2>
+        {runs.length === 0 ? (
+          <p className="text-sm text-zinc-500">No agent runs recorded yet.</p>
+        ) : (
+          <ul className="space-y-3">
+            {runs.map((run) => (
+              <li
+                key={run.id}
+                className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-950/40 px-4 py-3 text-sm"
+              >
+                <span
+                  className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${runStatusClass(run.status)}`}
+                >
+                  {run.status}
+                </span>
+                <span className="font-mono text-amber-400/80">{run.kind}</span>
+                <span className="text-zinc-500">
+                  {new Date(run.started_at).toLocaleString()}
+                </span>
+                {run.model && <span className="text-zinc-500">· {run.model}</span>}
+                <span className="text-zinc-500">
+                  · {run.event_count ?? 0} events
+                </span>
+                <Link
+                  href={`/dashboard/${task.id}/runs/${run.id}`}
+                  className="ml-auto text-sky-400 hover:underline"
+                >
+                  Transcript →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-6">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-zinc-500">

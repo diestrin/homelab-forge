@@ -1,9 +1,14 @@
 # Orchestrator playbook
 
-The orchestrator turns operator intent into git-backed tasks. Surfaces:
+The orchestrator turns operator intent into tasks on the control plane. Surfaces:
 
 - **Cursor chat** (interactive) — this playbook in a Cursor session
-- **Slack Socket Mode** (ADR-009) — `factory/orchestrator/slack_intake.py` on the host
+- **Slack Socket Mode** (ADR-009/ADR-011) — `factory/orchestrator/slack_intake.py`
+  is a **thin intake client**: it POSTs slash commands and thread replies to
+  `POST /api/v1/slack/intake` and never runs the Cursor SDK, git, or `gh`.
+  Plan jobs are executed by the worker daemon (`run_plan_job.py`), and all
+  agent progress/failure replies to Slack come from the control plane notify
+  queue.
 
 It **creates/revises plans**; it does not mutate production or merge to `main`
 (ADR-004 / ADR-008).
@@ -42,16 +47,21 @@ It **creates/revises plans**; it does not mutate production or merge to `main`
 - [ ] `branch: factory/task-NNN-…`
 - [ ] Run `./forge factory validate` then `./forge factory sync`
 
-## Slack flow (ADR-009)
+## Slack flow (ADR-009 / ADR-011)
 
 ```text
-prompt → planning task + plan PR → thread feedback → approve → proposed
-                                                      ↓
-                                              worker (Cursor SDK) updates same PR
+/forge plan → intake API → planning task (branch pinned) → plan job → plan PR
+            → thread feedback → plan-update job (same PR, same branch)
+            → approve → proposed → implement job → same PR
+            → watch-checks job polls CI → fix runs until green (no merge)
 ```
 
-Approve in-thread with `approve` / `lgtm` / `/forge approve`, or
-`./forge factory approve TASK-NNN`.
+- Approve in-thread with `approve` / `lgtm` / `/forge approve`, or
+  `./forge factory approve TASK-NNN`.
+- The branch is pinned in Postgres at intake; planner YAML must never rewrite
+  it, and `gh pr create` runs only when no pinned/open PR exists (TASK-011).
+- Thread replies **after** approve are stored on the task and acknowledged —
+  they never start a new plan-PR cycle or a host planner run.
 
 ## Prompt skeleton (Cursor chat)
 

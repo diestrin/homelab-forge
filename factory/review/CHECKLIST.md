@@ -19,7 +19,7 @@ PR: TASK-010 — forge-site PR preview environments (local k8s)
       instructions to `kubectl apply` Argo-managed apps by hand.
 - [ ] Preview stack (`k8s/preview/`, `k8s/ci/`) is bootstrap/CI-owned, not registered as Argo Applications.
 - [ ] Postgres NetworkPolicy allows `forge.homelab/preview: "true"` namespaces.
-- [ ] Operator bootstrap documented: in-cluster runner (`k8s/ci/`), registration token secret, wildcard DNS.
+- [ ] Operator bootstrap documented: in-cluster runner (`k8s/ci/`), registration token secret, wildcard DNS, repo variable `FORGE_PREVIEW_ENABLED`.
 - [ ] After merge: watch `kubectl -n forge-system get application forge-site` → Synced/Healthy (unchanged steady-state).
 
 ## Preview-specific
@@ -41,5 +41,6 @@ PR: TASK-010 — forge-site PR preview environments (local k8s)
 gh pr review --approve
 gh pr merge --squash
 # Operator: bootstrap k8s/ci runner + registration secret; wildcard DNS if not present
+# Then set repo Actions variable FORGE_PREVIEW_ENABLED=true
 ./forge factory set-status TASK-010 done   # via API after merge
 ```

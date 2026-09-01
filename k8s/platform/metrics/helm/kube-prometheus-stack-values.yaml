@@ -211,6 +211,10 @@ prometheus-node-exporter:
       memory: 64Mi
 
 prometheusOperator:
+  admissionWebhooks:
+    # Argo CD loses track of the TLS bootstrap Job when Helm deletes it after success;
+    # disable webhooks on this single-node homelab (PrometheusRules still apply).
+    enabled: false
   resources:
     requests:
       cpu: 50m

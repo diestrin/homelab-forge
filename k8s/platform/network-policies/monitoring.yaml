@@ -118,21 +118,15 @@ spec:
         - protocol: TCP
           port: 80
 ---
-# kube-state-metrics, operator, and Prometheus need the Kubernetes API (443/6443).
+# Monitoring workloads call the Kubernetes API (Grafana sidecars, kube-state-metrics,
+# prometheus-operator, Prometheus config reload, etc.).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: allow-kubernetes-api
   namespace: monitoring
 spec:
-  podSelector:
-    matchExpressions:
-      - key: app.kubernetes.io/name
-        operator: In
-        values:
-          - kube-state-metrics
-          - kube-prometheus-stack-prometheus-operator
-          - prometheus
+  podSelector: {}
   policyTypes:
     - Egress
   egress:

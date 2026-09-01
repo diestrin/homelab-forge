@@ -37,3 +37,34 @@ spec:
     automated:
       prune: true
       selfHeal: true
+---
+# kube-prometheus-stack: Prometheus Operator, Prometheus, Grafana, Alertmanager,
+# kube-state-metrics, node-exporter. Values live in-repo; chart pinned below.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: forge-system
+spec:
+  project: default
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: "88.6.2"
+      helm:
+        releaseName: monitoring
+        valueFiles:
+          - $values/k8s/platform/metrics/helm/kube-prometheus-stack-values.yaml
+    - repoURL: https://github.com/diestrin/homelab-forge.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - ServerSideApply=true

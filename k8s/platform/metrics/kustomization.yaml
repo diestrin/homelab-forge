@@ -1,5 +1,16 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+namespace: monitoring
 resources:
-  - alerts.yaml
-  - externalsecret-ntfy.yaml
+  - rules/forge-alerts.yaml
+  - grafana-ingress.yaml
+  - externalsecret-grafana.yaml
+  - externalsecret-slack.yaml
+  - externalsecret-alertmanager-notifications.yaml
+configMapGenerator:
+  - name: forge-overview-dashboard
+    files:
+      - dashboards/forge-overview.json
+    options:
+      labels:
+        grafana_dashboard: "1"

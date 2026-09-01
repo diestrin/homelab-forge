@@ -13,7 +13,7 @@ Turn Intel NUC host `localpower` (Ubuntu 24.04, 12 threads, 62 GiB RAM) into a
 2. **Declarative host** — Nix-first automation on Ubuntu for tooling and selected system config.
 3. **Sandboxed multi-project runtime** — open/run projects without cross-contamination.
 4. **Local Kubernetes** — k3s with Ingress on 80/443, Let’s Encrypt, router port-forward via No-IP.
-5. **Agentic factory** — orchestrator chats create git tasks (GitHub Projects board); workers in sandboxes; review before deploy.
+5. **Agent-driven development** — Cursor My Machines worker; GitHub Issues for tasks; PR review before deploy.
 6. **Secrets** — HashiCorp Vault as system of record (after cluster exists).
 7. **GitOps CD** — Argo CD syncs cluster state from `main` after merge.
 8. **In-tree host IDS** — `host-watch` imported under `security/host-watch/`.
@@ -146,8 +146,9 @@ Execute **in order**. Each phase has its own checklist file.
 | 1 | [`docs/phases/phase-1-nix-foundation.md`](./docs/phases/phase-1-nix-foundation.md) | Declarative user/host tooling via flakes |
 | 2 | [`docs/phases/phase-2-sandbox-platform.md`](./docs/phases/phase-2-sandbox-platform.md) | Isolation profiles + Cursor-friendly DX |
 | 3 | [`docs/phases/phase-3-k3s-platform.md`](./docs/phases/phase-3-k3s-platform.md) | k3s, Traefik, LE, Vault, **Argo CD**, demo Ingress |
-| 4 | [`docs/phases/phase-4-agentic-factory.md`](./docs/phases/phase-4-agentic-factory.md) | Git tasks + GitHub Projects + workers (deploys via Argo on `main`) |
+| 4 | [`docs/phases/phase-4-agentic-factory.md`](./docs/phases/phase-4-agentic-factory.md) | ~~Git tasks + GitHub Projects + workers~~ → **superseded by ADR-012** |
 | 5 | [`docs/phases/phase-5-portfolio-hardening.md`](./docs/phases/phase-5-portfolio-hardening.md) | OSS polish, CI, demo narrative |
+| Post-5 | [ADR-012](./docs/decisions/ADR-012-cursor-my-machines.md) | **Cursor My Machines** (2026-09-01): native Slack/mobile/web + GitHub Issues |
 
 ### Suggested sequencing rationale
 
@@ -169,6 +170,6 @@ Factory last so it lands on stable rails.
 
 ## Immediate next action (when execution is authorized)
 
-**Phase 5 complete** (2026-08-08) — all planned phases done; `v0.1.0` released.
+**Post-Phase 5** (2026-09-01) — Migrated to Cursor My Machines (ADR-012).
 Steady state: merge PRs to `main` for Argo CD, keep host-watch allowlists current,
-and queue factory tasks intentionally. New scope requires a new phase doc + human sign-off.
+create GitHub Issues for new work. Agent requests via Cursor Slack, mobile app, or cursor.com/agents.

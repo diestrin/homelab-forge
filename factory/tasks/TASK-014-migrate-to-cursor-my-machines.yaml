@@ -1,0 +1,98 @@
+id: TASK-014
+title: Migrate from custom factory pipeline to Cursor My Machines
+goal: |
+  Refactor the homelab-forge factory from the custom Cursor SDK orchestration pipeline
+  (Slack Socket Mode intake → Postgres control plane → host worker daemon → SDK agents
+  in git worktrees) to Cursor's native My Machines feature. Turn the localpower host
+  into a machine available for Cursor, enabling the operator to request changes via
+  Cursor Slack integration, mobile app, and web interface while preserving the
+  plan-then-implement task flow.
+
+branch: factory/task-014-migrate-to-cursor-my-machines
+status: review
+assignee_agent: worker-cursor
+sandbox_profile: agent-cell
+repo_path: .
+risk_level: high
+budget_minutes: 180
+
+acceptance_criteria:
+  - Cursor CLI installed and authenticated on localpower host
+  - Host registered as a My Machines worker with recognizable name (e.g. "localpower-forge")
+  - Worker configured to watch homelab-forge repository checkout
+  - Cursor Slack integration enabled and connected to operator's workspace
+  - Agent can claim and work on tasks via Cursor Slack/mobile/web interfaces
+  - Plan-then-implement flow preserved (plan PR → review → approve → implement)
+  - Custom pipeline components (slack_intake.py, worker daemon, orchestrator) deprecated or repurposed
+  - forge-site control plane (Postgres, pg-boss, MCP) either retired or adapted for new architecture
+  - systemd units (forge-factory-worker, forge-factory-orchestrator) stopped and disabled
+  - ADR documenting migration rationale and new architecture
+  - Updated runbooks reflecting new operational model
+  - PR with migration changes, green CI, review checklist completed
+  - Demo showing end-to-end flow: Slack request → Cursor agent → plan PR → approve → implementation
+
+notes: |
+  **Context from operator request:**
+  
+  The operator wants to simplify the factory architecture by leveraging Cursor's native
+  My Machines feature instead of maintaining a custom orchestration pipeline. Current
+  architecture (ADR-009, ADR-010, ADR-011) includes:
+  
+  - Host Socket Mode intake client (slack_intake.py) POSTs to forge-site /api/v1/slack/intake
+  - forge-site Next.js backend is control plane with Postgres SoT (tasks, messages, jobs)
+  - pg-boss job queue for plan/implement/notify/watch-checks
+  - Host worker daemon claims jobs, provisions worktrees, runs Cursor SDK agents
+  - MCP server in forge-site exposes control plane tools
+  - Dashboard on forge-site shows live task state
+  
+  **Target architecture with My Machines:**
+  
+  - Cursor CLI agent worker runs on localpower host
+  - Host registers homelab-forge repository with Cursor backend
+  - Operator requests changes via:
+    - Cursor Slack integration (native, not Socket Mode)
+    - Cursor mobile app
+    - cursor.com/agents web interface
+  - Cursor backend routes requests to localpower worker
+  - Agent runs locally with full context (git, tools, MCP servers)
+  - Plan-then-implement flow preserved via Cursor's PR workflow
+  
+  **Decisions approved by operator (2026-09-01):**
+  
+  1. **forge-site control plane:** Retire entirely — Cursor backend becomes control plane
+  
+  2. **Task board:** Use GitHub Issues via Cursor skill instructions for backlog management;
+     retire GitHub Projects board sync
+  
+  3. **Postgres data:** Retire without migration — fresh start with Cursor-native workflow
+  
+  4. **MCP servers:** stdio-based MCP servers run locally on My Machines worker (for Vault,
+     internal APIs, private network access); HTTP-based MCP servers use Cursor backend
+  
+  5. **Sandbox profiles:** Use Cursor environment isolation (environment.json + container
+     builds); retire custom forge sandbox CLI profiles
+  
+  6. **Secrets management:** Keep Vault for secrets; integrate via local stdio MCP server
+     on the worker
+  
+  **Risks:**
+  
+  - High: Touches host systemd services, potentially firewall rules for worker connectivity
+  - Network: Worker needs outbound HTTPS to Cursor backend (check with existing UFW rules)
+  - State: Migration path for in-flight tasks from Postgres to new model
+  - Rollback: Need clear rollback procedure if My Machines doesn't meet needs
+  
+  **Plan phase should produce:**
+  
+  - Detailed migration ADR (ADR-012 or amend existing ADRs)
+  - Architecture diagram comparing before/after
+  - Step-by-step cutover runbook
+  - Decision on forge-site/Postgres fate
+  - MCP server migration plan
+  - Rollback procedure
+  - Updated operations.md and bootstrap docs
+
+github_project_item_id: null
+artifacts: []
+claimed_at: null
+updated_at: null

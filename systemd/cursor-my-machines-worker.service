@@ -1,0 +1,28 @@
+[Unit]
+Description=Cursor My Machines Worker (homelab-forge)
+Documentation=https://cursor.com/docs/cloud-agent/bring-your-own-machine/my-machines
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/media/diestrin/data/Projects/homelab-forge
+ExecStart=/home/diestrin/.local/bin/agent worker --name "localpower-forge" start
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment="PATH=/home/diestrin/.nix-profile/bin:/home/diestrin/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="HOME=/home/diestrin"
+
+# Security hardening
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/media/diestrin/data/Projects/homelab-forge
+
+[Install]
+WantedBy=default.target

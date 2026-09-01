@@ -59,8 +59,13 @@ jobs:
           export PREVIEW_IMAGE=ghcr.io/example/forge-site:pr-42-deadbeef
           export PREVIEW_HOST=pr-42.localpower.diegobarahona.com
           export PREVIEW_BRANCH=factory/example-branch
-          ./k8s/preview/forge-site/render.sh \
-            | ./kubeconform -strict -ignore-missing-schemas -summary
+          rendered="$(./k8s/preview/forge-site/render.sh)"
+          echo "${rendered}" | ./kubeconform -strict -ignore-missing-schemas -summary
+          first_kind="$(echo "${rendered}" | awk '/^kind:/{print $2; exit}')"
+          if [[ "${first_kind}" != "Namespace" ]]; then
+            echo "preview render must emit Namespace first (got: ${first_kind:-empty})" >&2
+            exit 1
+          fi
 
   factory-schema:
     name: factory task schema

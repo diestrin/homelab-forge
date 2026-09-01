@@ -27,7 +27,16 @@ fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATES="${ROOT}/templates"
 
-for tpl in "${TEMPLATES}"/*.yaml.in; do
-  envsubst '$PREVIEW_PR_NUMBER $PREVIEW_IMAGE $PREVIEW_HOST $PREVIEW_BRANCH' <"${tpl}"
+render_tpl() {
+  envsubst '$PREVIEW_PR_NUMBER $PREVIEW_IMAGE $PREVIEW_HOST $PREVIEW_BRANCH' <"$1"
   echo "---"
+}
+
+# Namespace must be the first document. `kubectl apply -f -` continues on
+# error and bash glob is alphabetical, so Deployment/ExternalSecret/Ingress
+# otherwise hit "namespaces ... not found" before the Namespace is created.
+render_tpl "${TEMPLATES}/namespace.yaml.in"
+for tpl in "${TEMPLATES}"/*.yaml.in; do
+  [[ "$(basename "${tpl}")" == "namespace.yaml.in" ]] && continue
+  render_tpl "${tpl}"
 done

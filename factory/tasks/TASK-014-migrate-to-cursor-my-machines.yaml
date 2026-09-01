@@ -1,4 +1,4 @@
-id: TASK-013
+id: TASK-014
 title: Migrate from custom factory pipeline to Cursor My Machines
 goal: |
   Refactor the homelab-forge factory from the custom Cursor SDK orchestration pipeline

@@ -16,6 +16,13 @@ chmod 700 "${FORGE_DATA_ROOT:-/media/diestrin/data/forge}/factory" 2>/dev/null |
 PIDFILE="$STATE_DIR/${WORKER_ID}.pid"
 LOG="$STATE_DIR/${WORKER_ID}.log"
 
+# Plan/watch jobs need cursor-sdk + PyYAML from the host venv (same as run-task.sh).
+# Bare /usr/bin/python3 lacks those deps and makes plan updates fail with rc=1.
+FORGE_PY="${FORGE_PYTHON:-/media/diestrin/data/forge/factory/venv/bin/python3}"
+if [[ ! -x "$FORGE_PY" ]]; then
+  FORGE_PY="$(command -v python3)"
+fi
+
 # Structured journal line: systemd captures stdout; tee keeps the host log file.
 log() { printf '%s forge-worker worker=%s %s\n' "$(date -Is)" "$WORKER_ID" "$*" | tee -a "$LOG"; }
 
@@ -40,11 +47,11 @@ if [[ -z "${FORGE_CONTROL_PLANE_URL:-}" || -z "${FORGE_API_TOKEN:-}" ]]; then
   exit 1
 fi
 
-log "start poll=${POLL_SECONDS}s concurrency=$CONCURRENCY api=$FORGE_CONTROL_PLANE_URL kinds=plan,implement,watch-checks"
+log "start poll=${POLL_SECONDS}s concurrency=$CONCURRENCY api=$FORGE_CONTROL_PLANE_URL kinds=plan,implement,watch-checks python=$FORGE_PY"
 
 # Claim next job of any kind. Prints: "<kind> <task_id> <job_id> <meta_file>" or nothing.
 claim_job() {
-  python3 - "$JOBS_DIR" <<PY
+  "$FORGE_PY" - "$JOBS_DIR" <<PY
 import json, os, sys
 sys.path.insert(0, "$REPO_ROOT/factory/scripts")
 import control_plane_client as cp
@@ -83,11 +90,11 @@ run_job() {
     local rc=0
     case "$kind" in
       plan)
-        FORGE_WORKER_ID="$WORKER_ID" python3 "$REPO_ROOT/factory/orchestrator/run_plan_job.py" \
+        FORGE_WORKER_ID="$WORKER_ID" "$FORGE_PY" "$REPO_ROOT/factory/orchestrator/run_plan_job.py" \
           --task-id "$task_id" --job-id "$job_id" --meta "$(cat "$meta_file")" || rc=$?
         ;;
       watch-checks)
-        FORGE_WORKER_ID="$WORKER_ID" python3 "$REPO_ROOT/factory/worker/watch_checks.py" \
+        FORGE_WORKER_ID="$WORKER_ID" "$FORGE_PY" "$REPO_ROOT/factory/worker/watch_checks.py" \
           --task-id "$task_id" --job-id "$job_id" --meta "$(cat "$meta_file")" || rc=$?
         ;;
       implement|*)

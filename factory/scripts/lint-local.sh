@@ -36,6 +36,7 @@ run_check() {
 }
 
 # markdownlint-cli2 — required (MD047 on TASK-009 is exactly what this gate is for).
+# Factory worker systemd PATH often has nix but not npm/npx; prefer local tools, then nix.
 markdown_lint() {
   local -a fix_arg=()
   [[ "$FIX" -eq 1 ]] && fix_arg=(--fix)
@@ -43,8 +44,11 @@ markdown_lint() {
     markdownlint-cli2 "${fix_arg[@]}" "**/*.md"
   elif command -v npx >/dev/null 2>&1; then
     npx --yes markdownlint-cli2 "${fix_arg[@]}" "**/*.md"
+  elif command -v nix >/dev/null 2>&1; then
+    note "markdownlint-cli2 via nix run (worker PATH has no npm)"
+    nix run nixpkgs#markdownlint-cli2 -- "${fix_arg[@]}" "**/*.md"
   else
-    note "markdownlint-cli2 unavailable (install: npm i -g markdownlint-cli2) — REQUIRED"
+    note "markdownlint-cli2 unavailable (install: npm i -g markdownlint-cli2, or nix) — REQUIRED"
     return 1
   fi
 }

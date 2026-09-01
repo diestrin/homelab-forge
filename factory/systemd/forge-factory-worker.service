@@ -18,7 +18,8 @@ Environment=VAULT_ADDR=http://127.0.0.1:8200
 Environment=FORGE_WORKER_POLL_SECONDS=30
 # Parallel job slots (plan/implement/watch-checks) — TASK-011 concurrency.
 Environment=FORGE_WORKER_CONCURRENCY=2
-Environment=PATH=/home/diestrin/.nix-profile/bin:/home/diestrin/.local/bin:/usr/local/bin:/usr/bin:/bin
+# Prepend host factory venv so plan/watch jobs see cursor-sdk (daemon.sh also pins FORGE_PYTHON).
+Environment=PATH=/media/diestrin/data/forge/factory/venv/bin:/home/diestrin/.nix-profile/bin:/home/diestrin/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=/media/diestrin/data/Projects/homelab-forge/factory/worker/daemon.sh
 Restart=on-failure
 RestartSec=15

@@ -11,6 +11,7 @@ Argo CD syncs cluster desired state from branch **`main`** (ADR-008).
 | `k8s/bootstrap/apply-cert-manager.sh` (+ ClusterIssuers) | Vault manifests, ESO store, metrics CronJob |
 | `k8s/bootstrap/apply-argocd.sh` | Child Applications under `k8s/overlays/root/applications.yaml` |
 | `k8s/bootstrap/init-vault.sh` | — |
+| `k8s/ci/` (in-cluster Actions runner) | — |
 
 Steady-state: **merge to `main` → Argo syncs**. Do not `kubectl apply` managed apps by hand.
 
@@ -28,6 +29,9 @@ full-history gitleaks scan. Workers cannot merge around these gates; repo admins
 retain bypass for emergencies. GitHub Actions never deploys **steady-state** workloads to
 the cluster — Argo CD is the only steady-state deploy path (ADR-008). PR preview deploys
 (TASK-010) are the documented exception and target `forge-preview-*` namespaces only.
+Preview **deploy/cleanup** jobs stay skipped until the operator sets the repo variable
+`FORGE_PREVIEW_ENABLED=true` after bootstrapping `k8s/ci/` — they are not merge-required
+checks.
 
 ## Root Application
 

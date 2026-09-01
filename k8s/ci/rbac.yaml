@@ -1,5 +1,6 @@
 # Preview deploy RBAC — forge-ci-runner may create forge-preview-* namespaces and
-# manage preview workloads. Workflows must only target forge-preview-<pr> namespaces.
+# manage preview workloads. ValidatingAdmissionPolicy forge-ci-preview-scope
+# denies mutations outside those namespaces (RBAC cannot express a name prefix).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -15,7 +16,7 @@ metadata:
   name: forge-ci-preview-resources
 rules:
   - apiGroups: [""]
-    resources: ["secrets", "services", "configmaps"]
+    resources: ["services", "resourcequotas", "limitranges"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: ["apps"]
     resources: ["deployments"]

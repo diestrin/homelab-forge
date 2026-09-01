@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: github-actions-runner
+  namespace: forge-ci
   labels:
     app: github-actions-runner
 spec:
@@ -16,6 +17,10 @@ spec:
         app: github-actions-runner
     spec:
       serviceAccountName: forge-ci-runner
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
       containers:
         - name: runner
           image: ghcr.io/actions/actions-runner:2.322.0
@@ -31,7 +36,9 @@ spec:
                   key: token
           volumeMounts:
             - name: runner-data
-              mountPath: /home/runner
+              mountPath: /runner-state
+            - name: runner-work
+              mountPath: /home/runner/_work
             - name: entrypoint
               mountPath: /etc/runner
           resources:
@@ -45,9 +52,11 @@ spec:
         - name: runner-data
           persistentVolumeClaim:
             claimName: github-actions-runner-data
+        - name: runner-work
+          emptyDir: {}
         - name: entrypoint
           configMap:
-            name: github-actions-runner-config
+            name: github-actions-runner-entrypoint
             defaultMode: 0755
             items:
               - key: entrypoint.sh

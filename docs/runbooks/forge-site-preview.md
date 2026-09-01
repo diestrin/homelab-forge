@@ -57,6 +57,10 @@ kubectl -n forge-ci rollout status deployment/github-actions-runner
 
 Confirm runner labels: `self-hosted`, `k3s`, `forge-preview`.
 
+Then set the repository Actions variable `FORGE_PREVIEW_ENABLED=true` so deploy
+and cleanup jobs run on that runner. Until it is set, those jobs skip (build still
+runs on `ubuntu-latest`).
+
 ## Workflows
 
 | Workflow | Triggers |
@@ -101,7 +105,11 @@ curl -sS https://localpower.diegobarahona.com/api/v1/health
 
 - Preview CI must **only** `kubectl apply` / delete `forge-preview-*` namespaces.
 - Do **not** apply to Argo-managed paths (`k8s/apps/forge-site/`, `forge-root`, platform).
-- Runner RBAC is namespace-oriented; workflows enforce `forge-preview-<n>` naming.
+- Runner RBAC plus ValidatingAdmissionPolicy `forge-ci-preview-scope` restrict
+  mutations to `forge-preview-*` namespaces.
+- Previews share the **production** Postgres database and API token (same Vault
+  paths as `forge-site`). They can read/write factory data and run migrations —
+  treat preview PRs as trusted; a dedicated preview database is follow-on work.
 
 ## Rotate runner credentials
 

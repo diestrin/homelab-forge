@@ -1,11 +1,23 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: forge-ci
 resources:
   - namespace.yaml
   - serviceaccount.yaml
   - rbac.yaml
+  - admission-policy.yaml
   - networkpolicies.yaml
-  - runner-configmap.yaml
   - runner-pvc.yaml
   - runner-deployment.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: github-actions-runner-config
+    namespace: forge-ci
+    literals:
+      - RUNNER_URL=https://github.com/diestrin/homelab-forge
+      - RUNNER_NAME=forge-k3s-preview
+      - RUNNER_LABELS=self-hosted,k3s,forge-preview
+  - name: github-actions-runner-entrypoint
+    namespace: forge-ci
+    files:
+      - entrypoint.sh

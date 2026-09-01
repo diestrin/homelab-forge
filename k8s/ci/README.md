@@ -12,11 +12,12 @@ touch Argo-managed Applications (`forge-site`, `forge-root`, platform leaves).
 | --- | --- |
 | `namespace.yaml` | `forge-ci` namespace |
 | `serviceaccount.yaml` | `forge-ci-runner` ServiceAccount |
-| `rbac.yaml` | ClusterRole scoped to preview namespace lifecycle + preview resources |
+| `rbac.yaml` | ClusterRole for preview namespace lifecycle + preview resources |
+| `admission-policy.yaml` | ValidatingAdmissionPolicy: runner may only mutate `forge-preview-*` |
 | `networkpolicies.yaml` | Default-deny + DNS/HTTPS egress (same pattern as `forge-agents`) |
-| `runner-configmap.yaml` | Runner registration + `run.sh` entrypoint |
+| `entrypoint.sh` | Register runner, persist credentials, install kubectl/envsubst |
 | `runner-deployment.yaml` | Long-lived runner pod |
-| `runner-pvc.yaml` | Persist runner credentials across restarts |
+| `runner-pvc.yaml` | Persist runner credentials at `/runner-state` (not `/home/runner`) |
 
 ## One-time operator setup
 
@@ -64,7 +65,17 @@ kubectl -n forge-ci logs -l app=github-actions-runner --tail=50
 Confirm runner appears under GitHub → Actions → Runners with labels:
 `self-hosted`, `k3s`, `forge-preview`.
 
-### 4. Rotate / re-register
+### 4. Enable preview workflows
+
+GitHub → Settings → Secrets and variables → Actions → Variables:
+
+- Name: `FORGE_PREVIEW_ENABLED`
+- Value: `true`
+
+Until this is set, preview **build** still runs on hosted runners; **deploy** and
+**cleanup** jobs skip so they do not wait 24h for a missing self-hosted runner.
+
+### 5. Rotate / re-register
 
 1. Remove stale runner in GitHub UI if needed.
 2. Mint new registration token → update `github-runner-registration` secret.
@@ -75,9 +86,12 @@ Confirm runner appears under GitHub → Actions → Runners with labels:
 
 `forge-ci-runner` may:
 
-- Create/delete/get/list **namespaces** (workflow targets `forge-preview-<n>` only)
-- Manage Deployments, Services, Ingresses, NetworkPolicies, ExternalSecrets, and
-  Secrets inside any namespace (workflow discipline + code review gate)
+- Create/delete/get/list **namespaces** (API cannot prefix-restrict; admission policy does)
+- Manage Deployments, Services, Ingresses, NetworkPolicies, ExternalSecrets,
+  ResourceQuotas, and LimitRanges
 
-It may **not** modify Argo CD Applications or steady-state manifests under
-`k8s/apps/forge-site/`.
+ValidatingAdmissionPolicy `forge-ci-preview-scope` **denies** those mutations unless
+the object is a `forge-preview-*` Namespace or lives in such a namespace.
+
+It may **not** modify Argo CD Applications, Secrets in other namespaces, or
+steady-state manifests under `k8s/apps/forge-site/`.

@@ -40,15 +40,22 @@ jobs:
 
       - name: Resolve branch name
         id: meta
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+          PREVIEW_PR_NUMBER: ${{ inputs.pr_number }}
         run: |
           set -euo pipefail
-          if [[ -z "${{ inputs.ref }}" ]]; then
+          if [[ -z "${INPUT_REF}" ]]; then
             echo "ref input is required for deploy" >&2
+            exit 1
+          fi
+          if [[ ! "${PREVIEW_PR_NUMBER}" =~ ^[0-9]+$ ]]; then
+            echo "pr_number must be digits" >&2
             exit 1
           fi
           branch="$(git rev-parse --abbrev-ref HEAD)"
           if [[ "${branch}" == "HEAD" ]]; then
-            branch="${{ inputs.ref }}"
+            branch="${INPUT_REF}"
           fi
           echo "branch=${branch}" >> "${GITHUB_OUTPUT}"
           echo "sha=$(git rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
@@ -74,8 +81,9 @@ jobs:
   deploy:
     name: manual deploy preview
     needs: build
-    if: inputs.action == 'deploy'
+    if: inputs.action == 'deploy' && vars.FORGE_PREVIEW_ENABLED == 'true'
     runs-on: [self-hosted, k3s, forge-preview]
+    timeout-minutes: 15
     env:
       PREVIEW_PR_NUMBER: ${{ inputs.pr_number }}
       PREVIEW_IMAGE: ${{ needs.build.outputs.image }}
@@ -90,18 +98,27 @@ jobs:
           ./k8s/preview/forge-site/render.sh | kubectl apply -f -
           kubectl -n "forge-preview-${PREVIEW_PR_NUMBER}" rollout status deployment/forge-site --timeout=300s
           url="https://${PREVIEW_HOST}/"
-          echo "## Manual forge-site preview" >> "${GITHUB_STEP_SUMMARY}"
-          echo "**URL:** ${url}" >> "${GITHUB_STEP_SUMMARY}"
-          echo "**Image:** \`${PREVIEW_IMAGE}\`" >> "${GITHUB_STEP_SUMMARY}"
+          {
+            echo "## Manual forge-site preview"
+            echo "**URL:** ${url}"
+            echo "**Image:** \`${PREVIEW_IMAGE}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
 
   delete:
     name: manual delete preview
-    if: inputs.action == 'delete'
+    if: inputs.action == 'delete' && vars.FORGE_PREVIEW_ENABLED == 'true'
     runs-on: [self-hosted, k3s, forge-preview]
+    timeout-minutes: 10
+    env:
+      PREVIEW_PR_NUMBER: ${{ inputs.pr_number }}
     steps:
       - name: Delete preview namespace
         run: |
           set -euo pipefail
-          ns="forge-preview-${{ inputs.pr_number }}"
+          if [[ ! "${PREVIEW_PR_NUMBER}" =~ ^[0-9]+$ ]]; then
+            echo "pr_number must be digits" >&2
+            exit 1
+          fi
+          ns="forge-preview-${PREVIEW_PR_NUMBER}"
           kubectl delete namespace "${ns}" --ignore-not-found --wait=false
           echo "Deleted (or absent): ${ns}" >> "${GITHUB_STEP_SUMMARY}"

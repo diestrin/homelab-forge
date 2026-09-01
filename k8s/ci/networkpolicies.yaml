@@ -2,6 +2,7 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  namespace: forge-ci
   name: default-deny-all
 spec:
   podSelector: {}
@@ -12,6 +13,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  namespace: forge-ci
   name: allow-dns
 spec:
   podSelector: {}
@@ -31,6 +33,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  namespace: forge-ci
   name: allow-same-namespace
 spec:
   podSelector: {}
@@ -47,6 +50,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  namespace: forge-ci
   name: allow-egress-https
 spec:
   podSelector: {}

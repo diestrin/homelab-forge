@@ -1,0 +1,32 @@
+# Constrain forge-ci-runner to forge-preview-* namespaces. ClusterRoleBindings
+# cannot express a name prefix; this policy is the enforcement (k3s 1.30+).
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: forge-ci-preview-scope
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["*"]
+        apiVersions: ["*"]
+        operations: ["CREATE", "UPDATE", "DELETE", "CONNECT"]
+        resources: ["*"]
+  matchConditions:
+    - name: is-forge-ci-runner
+      expression: request.userInfo.username == "system:serviceaccount:forge-ci:forge-ci-runner"
+  validations:
+    - expression: |
+        (request.kind.kind == "Namespace" &&
+          ((object != null && object.metadata.name.startsWith("forge-preview-")) ||
+           (oldObject != null && oldObject.metadata.name.startsWith("forge-preview-")))) ||
+        request.namespace.startsWith("forge-preview-")
+      message: forge-ci-runner may only create or mutate forge-preview-* namespaces
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: forge-ci-preview-scope
+spec:
+  policyName: forge-ci-preview-scope
+  validationActions: ["Deny"]

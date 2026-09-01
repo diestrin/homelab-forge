@@ -49,8 +49,12 @@ jobs:
   deploy:
     name: deploy preview to k3s
     needs: build
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed' &&
+      vars.FORGE_PREVIEW_ENABLED == 'true'
     runs-on: [self-hosted, k3s, forge-preview]
+    timeout-minutes: 15
     env:
       PREVIEW_PR_NUMBER: ${{ github.event.pull_request.number }}
       PREVIEW_IMAGE: ghcr.io/diestrin/homelab-forge/forge-site:pr-${{ github.event.pull_request.number }}-${{ github.sha }}
@@ -68,11 +72,13 @@ jobs:
       - name: Preview URL summary
         run: |
           url="https://${PREVIEW_HOST}/"
-          echo "## Forge-site preview" >> "${GITHUB_STEP_SUMMARY}"
-          echo "" >> "${GITHUB_STEP_SUMMARY}"
-          echo "**URL:** ${url}" >> "${GITHUB_STEP_SUMMARY}"
-          echo "**Image:** \`${PREVIEW_IMAGE}\`" >> "${GITHUB_STEP_SUMMARY}"
-          echo "**Namespace:** \`forge-preview-${PREVIEW_PR_NUMBER}\`" >> "${GITHUB_STEP_SUMMARY}"
+          {
+            echo "## Forge-site preview"
+            echo ""
+            echo "**URL:** ${url}"
+            echo "**Image:** \`${PREVIEW_IMAGE}\`"
+            echo "**Namespace:** \`forge-preview-${PREVIEW_PR_NUMBER}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Comment preview URL on PR
         uses: actions/github-script@v7
@@ -114,20 +120,27 @@ jobs:
 
   cleanup-pr:
     name: cleanup preview (PR closed)
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      vars.FORGE_PREVIEW_ENABLED == 'true'
     runs-on: [self-hosted, k3s, forge-preview]
+    timeout-minutes: 10
     steps:
       - name: Delete preview namespace
+        env:
+          PREVIEW_PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          ns="forge-preview-${{ github.event.pull_request.number }}"
+          ns="forge-preview-${PREVIEW_PR_NUMBER}"
           kubectl delete namespace "${ns}" --ignore-not-found --wait=false
           echo "Deleted (or absent): ${ns}"
 
   cleanup-branch:
     name: cleanup preview (branch deleted)
-    if: github.event_name == 'delete'
+    if: github.event_name == 'delete' && vars.FORGE_PREVIEW_ENABLED == 'true'
     runs-on: [self-hosted, k3s, forge-preview]
+    timeout-minutes: 10
     steps:
       - name: Delete preview namespace by branch label
         env:

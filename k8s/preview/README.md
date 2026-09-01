@@ -19,6 +19,7 @@ Templates live in `templates/` with `$PREVIEW_*` placeholders. Render with:
 export PREVIEW_PR_NUMBER=42
 export PREVIEW_IMAGE=ghcr.io/diestrin/homelab-forge/forge-site:pr-42-deadbeef
 export PREVIEW_HOST=pr-42.localpower.diegobarahona.com
+export PREVIEW_BRANCH=factory/example-branch
 ./render.sh | kubectl apply -f -
 ```
 

@@ -34,14 +34,27 @@ def ev(difficulty, kind, outcome, day=D, adjusted=None):
 # --- points table ---------------------------------------------------------
 
 
-def test_penalty_is_half_of_earned():
-    for difficulty, (earned, penalty) in (
-        (Difficulty.FACIL, (5, 2)),
-        (Difficulty.INTERMEDIA, (10, 5)),
-        (Difficulty.COMPLEJA, (25, 12)),
+def test_mandatory_earns_nothing_and_only_fails_for_points():
+    """An unavoidable responsibility: completing it pays 0, failing it costs
+    the penalty column (half the difficulty's face value, rounded down)."""
+    for difficulty, penalty in (
+        (Difficulty.FACIL, 2),
+        (Difficulty.INTERMEDIA, 5),
+        (Difficulty.COMPLEJA, 12),
     ):
-        assert signed_points(difficulty, Kind.MANDATORY, Outcome.DONE) == earned
+        assert signed_points(difficulty, Kind.MANDATORY, Outcome.DONE) == 0
         assert signed_points(difficulty, Kind.MANDATORY, Outcome.FAILED) == -penalty
+
+
+@pytest.mark.parametrize("kind", [Kind.OPCIONAL, Kind.TODO])
+def test_optional_and_todo_earn_face_value_and_never_fail(kind):
+    for difficulty, face in (
+        (Difficulty.FACIL, 5),
+        (Difficulty.INTERMEDIA, 10),
+        (Difficulty.COMPLEJA, 25),
+    ):
+        assert signed_points(difficulty, kind, Outcome.DONE) == face
+        assert signed_points(difficulty, kind, Outcome.FAILED) == 0
 
 
 @pytest.mark.parametrize("kind", [Kind.OPCIONAL, Kind.TODO])
@@ -130,7 +143,7 @@ def test_settle_day_rejects_mixed_days():
 def test_perfect_cycle_pays_everything():
     start, end = date(2026, 8, 15), date(2026, 8, 28)
     events = [
-        ev(Difficulty.INTERMEDIA, Kind.MANDATORY, Outcome.DONE, day=start)
+        ev(Difficulty.INTERMEDIA, Kind.OPCIONAL, Outcome.DONE, day=start)
         for _ in range(3)
     ]
     summary = close_cycle(events, start, end, colones_por_punto=10)
@@ -138,6 +151,20 @@ def test_perfect_cycle_pays_everything():
     assert summary.points_net == 30
     assert summary.colones == 300
     assert not summary.floor_applied
+
+
+def test_completing_mandatory_work_adds_nothing_to_the_cycle():
+    """Doing your duty keeps the ledger where it was -- no reward, no debt."""
+    start, end = date(2026, 8, 15), date(2026, 8, 28)
+    events = [
+        ev(Difficulty.COMPLEJA, Kind.MANDATORY, Outcome.DONE, day=start)
+        for _ in range(4)
+    ]
+    summary = close_cycle(events, start, end, colones_por_punto=10)
+    assert summary.mandatory_done == 4
+    assert summary.points_earned == 0
+    assert summary.points_net == 0
+    assert summary.colones == 0
 
 
 def test_cycle_never_closes_negative():
@@ -155,8 +182,8 @@ def test_cycle_never_closes_negative():
 
 def test_events_outside_the_window_are_ignored():
     start, end = date(2026, 8, 15), date(2026, 8, 28)
-    inside = ev(Difficulty.FACIL, Kind.MANDATORY, Outcome.DONE, day=date(2026, 8, 20))
-    outside = ev(Difficulty.FACIL, Kind.MANDATORY, Outcome.DONE, day=date(2026, 9, 1))
+    inside = ev(Difficulty.FACIL, Kind.OPCIONAL, Outcome.DONE, day=date(2026, 8, 20))
+    outside = ev(Difficulty.FACIL, Kind.OPCIONAL, Outcome.DONE, day=date(2026, 9, 1))
     summary = close_cycle([inside, outside], start, end, colones_por_punto=10)
     assert summary.points_earned == 5
 

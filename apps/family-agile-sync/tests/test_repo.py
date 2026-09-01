@@ -68,12 +68,14 @@ def tarea(page_id="t1", *, difficulty=Difficulty.INTERMEDIA, aprobada=True):
 
 def test_difficulty_and_kind_come_from_the_linked_routine():
     routines = {"r1": routine(difficulty=Difficulty.COMPLEJA, kind=Kind.MANDATORY)}
-    events = to_events([row(estado="Hecha")], routines)
+    events = to_events([row(estado="Fallada")], routines)
     assert len(events) == 1
     assert events[0].difficulty is Difficulty.COMPLEJA
     assert events[0].kind is Kind.MANDATORY
-    assert events[0].outcome is Outcome.DONE
-    assert events[0].points == 25
+    assert events[0].outcome is Outcome.FAILED
+    # -12 proves both flowed through: the difficulty sets the magnitude and the
+    # Mandatory kind is what lets it subtract at all.
+    assert events[0].points == -12
 
 
 def test_row_whose_routine_does_not_pay_is_dropped():

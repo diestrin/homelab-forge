@@ -14,7 +14,7 @@ touch Argo-managed Applications (`forge-site`, `forge-root`, platform leaves).
 | `serviceaccount.yaml` | `forge-ci-runner` ServiceAccount |
 | `rbac.yaml` | ClusterRole for preview namespace lifecycle + preview resources |
 | `admission-policy.yaml` | ValidatingAdmissionPolicy: runner may only mutate `forge-preview-*` |
-| `networkpolicies.yaml` | Default-deny + DNS/HTTPS egress (same pattern as `forge-agents`) |
+| `networkpolicies.yaml` | Default-deny + DNS/HTTPS + kube-apiserver (443/6443) egress |
 | `entrypoint.sh` | Register runner, persist credentials, install kubectl/envsubst |
 | `runner-deployment.yaml` | Long-lived runner pod |
 | `runner-pvc.yaml` | Persist runner credentials at `/runner-state` (not `/home/runner`) |

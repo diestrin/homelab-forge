@@ -62,3 +62,22 @@ spec:
           port: 443
         - protocol: TCP
           port: 80
+---
+# k3s kube-apiserver: in-cluster clients dial kubernetes.default (ClusterIP:443),
+# which DNATs to the node on 6443. kube-router evaluates the post-DNAT destination,
+# so TCP/6443 must be allowed or kubectl gets "connection refused".
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  namespace: forge-ci
+  name: allow-egress-kube-apiserver
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443

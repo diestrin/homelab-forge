@@ -70,6 +70,11 @@ Approximate incremental footprint after sync:
 
 Prometheus PVC: 10Gi (`local-path`). Grafana PVC: 2Gi. Retention: 7 days.
 
+On single-node k3s, **node-exporter** uses pod networking (not `hostNetwork`) so Prometheus
+scrapes a pod IP instead of the node LAN IP (same-node hairpin breaks). **Kubelet**
+ServiceMonitor is disabled for the same reason; host/container CPU and memory come from
+node-exporter and kube-state-metrics.
+
 ## Dashboard tour (portfolio)
 
 Three dashboard layers for demos:

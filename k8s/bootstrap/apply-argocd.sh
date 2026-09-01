@@ -25,6 +25,13 @@ kubectl apply --server-side --force-conflicts -n forge-system -f "$TMP/install.y
 echo "==> Waiting for argocd-server"
 kubectl -n forge-system rollout status deploy/argocd-server --timeout=300s
 
+echo "==> Sizing application-controller (Helm apps exceed LimitRange default 512Mi)"
+kubectl -n forge-system set resources statefulset/argocd-application-controller \
+  -c=argocd-application-controller \
+  --requests=cpu=100m,memory=256Mi \
+  --limits=cpu=1000m,memory=1536Mi
+kubectl -n forge-system rollout status statefulset/argocd-application-controller --timeout=300s
+
 echo "==> Initial admin password (change after first login):"
 kubectl -n forge-system get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true
 echo

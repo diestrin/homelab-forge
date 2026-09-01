@@ -9,6 +9,13 @@ crds:
 
 defaultRules:
   create: true
+  # k3s: kubelet ServiceMonitor is off (same-node hairpin); scheduler is embedded
+  # and not scraped. Disable the "target disappeared" noise those gaps create.
+  disabled:
+    KubeletDown: true
+    KubeletInstanceUnreachable: true
+    KubeSchedulerDown: true
+    KubeSchedulerInstanceUnreachable: true
   rules:
     alertmanager: true
     etcd: false
@@ -34,6 +41,48 @@ defaultRules:
     kubernetesResources: true
     kubernetesStorage: true
     kubernetesSystem: true
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+
+# Public Grafana (only monitoring UI exposed). Slack title links and AM externalUrl
+# point here — Alertmanager itself stays ClusterIP / no Ingress.
+# Anchor-only helpers (not chart settings).
+grafanaAlertingUrl: &grafanaAlertingUrl https://grafana.localpower.diegobarahona.com/alerting/list
+
+# Shared Slack attachment for critical + warning receivers (description + labels,
+# not summary-only; title links to Grafana Alerting).
+x-slack-ops: &slackOps
+  api_url_file: /etc/alertmanager/secrets/alertmanager-notifications/slack_webhook_url
+  channel: "#forge-alerts"
+  send_resolved: false
+  color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+  title: '[{{ .Status }}{{ if .CommonLabels.severity }} · {{ .CommonLabels.severity }}{{ end }}] {{ .GroupLabels.alertname }}{{ if .CommonLabels.forge_alert_id }} ({{ .CommonLabels.forge_alert_id }}){{ end }}'
+  title_link: *grafanaAlertingUrl
+  text: |-
+    {{ range .Alerts -}}
+    *{{ .Annotations.summary }}*
+    {{ with .Annotations.description }}{{ . }}
+    {{ end -}}
+    {{- with .Labels.namespace }}• *ns:* `{{ . }}` {{ end -}}
+    {{- with .Labels.pod }}• *pod:* `{{ . }}` {{ end -}}
+    {{- with .Labels.deployment }}• *deploy:* `{{ . }}` {{ end -}}
+    {{- with .Labels.container }}• *container:* `{{ . }}` {{ end -}}
+    {{- with .Labels.name }}• *name:* `{{ . }}` {{ end -}}
+    {{- with .Labels.node }}• *node:* `{{ . }}` {{ end -}}
+    {{- with .Labels.instance }}• *instance:* `{{ . }}` {{ end -}}
+    {{- with .Labels.job }}• *job:* `{{ . }}` {{ end -}}
+    {{- with .Labels.service }}• *service:* `{{ . }}` {{ end -}}
+    {{- with .Labels.reason }}• *reason:* `{{ . }}` {{ end -}}
+    {{- with .Labels.health_status }}• *health:* `{{ . }}` {{ end -}}
+    {{- with .Labels.sync_status }}• *sync:* `{{ . }}` {{ end -}}
+    {{- with .Labels.job_name }}• *job_name:* `{{ . }}` {{ end -}}
+    {{- with .Annotations.runbook_url }}• <{{ . }}|runbook>{{ end }}
+
+    {{ end -}}
+  actions:
+    - type: button
+      text: 'Open Grafana Alerting'
+      url: *grafanaAlertingUrl
 
 alertmanager:
   enabled: true
@@ -73,21 +122,13 @@ alertmanager:
           - url_file: /etc/alertmanager/secrets/alertmanager-notifications/ntfy_url
             send_resolved: true
         slack_configs:
-          - api_url_file: /etc/alertmanager/secrets/alertmanager-notifications/slack_webhook_url
-            channel: "#forge-alerts"
-            send_resolved: false
-            title: '{{ .GroupLabels.alertname }}'
-            text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+          - *slackOps
       - name: ntfy-warning
         webhook_configs:
           - url_file: /etc/alertmanager/secrets/alertmanager-notifications/ntfy_url
             send_resolved: true
         slack_configs:
-          - api_url_file: /etc/alertmanager/secrets/alertmanager-notifications/slack_webhook_url
-            channel: "#forge-alerts"
-            send_resolved: false
-            title: '{{ .GroupLabels.alertname }}'
-            text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+          - *slackOps
       - name: ntfy-info
         webhook_configs:
           - url_file: /etc/alertmanager/secrets/alertmanager-notifications/ntfy_url
@@ -104,6 +145,8 @@ alertmanager:
           - severity = info
         equal: ['namespace', 'alertname']
   alertmanagerSpec:
+    # Fallback for any notifier that still uses ExternalURL (title_link overrides Slack).
+    externalUrl: *grafanaAlertingUrl
     resources:
       requests:
         cpu: 25m
@@ -195,6 +238,10 @@ prometheus:
 # Single-node k3s: kubelet HTTP-01 targets use the node LAN IP; pods on the same node
 # cannot hairpin to that address reliably. Host metrics come from node-exporter instead.
 kubelet:
+  enabled: false
+
+# k3s embeds the scheduler; there is no separate kube-scheduler scrape target.
+kubeScheduler:
   enabled: false
 
 kube-state-metrics:

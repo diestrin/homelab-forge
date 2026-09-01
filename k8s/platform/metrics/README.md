@@ -48,12 +48,13 @@ vault kv put secret/forge/grafana \
 Confirm ExternalSecrets sync:
 
 ```bash
-kubectl -n monitoring get externalsecret
+kubectl -n monitoring get externalsecret alertmanager-notifications grafana-admin
 kubectl -n monitoring get secret grafana-admin alertmanager-notifications
 ```
 
-Until Slack webhook is set, Alertmanager still delivers ntfy; Slack leg fails
-silently when the secret key is missing.
+`alertmanager-notifications` merges ntfy and Slack webhook keys from Vault in one
+ExternalSecret. Until the Slack webhook path is set, Alertmanager still delivers ntfy;
+the Slack leg is skipped when `slack_webhook_url` is empty.
 
 ## Resource budget (single-node NUC)
 

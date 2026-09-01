@@ -5,7 +5,6 @@ resources:
   - rules/forge-alerts.yaml
   - grafana-ingress.yaml
   - externalsecret-grafana.yaml
-  - externalsecret-slack.yaml
   - externalsecret-alertmanager-notifications.yaml
 configMapGenerator:
   - name: forge-overview-dashboard

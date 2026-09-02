@@ -13,6 +13,7 @@ from family_agile_sync.rules import (
     cycle_bounds,
     cycle_label,
     is_non_weekly,
+    points_done,
     points_failed,
     settle_day,
     signed_points,
@@ -34,15 +35,16 @@ def ev(difficulty, kind, outcome, day=D, adjusted=None):
 # --- points table ---------------------------------------------------------
 
 
-def test_mandatory_earns_nothing_and_only_fails_for_points():
-    """An unavoidable responsibility: completing it pays 0, failing it costs
-    the penalty column (half the difficulty's face value, rounded down)."""
-    for difficulty, penalty in (
-        (Difficulty.FACIL, 2),
-        (Difficulty.INTERMEDIA, 5),
-        (Difficulty.COMPLEJA, 12),
+def test_mandatory_earns_a_small_acknowledgement_and_fails_for_more():
+    """An unavoidable responsibility: completing it pays a small fixed amount
+    by difficulty (1/2/3), failing it costs the penalty column (half the
+    difficulty's face value, rounded down)."""
+    for difficulty, done, penalty in (
+        (Difficulty.FACIL, 1, 2),
+        (Difficulty.INTERMEDIA, 2, 5),
+        (Difficulty.COMPLEJA, 3, 12),
     ):
-        assert signed_points(difficulty, Kind.MANDATORY, Outcome.DONE) == 0
+        assert signed_points(difficulty, Kind.MANDATORY, Outcome.DONE) == done
         assert signed_points(difficulty, Kind.MANDATORY, Outcome.FAILED) == -penalty
 
 
@@ -55,6 +57,19 @@ def test_optional_and_todo_earn_face_value_and_never_fail(kind):
     ):
         assert signed_points(difficulty, kind, Outcome.DONE) == face
         assert signed_points(difficulty, kind, Outcome.FAILED) == 0
+
+
+def test_points_done_splits_mandatory_from_the_rest():
+    """Mandatory completion pays the small 1/2/3 table; everything else pays
+    the difficulty's full face value."""
+    for difficulty, small, face in (
+        (Difficulty.FACIL, 1, 5),
+        (Difficulty.INTERMEDIA, 2, 10),
+        (Difficulty.COMPLEJA, 3, 25),
+    ):
+        assert points_done(difficulty, Kind.MANDATORY) == small
+        assert points_done(difficulty, Kind.OPCIONAL) == face
+        assert points_done(difficulty, Kind.TODO) == face
 
 
 @pytest.mark.parametrize("kind", [Kind.OPCIONAL, Kind.TODO])
@@ -153,8 +168,8 @@ def test_perfect_cycle_pays_everything():
     assert not summary.floor_applied
 
 
-def test_completing_mandatory_work_adds_nothing_to_the_cycle():
-    """Doing your duty keeps the ledger where it was -- no reward, no debt."""
+def test_completing_mandatory_work_earns_its_small_acknowledgement():
+    """Doing your duty pays a token amount -- 3 points per Compleja here."""
     start, end = date(2026, 8, 15), date(2026, 8, 28)
     events = [
         ev(Difficulty.COMPLEJA, Kind.MANDATORY, Outcome.DONE, day=start)
@@ -162,9 +177,9 @@ def test_completing_mandatory_work_adds_nothing_to_the_cycle():
     ]
     summary = close_cycle(events, start, end, colones_por_punto=10)
     assert summary.mandatory_done == 4
-    assert summary.points_earned == 0
-    assert summary.points_net == 0
-    assert summary.colones == 0
+    assert summary.points_earned == 12
+    assert summary.points_net == 12
+    assert summary.colones == 120
 
 
 def test_cycle_never_closes_negative():

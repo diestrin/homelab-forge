@@ -43,14 +43,22 @@ class Outcome(str, Enum):
 
 #: (face value, failure penalty) per difficulty. The face value is what
 #: optional work and to-dos earn on completion, and the notional basis for the
-#: daily penalty cap. Mandatory work earns nothing on completion (see
-#: ``signed_points``): it is an unavoidable household responsibility, so only
-#: failing it moves the ledger. The penalty is half the face value, rounded
-#: down (Casa points policy, 2026-09; supersedes the earlier "+N for doing").
+#: daily penalty cap. The penalty is half the face value, rounded down, and
+#: only mandatory work can incur it.
 POINTS: dict[Difficulty, tuple[int, int]] = {
     Difficulty.FACIL: (5, 2),
     Difficulty.INTERMEDIA: (10, 5),
     Difficulty.COMPLEJA: (25, 12),
+}
+
+#: What completing a *mandatory* routine adds to the ledger. Mandatory work is
+#: an unavoidable household responsibility, so it pays a small fixed
+#: acknowledgement by difficulty rather than the full face value optional work
+#: earns; failing it still costs ``POINTS[d][1]`` (Casa points policy, 2026-09).
+MANDATORY_EARNED: dict[Difficulty, int] = {
+    Difficulty.FACIL: 1,
+    Difficulty.INTERMEDIA: 2,
+    Difficulty.COMPLEJA: 3,
 }
 
 DAILY_CAP_RATIO = 0.5
@@ -59,9 +67,18 @@ DAILY_CAP_RATIO = 0.5
 
 def points_earned(difficulty: Difficulty) -> int:
     """The difficulty's face value: what optional work and to-dos earn on
-    completion, and the notional value the daily cap is a share of. Mandatory
-    completion pays 0 regardless of difficulty -- see ``signed_points``."""
+    completion, and the notional value the daily cap is a share of. Completing
+    mandatory work pays the smaller ``points_done`` amount instead."""
     return POINTS[Difficulty(difficulty)][0]
+
+
+def points_done(difficulty: Difficulty, kind: Kind) -> int:
+    """What completing this work adds to the ledger. Optional work and to-dos
+    earn the difficulty's face value; mandatory work earns a small fixed
+    acknowledgement by difficulty (Casa points policy, 2026-09)."""
+    if Kind(kind) is Kind.MANDATORY:
+        return MANDATORY_EARNED[Difficulty(difficulty)]
+    return points_earned(difficulty)
 
 
 def points_failed(difficulty: Difficulty, kind: Kind) -> int:
@@ -75,15 +92,13 @@ def signed_points(difficulty: Difficulty, kind: Kind, outcome: Outcome) -> int:
     """The number written to Agenda.'Puntos aplicados'.
 
     Mandatory work is an unavoidable household responsibility: completing it
-    earns nothing, and only failing it moves the ledger (Casa points policy,
-    2026-09). Optional work and to-dos earn their difficulty's face value on
-    completion and never subtract.
+    earns a small fixed acknowledgement (1/2/3 by difficulty), and failing it
+    costs the penalty column (Casa points policy, 2026-09). Optional work and
+    to-dos earn their difficulty's face value on completion and never subtract.
     """
     outcome = Outcome(outcome)
     if outcome is Outcome.DONE:
-        if Kind(kind) is Kind.MANDATORY:
-            return 0
-        return points_earned(difficulty)
+        return points_done(difficulty, kind)
     if outcome is Outcome.FAILED:
         return -points_failed(difficulty, kind)
     return 0
@@ -141,6 +156,9 @@ def settle_day(events: list[Event], cap_ratio: float = DAILY_CAP_RATIO) -> DayRe
     earned = sum(e.points for e in events if e.points > 0)
     penalty_raw = sum(-e.points for e in events if e.points < 0)
 
+    # The cap is a share of the day's mandatory *face* value (5/10/25), not the
+    # small amount completing it now pays -- the guard rail stays where ADR-4
+    # put it.
     mandatory_value = sum(
         points_earned(e.difficulty) for e in events if Kind(e.kind) is Kind.MANDATORY
     )

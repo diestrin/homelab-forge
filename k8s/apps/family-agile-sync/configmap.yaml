@@ -14,12 +14,15 @@ data:
   NOTION_DB_RUTINAS: "0a6f241192614f63ae84bf9b83687144"
   NOTION_DB_AGENDA: "1f36677246888026b113f11dffecdda7"
   NOTION_DB_TAREAS: "e968d41b12f44f9c8b6b7b75e04161a9"
-  # NOTION_DB_CORTE intentionally omitted: base "Corte quincenal" doesn't
-  # exist yet (Fase 5). Config.from_env() treats it as optional -- push-
-  # definitions, pull-completions and reconcile don't need it and run fine
-  # without it; only close-cycle needs it, and only on an actual payday
-  # Friday, where it now raises a clear error instead of blocking startup.
-  # Add the key here once the base is created.
+  # Corte quincenal: the per-member cycle settlement close-cycle writes.
+  NOTION_DB_CORTE: "a71a267a472d463899d989cdc7e84c9c"
+  # 💵 Sobres / 🔁 Movimientos: the finance module close-cycle deposits into
+  # (ADR-013). Optional in Config -- close-cycle still writes the Cortes if
+  # either is missing; the other three jobs never touch them.
+  NOTION_DB_SOBRES: "d701872d50294804a4fb2c66ae91c068"
+  NOTION_DB_MOVIMIENTOS: "ef070eb6e63d46539558aca46081bf25"
+  # DISTRIBUTE unset -> deposit runs. Set DISTRIBUTE="0" for a parallel cycle
+  # that writes Cortes but moves no money (Fase 4).
   #
   # Any payday Friday; the 14-day calendar extends both ways from here.
   CYCLE_ANCHOR_FRIDAY: "2026-08-28"

@@ -16,7 +16,7 @@ Design rationale and the failure it is fixing: [`docs/decisions/ADR-011-family-a
 | `push-definitions` | Mondays 05:00 | Notion → Habitica | Mirrors routines and approved to-dos as Habitica tasks |
 | `pull-completions` | Hourly, 06:00–22:00 | Habitica → Notion | Records completions, points and colones |
 | `reconcile` | Daily 04:45 | — | Marks yesterday's unfinished **mandatory** work as `Fallada` |
-| `close-cycle` | Fridays 18:00 | — | Settles the 14-day cycle and writes `Corte quincenal` |
+| `close-cycle` | Fridays 18:00 | Notion → Notion | Settles the 14-day cycle, writes `Corte quincenal`, and deposits each member's net into their `💵 Sobres` via `🔁 Movimientos` |
 
 All schedules are `America/Costa_Rica`.
 
@@ -35,6 +35,7 @@ and written back as a plain number.
 | Daily cap | A day may not subtract more than 50% of that day's mandatory value |
 | Cycle floor | A cycle never closes negative |
 | Cycle | 14 days, closing on every second Friday from `CYCLE_ANCHOR_FRIDAY` |
+| Cycle deposit | The net colones are split across the member's sobres by each sobre's `% de reparto`; the rounding remainder goes to the largest share (ADR-013) |
 
 `rules.py` performs no I/O and is fully unit-tested — it is the file to review
 carefully, since it is the one that decides money.
@@ -103,6 +104,18 @@ Agenda/`reconcile` path, independent of what the Habitica mirror looks like.
 second Friday", so the job checks the payday calendar itself and exits quietly
 on off-Fridays. Set `FORCE_CLOSE=1` only for the parallel dry run.
 
+**`close-cycle` is idempotent on a payday.** Before writing, it looks up the
+`Corte quincenal` row for this cycle and member; a retry reuses it instead of
+writing a second summary. The sobres deposit runs only for a Corte that is not
+yet `Pagado` and has no `🔁 Movimientos` linked to it, then flips `Pagado` — so
+running the job twice on the same payday moves money once. `DISTRIBUTE=0` writes
+the Corte rows and skips the deposit entirely; that is the run for Fase 4's
+parallel cycle, where `DRY_RUN=1` is no help because it writes nothing to
+compare. If `NOTION_DB_SOBRES` / `NOTION_DB_MOVIMIENTOS` aren't both set the job
+still writes the Cortes and just logs that the deposit was skipped. A member
+with no sobres gets the `Ingreso mesada` movement recorded but not split, and a
+warning.
+
 **Habitica paces third-party calls 30s apart**, so runs are slow by design.
 Lower `HABITICA_REQUEST_DELAY` only for local experiments.
 
@@ -118,7 +131,9 @@ Secrets (ADR-007).
 | --- | --- | --- |
 | `NOTION_TOKEN` | Vault | Internal integration token; each database must be shared with it |
 | `NOTION_DB_*` | ConfigMap | Database ids for Miembros, Rutinas, Agenda, Tareas -- required |
-| `NOTION_DB_CORTE` | ConfigMap | Corte quincenal database id -- **optional**; Fase 5 hasn't created that base yet. `push-definitions`, `pull-completions` and `reconcile` don't touch it. `close-cycle` only needs it on an actual payday Friday, and raises a clear error there if it's unset -- it doesn't block startup |
+| `NOTION_DB_CORTE` | ConfigMap | Corte quincenal database id. `push-definitions`, `pull-completions` and `reconcile` don't touch it. `close-cycle` only needs it on an actual payday Friday, and raises a clear error there if it's unset -- it doesn't block startup |
+| `NOTION_DB_SOBRES` / `NOTION_DB_MOVIMIENTOS` | ConfigMap | 💵 Sobres / 🔁 Movimientos database ids. **Optional**; `close-cycle` deposits the cycle net into the sobres module only when both are set (and `DISTRIBUTE` is on). Missing either, it still writes the Cortes |
+| `DISTRIBUTE` | optional | Default on. `DISTRIBUTE=0` makes `close-cycle` write the Corte rows but move no money -- the parallel run for Fase 4 |
 | `CYCLE_ANCHOR_FRIDAY` | ConfigMap | Any payday Friday, `YYYY-MM-DD` |
 | `HABITICA_CLIENT` | ConfigMap | `<owner UserID>-family-agile-sync`, required on every request |
 | `HABITICA_REQUEST_DELAY` | ConfigMap | Seconds between calls, default 30 |

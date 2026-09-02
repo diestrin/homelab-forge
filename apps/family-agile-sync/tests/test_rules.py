@@ -13,10 +13,12 @@ from family_agile_sync.rules import (
     cycle_bounds,
     cycle_label,
     is_non_weekly,
+    plan_deposits,
     points_done,
     points_failed,
     settle_day,
     signed_points,
+    split_by_weights,
 )
 
 D = date(2026, 8, 24)
@@ -323,3 +325,60 @@ def test_semanal_is_rejected():
     """Semanal stays a Habitica daily; this function is only for the other three."""
     with pytest.raises(ValueError):
         current_todo_occurrence("Semanal", date(2026, 1, 1), None, date(2026, 1, 1))
+
+
+# --- depositing the cycle net into the sobres (ADR-013) ------------------
+
+
+def test_split_by_weights_is_exact_and_gives_the_remainder_to_the_biggest():
+    # 1000 by 50/20/20/10 divides cleanly.
+    assert split_by_weights(1000, [50, 20, 20, 10]) == [500, 200, 200, 100]
+    # 1234 does not: floors are 617/246/246/123 = 1232, remainder 2 -> biggest.
+    parts = split_by_weights(1234, [50, 20, 20, 10])
+    assert parts == [619, 246, 246, 123]
+    assert sum(parts) == 1234
+
+
+def test_split_by_weights_handles_degenerate_input():
+    assert split_by_weights(0, [50, 50]) == [0, 0]
+    assert split_by_weights(-10, [50, 50]) == [0, 0]
+    assert split_by_weights(100, [0, 0]) == [0, 0]
+    assert split_by_weights(100, [1]) == [100]
+
+
+def test_split_by_weights_breaks_ties_by_position():
+    # equal weights, remainder 1 -> first weight wins the extra colon.
+    assert split_by_weights(10, [1, 1, 1]) == [4, 3, 3]
+
+
+def test_plan_deposits_orders_by_weight_so_the_remainder_is_stable():
+    sobres = [("ahorro", 20), ("gastar", 50), ("compartir", 10), ("meta", 20)]
+    plan = plan_deposits(1234, sobres)
+    assert plan.income == 1234
+    assert plan.unallocated == 0
+    assert dict(plan.per_sobre) == {
+        "gastar": 619,
+        "ahorro": 246,
+        "meta": 246,
+        "compartir": 123,
+    }
+    assert sum(a for _, a in plan.per_sobre) == 1234
+
+
+def test_plan_deposits_with_no_sobres_leaves_the_money_unallocated():
+    plan = plan_deposits(500, [])
+    assert plan.income == 500
+    assert plan.per_sobre == []
+    assert plan.unallocated == 500
+
+
+def test_plan_deposits_drops_zero_shares():
+    plan = plan_deposits(3, [("gastar", 50), ("meta", 20), ("ahorro", 20), ("compartir", 10)])
+    # 3 colones, weights sum 100: floors 1/0/0/0, remainder 2 -> gastar.
+    assert plan.per_sobre == [("gastar", 3)]
+
+
+def test_plan_deposits_normalises_weights_that_do_not_sum_to_100():
+    plan = plan_deposits(90, [("a", 1), ("b", 2)])
+    assert dict(plan.per_sobre) == {"b": 60, "a": 30}
+    assert plan.unallocated == 0

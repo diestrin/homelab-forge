@@ -29,7 +29,7 @@ and written back as a plain number.
 | Rule | Value |
 | --- | --- |
 | Points earned — optional & to-dos | Fácil 5 · Intermedia 10 · Compleja 25 |
-| Points earned — mandatory | 0 (an unavoidable responsibility pays nothing for being done) |
+| Points earned — mandatory | Fácil 1 · Intermedia 2 · Compleja 3 (a small acknowledgement for an unavoidable responsibility) |
 | Points lost — mandatory only, on `Fallada` | Fácil 2 · Intermedia 5 · Compleja 12 |
 | Conversion | Per member, `Colones por punto` in `Miembros` |
 | Daily cap | A day may not subtract more than 50% of that day's mandatory value |

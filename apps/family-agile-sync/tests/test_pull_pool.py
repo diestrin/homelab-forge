@@ -147,10 +147,10 @@ def test_personal_completion_is_recorded_without_claiming_membership(wired):
 
     assert st["result"] == 1
     _, props = st["notion"].updates[0]
-    # Mandatory completion earns nothing; the row just records it was done so
-    # reconcile won't later mark it Fallada.
-    assert props[s.Agenda.PUNTOS_APLICADOS] == {"number": 0}
-    assert props[s.Agenda.COLONES] == {"number": 0}
+    # Mandatory completion pays the small acknowledgement (Fácil -> 1 point,
+    # 10 colones at this member's rate).
+    assert props[s.Agenda.PUNTOS_APLICADOS] == {"number": 1}
+    assert props[s.Agenda.COLONES] == {"number": 10}
     assert s.Agenda.MIEMBRO not in props  # personal rows already have their member
 
 

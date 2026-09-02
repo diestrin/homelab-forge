@@ -50,6 +50,57 @@ def load_members(client: n.NotionClient, database_id: str) -> list[Member]:
 
 
 # --------------------------------------------------------------------------
+# Sobres -- the virtual envelopes the cycle net is deposited into (ADR-35/013)
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Sobre:
+    page_id: str
+    member_id: str | None
+    tipo: str | None
+    saldo: int
+    pct: int
+    """% de reparto: the share of a deposit this envelope receives."""
+
+
+def load_sobres(client: n.NotionClient, database_id: str) -> list[Sobre]:
+    sobres: list[Sobre] = []
+    for page in client.query(database_id):
+        member_ids = n.read_relation_ids(page, s.Sobres.MIEMBRO)
+        saldo = n.read_number(page, s.Sobres.SALDO)
+        pct = n.read_number(page, s.Sobres.PCT_REPARTO)
+        sobres.append(
+            Sobre(
+                page_id=page["id"],
+                member_id=member_ids[0] if member_ids else None,
+                tipo=n.read_select(page, s.Sobres.TIPO),
+                saldo=int(saldo) if saldo else 0,
+                pct=int(pct) if pct else 0,
+            )
+        )
+    return sobres
+
+
+def load_cortes_for_cycle(
+    client: n.NotionClient, database_id: str, start: date
+) -> dict[str, dict]:
+    """Existing Corte quincenal rows for the cycle beginning on ``start``,
+    indexed by member page id.
+
+    close-cycle uses this to avoid writing a second summary row for a member
+    when a payday run is retried, and to read the ``Pagado`` flag that guards
+    the deposit.
+    """
+    filter_ = {"property": s.Corte.DESDE, "date": {"equals": start.isoformat()}}
+    by_member: dict[str, dict] = {}
+    for page in client.query(database_id, filter_):
+        for mid in n.read_relation_ids(page, s.Corte.MIEMBRO):
+            by_member[mid] = page
+    return by_member
+
+
+# --------------------------------------------------------------------------
 # Rutinas catalogue -- the definition side of an occurrence
 # --------------------------------------------------------------------------
 

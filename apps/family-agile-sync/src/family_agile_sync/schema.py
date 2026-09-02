@@ -85,6 +85,41 @@ class Corte:
     PAGADO = "Pagado"
 
 
+class Sobres:
+    """💵 Sobres -- one virtual envelope per member per jar type (ADR-35)."""
+
+    SOBRE = "Sobre"
+    MIEMBRO = "Miembro"
+    TIPO = "Tipo de sobre"
+    SALDO = "Saldo"
+    PCT_REPARTO = "% de reparto"
+    META_ACTIVA = "Meta activa"
+
+
+class Movimientos:
+    """🔁 Movimientos -- the append-only ledger behind every sobre (ADR-35)."""
+
+    MOVIMIENTO = "Movimiento"
+    MIEMBRO = "Miembro"
+    TIPO = "Tipo"
+    MONTO = "Monto"
+    FECHA = "Fecha"
+    CATEGORIA = "Categoría"
+    DESCRIPCION = "Descripción"
+    SOBRE_ORIGEN = "Sobre origen"
+    SOBRE_DESTINO = "Sobre destino"
+    META_LIGADA = "Meta ligada"
+    APROBADO_POR = "Aprobado por"
+    REPORTADO_POR = "Reportado por"
+    #: Relation back to the Corte quincenal row that produced this movement;
+    #: added by the sync (ADR-013). Used to make the deposit idempotent.
+    CORTE = "Corte"
+
+
+TIPO_INGRESO_MESADA = "Ingreso mesada"
+TIPO_TRANSFERENCIA_SOBRE = "Transferencia a sobre"
+
+
 ESTADO_PENDIENTE = "Pendiente"
 ESTADO_HECHA = "Hecha"
 ESTADO_FALLADA = "Fallada"

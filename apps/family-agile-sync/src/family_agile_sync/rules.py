@@ -253,6 +253,65 @@ def close_cycle(
 
 
 # --------------------------------------------------------------------------
+# Depositing the cycle's net into the sobres module (ADR-013)
+# --------------------------------------------------------------------------
+
+
+def split_by_weights(total: int, weights: list[int]) -> list[int]:
+    """Split a whole number in proportion to ``weights``.
+
+    Each part is ``floor(total * w / sum(weights))``; the rounding remainder
+    (always ``0 <= r < len(weights)``) is handed to the single largest weight,
+    so ``sum(result) == total`` exactly. A non-positive ``total`` or weight
+    sum yields all zeros -- money is only ever deposited, never clawed back
+    here (the cycle floor already guarantees ``total >= 0``).
+    """
+    n = len(weights)
+    denom = sum(weights)
+    if total <= 0 or denom <= 0:
+        return [0] * n
+
+    parts = [total * w // denom for w in weights]
+    remainder = total - sum(parts)
+    if remainder:
+        # Largest weight first, ties broken by original order -> deterministic.
+        top = max(range(n), key=lambda i: (weights[i], -i))
+        parts[top] += remainder
+    return parts
+
+
+@dataclass(frozen=True)
+class DepositPlan:
+    """How one member's cycle net is placed into their sobres."""
+
+    income: int
+    """The whole net, recorded once as an 'Ingreso mesada' movement."""
+    per_sobre: list[tuple[str, int]]
+    """(sobre page id, amount) for each sobre that receives a positive share."""
+    unallocated: int
+    """Left over because the member has no sobres; > 0 needs a human."""
+
+
+def plan_deposits(colones: int, sobres: list[tuple[str, int]]) -> DepositPlan:
+    """Place ``colones`` across a member's sobres by their reparto weight.
+
+    ``sobres`` is ``(sobre page id, % de reparto)``. Sobres are ordered by
+    weight descending (ties by id) so the remainder lands on the biggest jar
+    regardless of input order. With no sobres the whole amount is returned as
+    ``unallocated``.
+    """
+    if not sobres:
+        return DepositPlan(income=colones, per_sobre=[], unallocated=colones)
+
+    ordered = sorted(sobres, key=lambda sw: (-sw[1], sw[0]))
+    amounts = split_by_weights(colones, [w for _, w in ordered])
+    per_sobre = [
+        (sid, amount) for (sid, _), amount in zip(ordered, amounts) if amount > 0
+    ]
+    return DepositPlan(income=colones, per_sobre=per_sobre, unallocated=0)
+
+
+# --------------------------------------------------------------------------
 # Cycle calendar: every second Friday
 # --------------------------------------------------------------------------
 

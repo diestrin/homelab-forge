@@ -17,13 +17,14 @@ from __future__ import annotations
 
 import json
 import logging
+from collections import defaultdict
 from datetime import date
 
 from .. import notion as n
 from .. import schema as s
 from ..config import Config, habitica_credentials
-from ..habitica import HabiticaClient, build_task_payload
-from ..repo import Member, Tarea, load_members, load_routines, load_tareas
+from ..habitica import MIRROR_NOTE, HabiticaClient, build_task_payload, stale_mirror_ids
+from ..repo import Member, Routine, Tarea, load_members, load_routines, load_tareas
 from ..rules import Kind, current_todo_occurrence, is_non_weekly
 
 log = logging.getLogger(__name__)
@@ -71,9 +72,13 @@ def run(config: Config) -> int:
     clients: dict[str, HabiticaClient | None] = {}
     task_status_cache: dict[str, dict[str, bool]] = {}
     pushed = 0
+    #: member page id -> every mirror id the live catalogue still points to.
+    #: Used by the optional prune pass to spot orphaned Habitica tasks.
+    kept: dict[str, set[str]] = defaultdict(set)
 
     for routine in routines.values():
         if routine.retired:
+            _drop_retired_mirror(routine, members, clients, client, config)
             continue
         targets = routine.targets()
         if not targets:
@@ -114,7 +119,7 @@ def run(config: Config) -> int:
             habitica_type=habitica_type,
             difficulty=routine.difficulty.value if routine.difficulty else "Fácil",
             days=routine.dias,
-            notes="Family Agile — no editar manualmente",
+            notes=MIRROR_NOTE,
             applies_damage=applies_damage,
             due_date=occurrence_date,
         )
@@ -176,6 +181,10 @@ def run(config: Config) -> int:
                     )
             ids.pop(stale_id, None)
 
+        for mid, tid in ids.items():
+            if tid and mid in targets:
+                kept[mid].add(tid)
+
         if not config.dry_run and ids != routine.habitica_task_ids:
             client.update_page(
                 routine.page_id,
@@ -183,10 +192,78 @@ def run(config: Config) -> int:
             )
         pushed += 1
 
-    pushed += _push_tareas(client, members, tareas, clients, config)
+    pushed += _push_tareas(client, members, tareas, clients, config, kept)
+
+    if config.prune_habitica:
+        _prune_orphan_mirrors(members, kept, clients, config)
 
     log.info("push-definitions finished: %d definitions synced", pushed)
     return pushed
+
+
+def _drop_retired_mirror(
+    routine: Routine,
+    members: dict[str, Member],
+    clients: dict[str, HabiticaClient | None],
+    client: n.NotionClient,
+    config: Config,
+) -> None:
+    """Delete the Habitica mirrors of a routine that has been retired
+    (``Vigente hasta`` set) and clear its ``Habitica Task ID`` map.
+
+    ``push-definitions`` used to just skip retired routines, which left their
+    mirrors on the children's accounts forever.
+    """
+    if not routine.habitica_task_ids:
+        return
+    for member_id, task_id in routine.habitica_task_ids.items():
+        member = members.get(member_id)
+        habitica = _client_for(member, clients, config) if member else None
+        if config.dry_run:
+            log.info("[dry-run] retire mirror %s <- %s", member_id, routine.name)
+            continue
+        if habitica and task_id:
+            try:
+                habitica.delete_task(task_id)
+            except Exception:
+                log.warning("could not delete retired mirror %s / %s",
+                            routine.name, member_id)
+    if not config.dry_run:
+        client.update_page(
+            routine.page_id, {s.Rutinas.HABITICA_TASK_ID: n.w_text("{}")}
+        )
+
+
+def _prune_orphan_mirrors(
+    members: dict[str, Member],
+    kept: dict[str, set[str]],
+    clients: dict[str, HabiticaClient | None],
+    config: Config,
+) -> None:
+    """Delete every Family Agile mirror an account still carries that no live
+    routine or tarea references (PRUNE_HABITICA).
+
+    Only tasks whose ``notes`` mark them as ours are ever touched -- a task a
+    child made for themselves is never in scope.
+    """
+    for member in members.values():
+        if not member.active:
+            continue
+        habitica = _client_for(member, clients, config)
+        if habitica is None:
+            continue
+        orphans = stale_mirror_ids(habitica.list_tasks(), kept.get(member.page_id, set()))
+        for task_id in orphans:
+            if config.dry_run:
+                log.info("[dry-run] prune orphan mirror %s / %s", member.name, task_id)
+                continue
+            try:
+                habitica.delete_task(task_id)
+            except Exception:
+                log.warning("could not prune orphan mirror %s / %s",
+                            member.name, task_id)
+        if orphans:
+            log.info("pruned %d orphan mirror(s) from %s", len(orphans), member.name)
 
 
 def _push_tareas(
@@ -195,6 +272,7 @@ def _push_tareas(
     tareas: dict[str, Tarea],
     clients: dict[str, HabiticaClient | None],
     config: Config,
+    kept: dict[str, set[str]],
 ) -> int:
     """Mirror newly-approved Tareas as one-shot Habitica To-Dos.
 
@@ -204,6 +282,8 @@ def _push_tareas(
     pushed = 0
     for tarea in tareas.values():
         if tarea.habitica_task_id:
+            if tarea.member_id:
+                kept[tarea.member_id].add(tarea.habitica_task_id)
             continue
         if not tarea.aprobada or tarea.difficulty is None:
             continue
@@ -222,17 +302,19 @@ def _push_tareas(
             title=tarea.title,
             habitica_type="todo",
             difficulty=tarea.difficulty.value,
-            notes="Family Agile — no editar manualmente",
+            notes=MIRROR_NOTE,
         )
         if config.dry_run:
             log.info("[dry-run] %s <- %s (to-do)", member.name, tarea.title)
             continue
 
         created = habitica.create_task(payload)
+        new_id = created.get("id", "")
         client.update_page(
-            tarea.page_id,
-            {s.Tareas.HABITICA_TASK_ID: n.w_text(created.get("id", ""))},
+            tarea.page_id, {s.Tareas.HABITICA_TASK_ID: n.w_text(new_id)}
         )
+        if new_id:
+            kept[tarea.member_id].add(new_id)
         pushed += 1
 
     return pushed

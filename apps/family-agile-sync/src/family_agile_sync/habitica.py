@@ -26,6 +26,11 @@ log = logging.getLogger(__name__)
 BASE_URL = "https://habitica.com/api/v3"
 MAX_RETRIES = 4
 
+#: Every mirror the sync creates carries this in its ``notes``. It is the only
+#: thing that tells a Family Agile mirror apart from a task a child made for
+#: themselves, so the prune pass will never touch a task without it.
+MIRROR_NOTE = "Family Agile — no editar manualmente"
+
 
 class HabiticaError(RuntimeError):
     pass
@@ -153,6 +158,26 @@ def build_task_payload(
     if habitica_type == "todo" and due_date is not None:
         payload["date"] = due_date.isoformat()
     return payload
+
+
+def stale_mirror_ids(
+    tasks: list[dict], kept: set[str], note_marker: str = MIRROR_NOTE
+) -> list[str]:
+    """Which of this account's tasks are Family Agile mirrors the catalogue no
+    longer points to.
+
+    A task is stale when its ``notes`` start with ``note_marker`` (so it is one
+    of ours, not something the child made) and its id is not in ``kept`` -- the
+    set of mirror ids every active routine and approved tarea still references
+    for this member. Tasks without the marker are never returned.
+    """
+    stale = []
+    for task in tasks:
+        tid = task.get("id")
+        notes = task.get("notes") or ""
+        if tid and tid not in kept and notes.startswith(note_marker):
+            stale.append(tid)
+    return stale
 
 
 _DAY_KEYS = {"L": "m", "M": "t", "K": "w", "J": "th", "V": "f", "S": "s", "D": "su"}

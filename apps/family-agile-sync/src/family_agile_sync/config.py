@@ -47,6 +47,11 @@ class Config:
     (ADR-013). ``DISTRIBUTE=0`` writes the Corte quincenal rows but moves no
     money -- the parallel run that Fase 4 needs, where ``DRY_RUN=1`` is no use
     because it writes nothing to compare against."""
+    prune_habitica: bool = False
+    """push-definitions only: after mirroring the current catalogue, delete any
+    Habitica task marked as a Family Agile mirror that no active routine or
+    tarea still points to. Off by default -- it is destructive; set
+    ``PRUNE_HABITICA=1`` for a one-off reconcile."""
     generate_horizon_days: int = 14
     """How many days ahead generate-occurrences materialises Agenda rows.
     ADR-27's rule is 'at least 7 so the weekly view is never empty'; 14 keeps a
@@ -82,6 +87,8 @@ class Config:
             force_close=os.environ.get("FORCE_CLOSE", "").lower() in {"1", "true", "yes"},
             distribute=os.environ.get("DISTRIBUTE", "").lower()
             not in {"0", "false", "no"},
+            prune_habitica=os.environ.get("PRUNE_HABITICA", "").lower()
+            in {"1", "true", "yes"},
         )
 
 

@@ -13,7 +13,7 @@ Design rationale and the failure it is fixing: [`docs/decisions/ADR-011-family-a
 | Job | Schedule | Direction | Does |
 | --- | --- | --- | --- |
 | `generate-occurrences` | Daily 03:30 | Notion → Notion | Materialises the `Pendiente` Agenda rows from the `Rutinas` catalogue, on a rolling horizon |
-| `push-definitions` | Mondays 05:00 | Notion → Habitica | Mirrors routines and approved to-dos as Habitica tasks |
+| `push-definitions` | Mondays 05:00 | Notion → Habitica | Mirrors routines and approved to-dos as Habitica tasks; deletes a retired routine's mirrors, and (with `PRUNE_HABITICA=1`) any orphaned Family Agile mirror |
 | `pull-completions` | Hourly, 06:00–22:00 | Habitica → Notion | Records completions, points and colones |
 | `reconcile` | Daily 04:45 | — | Marks yesterday's unfinished **mandatory** work as `Fallada` |
 | `close-cycle` | Fridays 18:00 | Notion → Notion | Settles the 14-day cycle, writes `Corte quincenal`, and deposits each member's net into their `💵 Sobres` via `🔁 Movimientos` |
@@ -82,6 +82,20 @@ are deleted so no one else can be credited. Two ticks inside the same hourly
 window: the first one processed wins, the second keeps its Habitica gold and
 earns nothing.
 
+**A retired routine loses its mirrors.** When a routine gets `Vigente hasta`,
+`push-definitions` deletes every Habitica task in its `Habitica Task ID` map
+and clears the map -- it no longer just skips it and leaves the tasks on the
+child's account.
+
+**`PRUNE_HABITICA=1` reconciles an account to the catalogue.** After the mirror
+pass, `push-definitions` lists each member's tasks and deletes any whose
+`notes` mark it as a Family Agile mirror (`"Family Agile — no editar
+manualmente"`) that no active routine or approved tarea still points to. A task
+without that marker -- something a child made for themselves -- is never
+touched. Off by default; it is destructive, so it runs only when the flag is
+set. Use it for a one-off cleanup after a big catalogue change, or after
+routines were deleted (rather than retired) and left orphans behind.
+
 **To-Dos have no pre-existing Agenda row.** Unlike a Rutina occurrence (which
 already exists as `Pendiente` before anything happens), a Tarea only gets its
 Agenda row once its Habitica mirror is completed -- `pull-completions` creates
@@ -139,6 +153,7 @@ Secrets (ADR-007).
 | `HABITICA_REQUEST_DELAY` | ConfigMap | Seconds between calls, default 30 |
 | `GENERATE_HORIZON_DAYS` | ConfigMap | Days ahead `generate-occurrences` fills Agenda, default 14 |
 | `HABITICA_<NAME>_USER` / `_KEY` | Vault | Per member; a member without credentials is skipped, not failed |
+| `PRUNE_HABITICA` | optional | `push-definitions` only. `1` deletes orphaned Family Agile mirrors from each account after the mirror pass -- a one-off reconcile. Off by default (destructive) |
 | `DRY_RUN` | optional | Log intended writes, perform none |
 
 Habitica API tokens grant full control of an account, including task deletion.

@@ -60,3 +60,38 @@ def test_priority_follows_difficulty():
     for difficulty, priority in (("Fácil", 1), ("Intermedia", 1.5), ("Compleja", 2)):
         payload = build_task_payload(title="x", habitica_type="habit", difficulty=difficulty)
         assert payload["priority"] == priority
+
+
+# --- stale_mirror_ids: the prune pass's decision -----------------------
+
+from family_agile_sync.habitica import MIRROR_NOTE, stale_mirror_ids
+
+
+def _task(tid, notes=MIRROR_NOTE):
+    return {"id": tid, "notes": notes, "text": tid, "type": "daily"}
+
+
+def test_stale_mirror_ids_returns_our_marked_tasks_not_in_kept():
+    tasks = [_task("keep1"), _task("orphan1"), _task("orphan2")]
+    assert stale_mirror_ids(tasks, {"keep1"}) == ["orphan1", "orphan2"]
+
+
+def test_stale_mirror_ids_never_touches_unmarked_tasks():
+    tasks = [
+        _task("mine", MIRROR_NOTE),
+        _task("childs-own", "mi tarea personal"),
+        _task("no-notes", None),
+        {"id": "empty-notes", "text": "x"},
+    ]
+    # only the marked one, and only because it isn't kept
+    assert stale_mirror_ids(tasks, set()) == ["mine"]
+
+
+def test_stale_mirror_ids_ignores_tasks_without_an_id():
+    assert stale_mirror_ids([{"notes": MIRROR_NOTE}], set()) == []
+
+
+def test_stale_mirror_ids_matches_on_the_note_prefix():
+    # build_task_payload sets exactly MIRROR_NOTE, but a longer note still counts
+    t = {"id": "x", "notes": MIRROR_NOTE + " (creado 2026-09)"}
+    assert stale_mirror_ids([t], set()) == ["x"]

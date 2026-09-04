@@ -60,6 +60,48 @@ def test_trimestral_steps_by_three_months():
     assert not occurs_on(date(2026, 3, 15), "Trimestral", [], date(2026, 1, 15), 15)
 
 
+# --- Mensual/Trimestral with no Día del mes: the weekday in Días, on the
+#     week-of-month index Vigente desde lands on (ADR-43) ------------------
+
+# Vigente desde = 2026-09-11, the 2nd Friday of September.
+ANCHOR_2ND_FRI = date(2026, 9, 11)
+
+
+def test_mensual_by_weekday_fires_on_that_nth_weekday_each_month():
+    # 2nd Friday: Oct 9, Nov 13, Dec 11
+    assert occurs_on(date(2026, 10, 9), "Mensual", ["V"], ANCHOR_2ND_FRI, None)
+    assert occurs_on(date(2026, 11, 13), "Mensual", ["V"], ANCHOR_2ND_FRI, None)
+    assert occurs_on(date(2026, 12, 11), "Mensual", ["V"], ANCHOR_2ND_FRI, None)
+    # not the 1st or 3rd Friday, not another weekday
+    assert not occurs_on(date(2026, 10, 2), "Mensual", ["V"], ANCHOR_2ND_FRI, None)
+    assert not occurs_on(date(2026, 10, 16), "Mensual", ["V"], ANCHOR_2ND_FRI, None)
+    assert not occurs_on(date(2026, 10, 8), "Mensual", ["V"], ANCHOR_2ND_FRI, None)
+
+
+def test_mensual_by_weekday_clamps_to_the_last_when_the_month_is_short():
+    # Vigente desde 2026-05-29 is the 5th Friday of May.
+    fifth_fri = date(2026, 5, 29)
+    assert occurs_on(date(2026, 5, 29), "Mensual", ["V"], fifth_fri, None)
+    # June 2026 has only 4 Fridays -> fires on the 4th (June 26), not skipped.
+    assert occurs_on(date(2026, 6, 26), "Mensual", ["V"], fifth_fri, None)
+    assert not occurs_on(date(2026, 6, 19), "Mensual", ["V"], fifth_fri, None)
+
+
+def test_trimestral_by_weekday_still_only_every_third_month():
+    assert occurs_on(date(2026, 12, 11), "Trimestral", ["V"], ANCHOR_2ND_FRI, None)
+    assert not occurs_on(date(2026, 10, 9), "Trimestral", ["V"], ANCHOR_2ND_FRI, None)
+
+
+def test_mensual_by_weekday_needs_vigente_desde_as_the_anchor():
+    assert not occurs_on(date(2026, 10, 9), "Mensual", ["V"], None, None)
+
+
+def test_dia_del_mes_wins_when_both_are_present():
+    # Días is ignored when Día del mes is set (back-compat).
+    assert occurs_on(date(2026, 10, 28), "Mensual", ["V"], date(2026, 8, 28), 28)
+    assert not occurs_on(date(2026, 10, 9), "Mensual", ["V"], date(2026, 8, 28), 28)
+
+
 def test_unknown_or_missing_recurrence_matches_nothing():
     assert not occurs_on(MON, "garbage", ["L"], None, None)
     assert not occurs_on(MON, None, ["L"], None, None)

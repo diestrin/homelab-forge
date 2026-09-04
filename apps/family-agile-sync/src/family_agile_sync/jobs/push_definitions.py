@@ -96,7 +96,8 @@ def run(config: Config) -> int:
                 continue
             try:
                 occurrence_date = current_todo_occurrence(
-                    routine.recurrencia, routine.vigente_desde, routine.dia_del_mes, today
+                    routine.recurrencia, routine.vigente_desde, routine.dia_del_mes,
+                    today, routine.dias,
                 )
             except ValueError as exc:
                 log.warning("routine %r: %s; mirror skipped", routine.name, exc)

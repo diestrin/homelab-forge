@@ -40,7 +40,7 @@ log = logging.getLogger(__name__)
 #: Rutinas.Categoría -> Agenda.Tabla. Best-effort tagging for the day board;
 #: no job reads Tabla. Only the unambiguous mapping is kept -- an unmapped
 #: category leaves Tabla unset rather than inventing an option.
-_TABLA_BY_CATEGORIA = {"Casa": "Limpieza"}
+_TABLA_BY_CATEGORIA = {"Casa": "Limpieza", "Horario": "Horario"}
 
 
 def _parse_hora(value: str | None) -> time | None:

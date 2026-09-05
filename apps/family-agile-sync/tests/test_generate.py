@@ -142,6 +142,26 @@ def test_personal_routine_generates_one_row_per_member(wired):
     ).isoformat()
 
 
+@pytest.mark.parametrize("categoria,tabla", [
+    ("Casa", "Limpieza"),
+    ("Horario", "Horario"),
+])
+def test_categoria_tags_agenda_tabla(wired, categoria, tabla):
+    r = _routine(members=("m1",), categoria=categoria)
+    notion, _ = wired([r], [])
+
+    _, props = notion.created[0]
+    assert props[s.Agenda.TABLA] == {"select": {"name": tabla}}
+
+
+def test_unmapped_categoria_leaves_tabla_unset(wired):
+    r = _routine(members=("m1",), categoria="Salud")
+    notion, _ = wired([r], [])
+
+    _, props = notion.created[0]
+    assert s.Agenda.TABLA not in props
+
+
 def test_pool_routine_generates_one_unclaimed_row(wired):
     r = _routine(pid="P", modalidad="Pool", members=())
     notion, created = wired([r], [])

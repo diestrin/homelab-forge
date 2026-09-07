@@ -71,17 +71,26 @@ def _targets(routine: Routine) -> list[str | None]:
 
 
 def _row_props(routine: Routine, day: date, member_id: str | None) -> dict:
+    inicia = _inicia(day, _parse_hora(routine.hora))
     props = {
         s.Agenda.TITULO: n.w_title(routine.name),
         s.Agenda.RUTINA: n.w_relation([routine.page_id]),
         s.Agenda.MIEMBRO: n.w_relation([member_id] if member_id else []),
         s.Agenda.ESTADO: n.w_status(s.ESTADO_PENDIENTE),
-        s.Agenda.INICIA: n.w_date(_inicia(day, _parse_hora(routine.hora))),
+        s.Agenda.INICIA: n.w_date(inicia),
         s.Agenda.ORIGEN: n.w_select(s.ORIGEN_NOTION),
     }
     tabla = _TABLA_BY_CATEGORIA.get(routine.categoria or "")
     if tabla:
         props[s.Agenda.TABLA] = n.w_select(tabla)
+    # Duration only means something once Inicia carries a time (Hora parsed);
+    # a date-only Inicia has no meaningful end point. Stamping both Minutos
+    # and Termina lets Cronograma views draw a real-length bar instead of a
+    # zero-width point -- see the Horario timeline views on Fer's and Diego's
+    # member pages.
+    if routine.minutos is not None and isinstance(inicia, datetime):
+        props[s.Agenda.MINUTOS] = n.w_number(routine.minutos)
+        props[s.Agenda.TERMINA] = n.w_date(inicia + timedelta(minutes=routine.minutos))
     return props
 
 

@@ -81,14 +81,14 @@ def _cfg(*, dry_run=False, horizon=1):
 
 def _routine(pid="R", *, modalidad="Personal", members=(), dias=("L",),
              recurrencia="Semanal", vigente_desde=None, dia_del_mes=None,
-             hora="5:00 AM", categoria="Casa", retired=False):
+             hora="5:00 AM", categoria="Casa", retired=False, minutos=None):
     return Routine(
         page_id=pid, name=f"routine {pid}", member_ids=list(members),
         elegibles_ids=[], kind=Kind.OPCIONAL, modalidad=modalidad, paga=True,
         difficulty=Difficulty.FACIL, recurrencia=recurrencia, dias=list(dias),
         habitica_task_ids={}, habitica_tipo="daily", retired=retired,
         vigente_desde=vigente_desde, dia_del_mes=dia_del_mes, hora=hora,
-        categoria=categoria,
+        categoria=categoria, minutos=minutos,
     )
 
 
@@ -160,6 +160,34 @@ def test_unmapped_categoria_leaves_tabla_unset(wired):
 
     _, props = notion.created[0]
     assert s.Agenda.TABLA not in props
+
+
+def test_minutos_stamps_termina_from_inicia(wired):
+    r = _routine(members=("m1",), categoria="Horario", hora="9:00 AM", minutos=90)
+    notion, _ = wired([r], [])
+
+    _, props = notion.created[0]
+    assert props[s.Agenda.MINUTOS] == {"number": 90}
+    assert props[s.Agenda.TERMINA]["date"]["start"] == datetime(
+        2026, 8, 24, 10, 30
+    ).isoformat()
+
+
+def test_no_minutos_leaves_termina_unset(wired):
+    r = _routine(members=("m1",), categoria="Horario", hora="9:00 AM")
+    notion, _ = wired([r], [])
+
+    _, props = notion.created[0]
+    assert s.Agenda.MINUTOS not in props
+    assert s.Agenda.TERMINA not in props
+
+
+def test_minutos_without_parseable_hora_leaves_termina_unset(wired):
+    r = _routine(members=("m1",), categoria="Horario", hora=None, minutos=30)
+    notion, _ = wired([r], [])
+
+    _, props = notion.created[0]
+    assert s.Agenda.TERMINA not in props
 
 
 def test_pool_routine_generates_one_unclaimed_row(wired):

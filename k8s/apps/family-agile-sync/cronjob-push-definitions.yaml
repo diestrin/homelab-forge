@@ -1,4 +1,13 @@
 # Notion -> Habitica. Weekly refresh of the mirrored task definitions.
+#
+# Habitica background tools must wait HABITICA_REQUEST_DELAY (30s) between
+# calls. A full catalogue refresh is ~1100 member-mirrors, so a live run can
+# take ~9h. 3000s (50m) was too short: the 2026-09-07 run died DeadlineExceeded
+# and tripped A4. 12h is the safety net for a create-heavy week.
+#
+# Sunday 23:00 is after pull-completions' last hourly slot (22:00), so a long
+# run overlaps Monday morning pulls only if it is at the long end — not the
+# whole school day the old Monday 05:00 start would have.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -8,7 +17,7 @@ metadata:
     app: family-agile-sync
     job: push-definitions
 spec:
-  schedule: "0 5 * * 1"
+  schedule: "0 23 * * 0"
   timeZone: America/Costa_Rica
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
@@ -17,7 +26,7 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 2
-      activeDeadlineSeconds: 3000
+      activeDeadlineSeconds: 43200
       template:
         metadata:
           labels:

@@ -13,12 +13,14 @@ from family_agile_sync.rules import (
     cycle_bounds,
     cycle_label,
     is_non_weekly,
+    nth_weekday_of_month,
     plan_deposits,
     points_done,
     points_failed,
     settle_day,
     signed_points,
     split_by_weights,
+    week_of_month,
 )
 
 D = date(2026, 8, 24)
@@ -382,3 +384,57 @@ def test_plan_deposits_normalises_weights_that_do_not_sum_to_100():
     plan = plan_deposits(90, [("a", 1), ("b", 2)])
     assert dict(plan.per_sobre) == {"b": 60, "a": 30}
     assert plan.unallocated == 0
+
+
+# --- Mensual on the Días weekday, week-of-month fixed by Vigente desde (ADR-43)
+
+
+def test_week_of_month_counts_the_weekdays_own_occurrence():
+    assert week_of_month(date(2026, 9, 4)) == 1    # 1st Friday
+    assert week_of_month(date(2026, 9, 11)) == 2
+    assert week_of_month(date(2026, 9, 25)) == 4
+    assert week_of_month(date(2026, 5, 29)) == 5   # a 5th Friday exists in May
+
+
+def test_nth_weekday_of_month_finds_the_date_and_clamps_short_months():
+    # Friday = weekday 4. 2nd Friday of Oct 2026 is the 9th.
+    assert nth_weekday_of_month(2026, 10, 4, 2) == date(2026, 10, 9)
+    # 5th Friday of June 2026 -> only 4 exist -> last one, June 26.
+    assert nth_weekday_of_month(2026, 6, 4, 5) == date(2026, 6, 26)
+    # 1st Monday of Sept 2026.
+    assert nth_weekday_of_month(2026, 9, 0, 1) == date(2026, 9, 7)
+
+
+def test_current_todo_occurrence_monthly_by_weekday():
+    anchor = date(2026, 9, 11)  # 2nd Friday
+    # today inside October -> 2nd Friday of October
+    assert current_todo_occurrence(
+        "Mensual", anchor, None, date(2026, 10, 20), ["V"]
+    ) == date(2026, 10, 9)
+    # today inside the anchor month -> the anchor's own occurrence
+    assert current_todo_occurrence(
+        "Mensual", anchor, None, date(2026, 9, 30), ["V"]
+    ) == date(2026, 9, 11)
+
+
+def test_current_todo_occurrence_trimestral_by_weekday_steps_three_months():
+    anchor = date(2026, 9, 11)  # 2nd Friday
+    assert current_todo_occurrence(
+        "Trimestral", anchor, None, date(2026, 11, 1), ["V"]
+    ) == date(2026, 9, 11)  # still in the first quarter
+    assert current_todo_occurrence(
+        "Trimestral", anchor, None, date(2026, 12, 20), ["V"]
+    ) == date(2026, 12, 11)
+
+
+def test_current_todo_occurrence_dia_del_mes_still_wins():
+    assert current_todo_occurrence(
+        "Mensual", date(2026, 8, 28), 15, date(2026, 10, 1), ["V"]
+    ) == date(2026, 10, 15)
+
+
+def test_current_todo_occurrence_needs_dia_del_mes_or_a_weekday():
+    with pytest.raises(ValueError):
+        current_todo_occurrence("Mensual", date(2026, 1, 1), None, date(2026, 1, 1))
+    with pytest.raises(ValueError):
+        current_todo_occurrence("Mensual", date(2026, 1, 1), None, date(2026, 1, 1), [])

@@ -107,8 +107,12 @@ exactly once (a `Habitica Task ID` already set is never re-pushed), and
 **Non-weekly Rutinas (ADR-26) mirror as a `todo`, recreated by the sync
 itself.** Quincenal/Mensual/Trimestral routines don't get a repeating Habitica
 Daily -- `push-definitions` computes the current period's date from
-`Vigente desde` (+ `Día del mes` for Mensual/Trimestral) and creates a fresh
-To-Do once the previous one is gone or completed. **An open, uncompleted
+`Vigente desde` and creates a fresh To-Do once the previous one is gone or
+completed. Within a Mensual/Trimestral target month the date is `Día del mes`
+if set; otherwise it is the weekday in `Días` on the same week-of-month index
+`Vigente desde` lands on (ADR-43) -- e.g. `Vigente desde` on a 2nd Friday plus
+`Días = V` means the 2nd Friday of every month, clamped to the last in a short
+month. **An open, uncompleted
 mirror is left alone even after its period has technically rolled over** --
 the sync never deletes or duplicates a child's in-progress work. A Mandatory
 routine missing its window still gets `Puntos falla` through the normal

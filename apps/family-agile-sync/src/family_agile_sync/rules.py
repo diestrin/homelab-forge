@@ -376,6 +376,35 @@ def is_non_weekly(recurrencia: str | None) -> bool:
         return False
 
 
+#: date.weekday() index (Mon=0) -> the one-letter code stored in Rutinas."Días".
+#: K is miércoles, J is jueves -- Spanish initials, not English.
+WEEKDAY_CODES = ("L", "M", "K", "J", "V", "S", "D")
+
+
+def weekday_code(day: date) -> str:
+    return WEEKDAY_CODES[day.weekday()]
+
+
+def week_of_month(day: date) -> int:
+    """Which occurrence of ``day``'s own weekday this is within its month:
+    1 for the 1st Friday, 2 for the 2nd, ... A Mensual routine with no
+    ``Día del mes`` repeats on this same index every month (see ADR-43)."""
+    return (day.day - 1) // 7 + 1
+
+
+def nth_weekday_of_month(year: int, month: int, weekday: int, n: int) -> date:
+    """The ``n``-th ``weekday`` (Mon=0) of ``year``/``month``. If the month has
+    fewer than ``n`` of that weekday, the last one is returned -- so "5th
+    Friday" quietly becomes "4th Friday" in a 4-Friday month."""
+    first = date(year, month, 1)
+    first_hit = 1 + (weekday - first.weekday()) % 7
+    day = first_hit + (n - 1) * 7
+    last_day = calendar.monthrange(year, month)[1]
+    while day > last_day:
+        day -= 7
+    return date(year, month, day)
+
+
 def _add_months(day: date, months: int) -> date:
     total = day.year * 12 + (day.month - 1) + months
     year, month = divmod(total, 12)
@@ -389,15 +418,18 @@ def current_todo_occurrence(
     vigente_desde: date,
     dia_del_mes: int | None,
     today: date,
+    dias: list[str] | None = None,
 ) -> date:
     """The scheduled date of the period containing ``today``.
 
     This is the date the Habitica To-Do mirror should carry: the start of
     whichever Quincenal/Mensual/Trimestral window ``today`` falls in.
     ``vigente_desde`` anchors the calendar (see ADR-26) -- for Quincenal it
-    counts in 14-day steps from that date; for Mensual/Trimestral it anchors
-    the starting month and steps by 1 or 3 months, landing on ``dia_del_mes``
-    (clamped to the days that month actually has). A period never starts
+    counts in 14-day steps from that date. For Mensual/Trimestral it anchors
+    the starting month and steps by 1 or 3 months; within the target month the
+    date is ``dia_del_mes`` (clamped to the month's length) if set, otherwise
+    the ``week_of_month(vigente_desde)``-th occurrence of the weekday(s) in
+    ``dias`` -- earliest, if more than one (ADR-43). A period never starts
     before ``vigente_desde`` itself.
     """
     recurrencia_ = Recurrencia(recurrencia)
@@ -408,8 +440,11 @@ def current_todo_occurrence(
         steps = max(0, (today - vigente_desde).days // 14)
         return vigente_desde + timedelta(days=steps * 14)
 
-    if dia_del_mes is None:
-        raise ValueError(f"{recurrencia_.value} requires Día del mes")
+    codes = [c for c in (dias or []) if c in WEEKDAY_CODES]
+    if dia_del_mes is None and not codes:
+        raise ValueError(
+            f"{recurrencia_.value} requires Día del mes or a weekday in Días"
+        )
 
     step_months = 1 if recurrencia_ is Recurrencia.MENSUAL else 3
     months_elapsed = (today.year - vigente_desde.year) * 12 + (
@@ -417,8 +452,16 @@ def current_todo_occurrence(
     )
     steps = max(0, months_elapsed // step_months)
     target = _add_months(vigente_desde, steps * step_months)
-    clamped_day = min(dia_del_mes, calendar.monthrange(target.year, target.month)[1])
-    return date(target.year, target.month, clamped_day)
+
+    if dia_del_mes is not None:
+        clamped_day = min(dia_del_mes, calendar.monthrange(target.year, target.month)[1])
+        return date(target.year, target.month, clamped_day)
+
+    n = week_of_month(vigente_desde)
+    return min(
+        nth_weekday_of_month(target.year, target.month, WEEKDAY_CODES.index(c), n)
+        for c in codes
+    )
 
 
 # --------------------------------------------------------------------------
@@ -429,14 +472,6 @@ def current_todo_occurrence(
 # generate-occurrences job is the one that creates them, and this is the pure
 # calendar it walks: the v0 algorithm from ADR-27, lifted out of the one-off
 # manual run into a tested function.
-
-#: date.weekday() index (Mon=0) -> the one-letter code stored in Rutinas."Días".
-#: K is miércoles, J is jueves -- Spanish initials, not English.
-WEEKDAY_CODES = ("L", "M", "K", "J", "V", "S", "D")
-
-
-def weekday_code(day: date) -> str:
-    return WEEKDAY_CODES[day.weekday()]
 
 
 def occurs_on(
@@ -479,13 +514,23 @@ def occurs_on(
         return (day - vigente_desde).days % 14 == 0
 
     # Mensual / Trimestral
-    if dia_del_mes is None:
-        return False
-    last_day = calendar.monthrange(day.year, day.month)[1]
-    if day.day != min(dia_del_mes, last_day):
-        return False
-    if vigente_desde is None:
-        return True
-    months = (day.year - vigente_desde.year) * 12 + (day.month - vigente_desde.month)
     step = 1 if rec is Recurrencia.MENSUAL else 3
-    return months >= 0 and months % step == 0
+    if vigente_desde is not None:
+        months = (day.year - vigente_desde.year) * 12 + (day.month - vigente_desde.month)
+        if months < 0 or months % step != 0:
+            return False
+
+    if dia_del_mes is not None:
+        last_day = calendar.monthrange(day.year, day.month)[1]
+        return day.day == min(dia_del_mes, last_day)
+
+    # No Día del mes: fall back to the weekday(s) in Días, on the same
+    # week-of-month index that Vigente desde lands on (ADR-43).
+    codes = {c for c in dias if c in WEEKDAY_CODES}
+    if not codes or vigente_desde is None:
+        return False
+    n = week_of_month(vigente_desde)
+    return any(
+        day == nth_weekday_of_month(day.year, day.month, WEEKDAY_CODES.index(c), n)
+        for c in codes
+    )

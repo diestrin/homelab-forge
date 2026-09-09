@@ -50,7 +50,9 @@ Run a scheduled two-way sync in-cluster as Kubernetes CronJobs.
 - Cron cannot express "every second Friday", so `close-cycle` fires weekly and
   the payday calendar is enforced in code.
 - Habitica asks background tools to pace calls 30s apart, so runs are slow by
-  design; job deadlines are set accordingly.
+  design. `push-definitions` can take several hours on a full catalogue; its
+  CronJob deadline is 12h and it fires Sunday 23:00 so a long run sits after
+  `pull-completions`' last hourly slot.
 - Habitica API tokens grant full account control and live only in Vault.
 - The daily penalty cap is currently inert: because each penalty is half its
   earned value, a fully failed day already lands under the cap. It is retained

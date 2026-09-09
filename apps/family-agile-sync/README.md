@@ -13,7 +13,7 @@ Design rationale and the failure it is fixing: [`docs/decisions/ADR-011-family-a
 | Job | Schedule | Direction | Does |
 | --- | --- | --- | --- |
 | `generate-occurrences` | Daily 03:30 | Notion → Notion | Materialises the `Pendiente` Agenda rows from the `Rutinas` catalogue, on a rolling horizon |
-| `push-definitions` | Mondays 05:00 | Notion → Habitica | Mirrors routines and approved to-dos as Habitica tasks; deletes a retired routine's mirrors, and (with `PRUNE_HABITICA=1`) any orphaned Family Agile mirror |
+| `push-definitions` | Sundays 23:00 | Notion → Habitica | Mirrors routines and approved to-dos as Habitica tasks; deletes a retired routine's mirrors, and (with `PRUNE_HABITICA=1`) any orphaned Family Agile mirror. Live runs are paced at 30s/Habitica call and can take several hours, so the deadline is 12h |
 | `pull-completions` | Hourly, 06:00–22:00 | Habitica → Notion | Records completions, points and colones |
 | `reconcile` | Daily 04:45 | — | Marks yesterday's unfinished **mandatory** work as `Fallada` |
 | `close-cycle` | Fridays 18:00 | Notion → Notion | Settles the 14-day cycle, writes `Corte quincenal`, and deposits each member's net into their `💵 Sobres` via `🔁 Movimientos` |

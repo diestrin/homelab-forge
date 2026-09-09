@@ -130,6 +130,11 @@ class Routine:
     hora: str | None = None
     #: Rutinas.Categoría, used only to tag the generated Agenda row's Tabla.
     categoria: str | None = None
+    #: Duration in minutes; the occurrence generator uses it to also stamp
+    #: Agenda.Termina (Inicia + minutos), so the timeline views can show it as
+    #: a bar with real length instead of a zero-width point. None -> the
+    #: generated row carries no Termina, same as today.
+    minutos: float | None = None
 
     @property
     def is_pool(self) -> bool:
@@ -204,6 +209,7 @@ def load_routines(client: n.NotionClient, database_id: str) -> dict[str, Routine
             dia_del_mes=_dia_del_mes(n.read_number(page, s.Rutinas.DIA_DEL_MES)),
             hora=n.read_text(page, s.Rutinas.HORA) or None,
             categoria=n.read_select(page, s.Rutinas.CATEGORIA),
+            minutos=n.read_number(page, s.Rutinas.MINUTOS),
         )
     return routines
 

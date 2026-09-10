@@ -25,7 +25,11 @@ Bootstrap: `./k8s/bootstrap/init-vault.sh`
 - Init JSON (unseal key + root token): `/media/diestrin/data/secrets/vault/init.json` (mode 600).
 - **Back up `init.json` offline.** Never commit it.
 
-After every reboot Vault seals:
+After every reboot Vault seals. `forge-vault-unseal.service` (install with
+`sudo ./k8s/bootstrap/install-vault-unseal.sh`) unseals from `init.json` and
+restarts External Secrets so the store does not stay cached as sealed.
+
+Manual fallback:
 
 ```bash
 kubectl -n forge-system port-forward svc/vault 8200:8200 &
@@ -77,7 +81,7 @@ Family Agile sync reads
 (`<member>_user` and `<member>_key` for each account).
 
 After unseal, if the store stays `Ready=False` with "Vault is sealed", restart
-the operator so it re-validates:
+the operator so it re-validates (the boot unit already does this):
 
 ```bash
 kubectl -n default rollout restart deploy/external-secrets

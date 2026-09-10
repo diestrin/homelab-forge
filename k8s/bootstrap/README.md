@@ -10,7 +10,8 @@ These scripts are **not** managed by Argo CD. Run once (or for disaster recovery
 3. `./ufw-k3s.sh` — flannel/UFW rules + open 80/443 (**same session** as LE readiness).
 4. Operator: enable router port-forward TCP 80/443 → NUC.
 5. Install cert-manager / Vault / ESO / Argo per [`docs/runbooks/gitops.md`](../../docs/runbooks/gitops.md).
-6. Apply root Application; thereafter merge to `main`.
+6. `./init-vault.sh` then `sudo ./install-vault-unseal.sh` (boot unseal + ESO refresh).
+7. Apply root Application; thereafter merge to `main`.
 
 ## Uninstall / reinstall
 

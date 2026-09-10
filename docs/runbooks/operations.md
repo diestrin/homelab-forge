@@ -9,6 +9,10 @@ git (`/media/diestrin/data/secrets/bootstrap/inventory.private.md`).
 
 Everything below assumes SSH access to the host as the operator user.
 
+If `forge-vault-unseal.service` is enabled (`k8s/bootstrap/install-vault-unseal.sh`),
+step 3's unseal + ESO restart happen at boot. Verify with the health matrix
+anyway — the unit is a oneshot, not a watchdog.
+
 ### 1. Host basics
 
 k3s, rootless Docker, fail2ban, and UFW start automatically. Verify:
@@ -37,7 +41,17 @@ curl -fsSI https://localpower.diegobarahona.com | head -3
 ### 3. Unseal Vault
 
 Vault always starts **sealed** (Shamir 1-of-1, ADR-007). Until unsealed, ESO cannot
-refresh secrets and factory workers cannot mint tokens. See [vault.md](./vault.md).
+refresh secrets. See [vault.md](./vault.md).
+
+With `forge-vault-unseal.service` enabled, this is automatic after k3s comes up.
+Check:
+
+```bash
+systemctl status forge-vault-unseal.service
+kubectl get clustersecretstore vault-backend   # Ready True
+```
+
+Manual fallback (unit missing, or it failed):
 
 ```bash
 kubectl -n forge-system port-forward svc/vault 8200:8200 &
@@ -49,11 +63,14 @@ vault status                            # Sealed: false
 Keep the port-forward running (or restart it later) if factory workers need
 AppRole logins; the demo app serves fine with Vault sealed.
 
-Confirm ESO re-validated the store (it caches "Vault is sealed" across unseal):
+Confirm ESO re-validated the store (it caches "Vault is sealed" across unseal).
+The boot unit restarts ESO after unseal. If you unsealed by hand and apps stay
+Degraded:
 
 ```bash
 kubectl get clustersecretstore vault-backend   # Ready True
-# If still InvalidProviderConfig / "Vault is sealed":
+# If still InvalidProviderConfig / "Vault is sealed", or ExternalSecrets
+# SecretSyncedError with a Valid store:
 kubectl -n default rollout restart deploy/external-secrets
 ```
 

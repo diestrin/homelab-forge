@@ -34,19 +34,26 @@ wait_for_api() {
 
 wait_for_vault() {
   local deadline=$((SECONDS + TIMEOUT_SECS))
+  local status
   while ((SECONDS < deadline)); do
     if kubectl -n "$VAULT_NS" get deploy vault >/dev/null 2>&1; then
-      if kubectl -n "$VAULT_NS" rollout status deploy/vault --timeout=15s >/dev/null 2>&1; then
+      kubectl -n "$VAULT_NS" rollout status deploy/vault --timeout=15s >/dev/null 2>&1 || true
+      status="$(vault_status_json)"
+      if printf '%s' "$status" | python3 -c 'import json,sys; json.loads(sys.stdin.read()); sys.exit(0)' 2>/dev/null; then
         return 0
       fi
     fi
     sleep 3
   done
-  die "Vault deploy not ready after ${TIMEOUT_SECS}s"
+  die "Vault did not become reachable after ${TIMEOUT_SECS}s"
 }
 
+# `vault status` exits 2 while sealed; JSON still goes to stdout. Do not use
+# `cmd || true` *inside* the substitution or the JSON is discarded.
 vault_status_json() {
-  kubectl -n "$VAULT_NS" exec deploy/vault -- vault status -format=json 2>/dev/null || true
+  local out=""
+  out="$(kubectl -n "$VAULT_NS" exec deploy/vault -- vault status -format=json 2>/dev/null)" || true
+  printf '%s' "$out"
 }
 
 vault_is_sealed() {

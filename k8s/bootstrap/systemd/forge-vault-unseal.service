@@ -4,11 +4,16 @@ Documentation=https://github.com/diestrin/homelab-forge/blob/main/docs/runbooks/
 After=k3s.service
 Wants=k3s.service
 RequiresMountsFor=/media/diestrin/data
+StartLimitBurst=6
+StartLimitIntervalSec=180
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/forge-vault-unseal
 TimeoutStartSec=300
+# Oneshoot can lose the race with Vault accepting exec; retry a few times.
+Restart=on-failure
+RestartSec=15
 
 [Install]
 WantedBy=multi-user.target

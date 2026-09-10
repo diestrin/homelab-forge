@@ -16,7 +16,10 @@ The repo is **public from day one**, so secrets must never live in git.
 1. Adopt **HashiCorp Vault** as the secrets system of record for forge platform secrets.
 2. **Deploy Vault on k3s** (namespace `forge-system`) once Phase 3 cluster exists:
    - Single-node / integrated storage suitable for homelab (document HA as non-goal for v1).
-   - Unseal strategy documented (manual shamir for v1 is acceptable; auto-unseal optional later).
+   - Unseal strategy: Shamir 1-of-1. A host systemd oneshot
+     (`forge-vault-unseal.service`) unseals from the share already on disk and
+     restarts External Secrets after k3s starts. Hardware-token auto-unseal
+     remains optional later.
    - Persist Vault data on the data disk volume.
 3. **Bootstrap chicken-egg:** before Vault exists, use a minimal sealed local path
    (e.g. age-encrypted file outside the repo, or `pass`/SOPS) only for bootstrap
@@ -31,6 +34,8 @@ The repo is **public from day one**, so secrets must never live in git.
 ## Consequences
 
 - Phase 3 gains a Vault install + policy skeleton; Phase 4 workers depend on AppRole/token issuance.
-- Operational burden: unseal after reboot unless auto-unseal is added later.
+- Operational burden: a reboot used to need a manual unseal. The host oneshot
+  now unseals from the on-disk Shamir share and restarts ESO; keep an offline
+  backup of `init.json` and treat physical disk access as equivalent to unseal.
 - Strong portfolio signal: proper secret lifecycle on a home lab, not `.env` in the repo.
 - Alternatives considered and deferred: cloud secret managers (extra vendor), git-crypt alone (no dynamic credentials).

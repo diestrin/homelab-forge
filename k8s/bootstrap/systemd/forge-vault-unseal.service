@@ -1,0 +1,14 @@
+[Unit]
+Description=Unseal homelab-forge Vault and refresh External Secrets
+Documentation=https://github.com/diestrin/homelab-forge/blob/main/docs/runbooks/vault.md
+After=k3s.service
+Wants=k3s.service
+RequiresMountsFor=/media/diestrin/data
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/forge-vault-unseal
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

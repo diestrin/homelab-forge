@@ -11,6 +11,10 @@ All notable changes to this project are documented here. The format follows
 - Cluster log aggregation: Grafana Loki (7-day filesystem retention) and a Grafana Alloy
   DaemonSet, queried from Grafana Explore. Loki stays ClusterIP-only.
 
+- Host systemd oneshot `forge-vault-unseal.service` that unseals Vault after k3s
+  starts and restarts External Secrets so Argo apps recover without a manual ESO
+  restart.
+
 ### Changed
 
 - Alertmanager Slack `#forge-alerts` now posts when alerts resolve (ntfy already did).

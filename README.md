@@ -119,7 +119,8 @@ anything the operator runs under `trusted`. Secrets stay off the git tree and of
 - **Not a multi-tenant cloud.** One operator, one host, one kernel. Sandboxes reduce blast
   radius between projects; they are not a security boundary you should sell to strangers.
 - **Not highly available.** Single node, single disk pool, Shamir 1-of-1 Vault unseal.
-  A reboot means a manual unseal ([`docs/runbooks/operations.md`](./docs/runbooks/operations.md)).
+  After reboot, `forge-vault-unseal.service` unseals from the on-disk Shamir share
+  ([`docs/runbooks/operations.md`](./docs/runbooks/operations.md)).
 - **Not autonomous production deploys.** Agents stop at PR `review`; a human merges to
   `main`, and only Argo CD deploys what `main` already contains.
 - **Not a NixOS distribution.** Ubuntu 24.04 with Nix + Home Manager on top (ADR-001).
@@ -169,7 +170,7 @@ Vault, in-tree host-watch, Argo CD.
 - **NixOS** stays deferred (ADR-001): the Ubuntu + Nix split works and a reinstall buys
   little until the host needs re-provisioning. If that day comes, `nix/` is the seed.
 - Ethernet uplink instead of Wi-Fi for reliability; multi-arch sandbox images; Vault
-  auto-unseal via a hardware token.
+  auto-unseal via a hardware token (the host oneshot is Shamir-from-disk, not that).
 
 ## Related existing projects
 

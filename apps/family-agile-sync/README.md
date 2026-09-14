@@ -168,7 +168,7 @@ They belong in Vault only — never in Notion, never in git.
 ```bash
 cd apps/family-agile-sync
 pip install -r requirements-dev.txt
-python -m pytest -q          # rules are covered; clients are not exercised
+python -m pytest -q          # rules are covered; clients aren't hit over the network
 DRY_RUN=1 python -m src.family_agile_sync pull-completions
 ```
 

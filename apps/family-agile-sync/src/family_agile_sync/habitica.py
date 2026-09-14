@@ -70,9 +70,25 @@ class HabiticaClient:
         url = f"{BASE_URL}{path}"
         for attempt in range(1, MAX_RETRIES + 1):
             self._pace()
-            response = self._session.request(
-                method, url, headers=self._headers, timeout=30, **kwargs
-            )
+            try:
+                response = self._session.request(
+                    method, url, headers=self._headers, timeout=30, **kwargs
+                )
+            except requests.exceptions.RequestException as exc:
+                # A dropped connection or timeout never reaches Habitica's
+                # status codes below -- treat it the same as a 5xx: worth a
+                # retry, not worth killing a run that still has other members
+                # or routines left to process.
+                self._last_call = time.monotonic()
+                if attempt < MAX_RETRIES:
+                    backoff = 2**attempt
+                    log.warning("habitica connection error on %s (%s), retrying in %ss",
+                                path, exc, backoff)
+                    time.sleep(backoff)
+                    continue
+                raise HabiticaError(
+                    f"{method} {path} failed after {MAX_RETRIES} attempts: {exc}"
+                ) from exc
             self._last_call = time.monotonic()
 
             if response.status_code == 429:

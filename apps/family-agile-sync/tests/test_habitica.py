@@ -1,10 +1,14 @@
 """Tests for build_task_payload -- the pure Family Agile -> Habitica mapping.
 
-The HTTP client itself is not exercised here (see README); this only covers
-the payload shape for each Habitica task type.
+The HTTP client itself is not exercised over the network (see README); its
+retry loop is, though, via the injectable ``session`` -- see the bottom of
+this file.
 """
 
 from datetime import date
+
+import pytest
+import requests
 
 from family_agile_sync.habitica import build_task_payload
 
@@ -95,3 +99,56 @@ def test_stale_mirror_ids_matches_on_the_note_prefix():
     # build_task_payload sets exactly MIRROR_NOTE, but a longer note still counts
     t = {"id": "x", "notes": MIRROR_NOTE + " (creado 2026-09)"}
     assert stale_mirror_ids([t], set()) == ["x"]
+
+
+# --- _request: a dropped connection must be retried, not crash the run -
+
+import family_agile_sync.habitica as habitica_module
+from family_agile_sync.habitica import MAX_RETRIES, HabiticaClient, HabiticaError
+
+
+class _FakeResponse:
+    def __init__(self, status_code=200, data=None):
+        self.status_code = status_code
+        self.ok = status_code < 400
+        self.headers = {}
+        self.text = ""
+        self._data = data if data is not None else {}
+
+    def json(self):
+        return {"data": self._data}
+
+
+class _FlakySession:
+    """Replays a scripted sequence of exceptions/responses, one per call."""
+
+    def __init__(self, script):
+        self._script = list(script)
+
+    def request(self, method, url, **kwargs):
+        item = self._script.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+def _client(session):
+    return HabiticaClient("uid", "key", "x-client", delay_seconds=0, session=session)
+
+
+def test_request_retries_past_a_dropped_connection(monkeypatch):
+    monkeypatch.setattr(habitica_module.time, "sleep", lambda _s: None)
+    session = _FlakySession([
+        requests.exceptions.ConnectionError("Remote end closed connection"),
+        _FakeResponse(200, {"id": "t1"}),
+    ])
+    assert _client(session)._request("GET", "/tasks/user") == {"id": "t1"}
+
+
+def test_request_gives_up_after_exhausting_retries_on_connection_errors(monkeypatch):
+    monkeypatch.setattr(habitica_module.time, "sleep", lambda _s: None)
+    session = _FlakySession(
+        [requests.exceptions.ConnectionError("boom")] * MAX_RETRIES
+    )
+    with pytest.raises(HabiticaError):
+        _client(session)._request("GET", "/tasks/user")

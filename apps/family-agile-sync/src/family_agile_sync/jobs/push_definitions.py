@@ -23,7 +23,13 @@ from datetime import date
 from .. import notion as n
 from .. import schema as s
 from ..config import Config, habitica_credentials
-from ..habitica import MIRROR_NOTE, HabiticaClient, build_task_payload, stale_mirror_ids
+from ..habitica import (
+    MIRROR_NOTE,
+    HabiticaClient,
+    HabiticaError,
+    build_task_payload,
+    stale_mirror_ids,
+)
 from ..repo import Member, Routine, Tarea, load_members, load_routines, load_tareas
 from ..rules import Kind, current_todo_occurrence, is_non_weekly
 
@@ -163,7 +169,19 @@ def run(config: Config) -> int:
                 )
                 continue
             if member_id in ids:
-                habitica.update_task(ids[member_id], payload)
+                try:
+                    habitica.update_task(ids[member_id], payload)
+                except HabiticaError as exc:
+                    # The stored mirror id no longer exists on Habitica --
+                    # deleted by hand, by an earlier partial prune, or the
+                    # account was reset. Recreate rather than crash the run;
+                    # every other routine still needs its turn.
+                    log.warning(
+                        "%s: mirror %s for %s not found on Habitica (%s); recreating",
+                        routine.name, ids[member_id], member.name, exc,
+                    )
+                    created = habitica.create_task(payload)
+                    ids[member_id] = created.get("id", "")
             else:
                 created = habitica.create_task(payload)
                 ids[member_id] = created.get("id", "")

@@ -21,6 +21,8 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 
 - Alertmanager Slack `#forge-alerts` now posts when alerts resolve (ntfy already did).
+- Disabled kube-prometheus-stack `KubeCPUQuotaOvercommit`; namespace CPU quotas are
+  intentional burst ceilings on this single-node NUC.
 
 ## [0.1.0] - 2026-08-07
 

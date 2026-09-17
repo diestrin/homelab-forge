@@ -11,11 +11,14 @@ defaultRules:
   create: true
   # k3s: kubelet ServiceMonitor is off (same-node hairpin); scheduler is embedded
   # and not scraped. Disable the "target disappeared" noise those gaps create.
+  # Namespace CPU quotas are per-ns burst ceilings on this single-node NUC, so
+  # their sum is meant to exceed allocatable; keep KubeCPUOvercommit (pod requests).
   disabled:
     KubeletDown: true
     KubeletInstanceUnreachable: true
     KubeSchedulerDown: true
     KubeSchedulerInstanceUnreachable: true
+    KubeCPUQuotaOvercommit: true
   rules:
     alertmanager: true
     etcd: false

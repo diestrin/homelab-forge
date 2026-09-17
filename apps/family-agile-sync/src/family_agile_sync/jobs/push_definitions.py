@@ -31,7 +31,13 @@ from ..habitica import (
     stale_mirror_ids,
 )
 from ..repo import Member, Routine, Tarea, load_members, load_routines, load_tareas
-from ..rules import Kind, current_todo_occurrence, is_non_weekly
+from ..rules import (
+    Kind,
+    Recurrencia,
+    current_todo_occurrence,
+    is_non_weekly,
+    next_weekly_occurrence,
+)
 
 log = logging.getLogger(__name__)
 
@@ -68,12 +74,12 @@ def _task_status(
     return cache[member.page_id]
 
 
-def run(config: Config) -> int:
+def run(config: Config, *, today: date | None = None) -> int:
     client = n.NotionClient(config.notion_token)
     members = {m.page_id: m for m in load_members(client, config.db_miembros)}
     routines = load_routines(client, config.db_rutinas)
     tareas = load_tareas(client, config.db_tareas)
-    today = date.today()
+    today = today or date.today()
 
     clients: dict[str, HabiticaClient | None] = {}
     task_status_cache: dict[str, dict[str, bool]] = {}
@@ -92,6 +98,18 @@ def run(config: Config) -> int:
             continue
 
         non_weekly = is_non_weekly(routine.recurrencia)
+        # A Semanal routine whose 'Habitica tipo' override is explicitly
+        # "todo" gets the same recreate-on-completion mirror as Quincenal/
+        # Mensual/Trimestral (ADR-26), but due on the next matching weekday
+        # instead of a computed period start. Only a good fit for a single
+        # weekday in Días -- see next_weekly_occurrence's docstring.
+        weekly_todo = (
+            not non_weekly
+            and routine.recurrencia == Recurrencia.SEMANAL.value
+            and routine.habitica_tipo == "todo"
+        )
+        recreated_todo = non_weekly or weekly_todo
+
         occurrence_date = None
         if non_weekly:
             if routine.vigente_desde is None:
@@ -108,15 +126,22 @@ def run(config: Config) -> int:
             except ValueError as exc:
                 log.warning("routine %r: %s; mirror skipped", routine.name, exc)
                 continue
+        elif weekly_todo:
+            try:
+                occurrence_date = next_weekly_occurrence(routine.dias, today)
+            except ValueError as exc:
+                log.warning("routine %r: %s; mirror skipped", routine.name, exc)
+                continue
 
         # ADR-26: Quincenal/Mensual/Trimestral always mirror as a Habitica
         # `todo`, even when Mandatory -- the sync recreates it itself, it
         # never relies on Habitica's native repetition for these intervals.
-        habitica_type = "todo" if non_weekly else routine.habitica_tipo or (
+        # A weekly_todo routine mirrors as `todo` for the same reason.
+        habitica_type = "todo" if recreated_todo else routine.habitica_tipo or (
             "daily" if routine.kind is Kind.MANDATORY else "habit"
         )
         applies_damage = (
-            not non_weekly
+            not recreated_todo
             and routine.kind is Kind.MANDATORY
             and habitica_type == "daily"
             and not routine.is_pool
@@ -142,7 +167,7 @@ def run(config: Config) -> int:
                 log.info("%s has no Habitica credentials; mirror skipped", member.name)
                 continue
 
-            if non_weekly:
+            if recreated_todo:
                 # Recreate only once the previous To-Do is gone or done.
                 # An open one is left alone: never duplicated, never deleted
                 # out from under a child mid-task, even once its period has

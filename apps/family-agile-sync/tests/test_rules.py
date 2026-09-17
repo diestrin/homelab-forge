@@ -13,6 +13,7 @@ from family_agile_sync.rules import (
     cycle_bounds,
     cycle_label,
     is_non_weekly,
+    next_weekly_occurrence,
     nth_weekday_of_month,
     plan_deposits,
     points_done,
@@ -324,9 +325,39 @@ def test_mensual_and_trimestral_require_dia_del_mes():
 
 
 def test_semanal_is_rejected():
-    """Semanal stays a Habitica daily; this function is only for the other three."""
+    """This function is only for the other three; a Semanal to-do's due date
+    comes from next_weekly_occurrence instead."""
     with pytest.raises(ValueError):
         current_todo_occurrence("Semanal", date(2026, 1, 1), None, date(2026, 1, 1))
+
+
+# --- weekly to-do occurrence (Semanal + 'Habitica tipo' override = todo) --
+
+
+def test_next_weekly_occurrence_returns_today_if_it_matches():
+    assert next_weekly_occurrence(["L"], date(2026, 8, 24)) == date(2026, 8, 24)  # a Monday
+
+
+def test_next_weekly_occurrence_finds_the_closest_upcoming_day():
+    monday = date(2026, 8, 24)
+    assert next_weekly_occurrence(["J"], monday) == date(2026, 8, 27)  # next Thursday
+
+
+def test_next_weekly_occurrence_wraps_into_the_following_week():
+    sunday = date(2026, 8, 30)
+    assert next_weekly_occurrence(["L"], sunday) == date(2026, 8, 31)
+
+
+def test_next_weekly_occurrence_picks_the_earliest_of_several_days():
+    monday = date(2026, 8, 24)
+    assert next_weekly_occurrence(["V", "K"], monday) == date(2026, 8, 26)  # Wed before Fri
+
+
+def test_next_weekly_occurrence_requires_at_least_one_weekday():
+    with pytest.raises(ValueError):
+        next_weekly_occurrence([], date(2026, 1, 1))
+    with pytest.raises(ValueError):
+        next_weekly_occurrence(None, date(2026, 1, 1))
 
 
 # --- depositing the cycle net into the sobres (ADR-013) ------------------

@@ -38,6 +38,25 @@ spec:
       prune: true
       selfHeal: true
 ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: media
+  namespace: forge-system
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/diestrin/homelab-forge.git
+    targetRevision: main
+    path: k8s/apps/media
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: media
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+---
 # kube-prometheus-stack: Prometheus Operator, Prometheus, Grafana, Alertmanager,
 # kube-state-metrics, node-exporter. Values live in-repo; chart pinned below.
 # Sync wave 0: install operator CRDs before monitoring-manifests applies PrometheusRules.

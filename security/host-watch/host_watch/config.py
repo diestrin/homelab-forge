@@ -44,6 +44,7 @@ class Allowlists:
     allow_org_substrings: list[str] = field(default_factory=list)
     allow_peers: list[str] = field(default_factory=list)
     ignore_local_ports: list[int] = field(default_factory=list)
+    ignore_process_substrings: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -123,6 +124,9 @@ def load_config(
             allow_org_substrings=[str(x) for x in peers.get("allow_org_substrings", [])],
             allow_peers=[str(x) for x in peers.get("allow_peers", [])],
             ignore_local_ports=[int(x) for x in peers.get("ignore_local_ports", [22])],
+            ignore_process_substrings=[
+                str(x) for x in peers.get("ignore_process_substrings", [])
+            ],
         ),
         state_dir=state_dir,
         log_level=str(logging_raw.get("level", "info")).lower(),

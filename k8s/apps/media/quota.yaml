@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: media-quota
+  namespace: media
+spec:
+  hard:
+    requests.cpu: "6"
+    requests.memory: 10Gi
+    limits.cpu: "12"
+    limits.memory: 20Gi
+    pods: "20"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: media-limits
+  namespace: media
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: 250m
+        memory: 256Mi
+      defaultRequest:
+        cpu: 50m
+        memory: 64Mi
+      max:
+        cpu: "4"
+        memory: 8Gi

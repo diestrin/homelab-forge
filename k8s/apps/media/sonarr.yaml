@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarr
+  namespace: media
+  labels:
+    app: sonarr
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: sonarr
+  template:
+    metadata:
+      labels:
+        app: sonarr
+    spec:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      initContainers:
+        - name: prepare-dirs
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p \
+                /media-root/config/sonarr \
+                /media-root/data/media/tv \
+                /media-root/data/torrents/tv
+              chown -R 1000:1000 \
+                /media-root/config/sonarr \
+                /media-root/data/media/tv \
+                /media-root/data/torrents/tv
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: media-root
+              mountPath: /media-root
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      containers:
+        - name: sonarr
+          image: lscr.io/linuxserver/sonarr:4.0.20
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: media-common
+          env:
+            - name: SONARR__AUTH__APIKEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-secrets
+                  key: sonarr_api_key
+          ports:
+            - name: http
+              containerPort: 8989
+          volumeMounts:
+            - name: media-root
+              mountPath: /config
+              subPath: config/sonarr
+            - name: media-root
+              mountPath: /data
+              subPath: data
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+      volumes:
+        - name: media-root
+          hostPath:
+            path: /media/diestrin/data/forge/media
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonarr
+  namespace: media
+  labels:
+    app: sonarr
+spec:
+  selector:
+    app: sonarr
+  ports:
+    - name: http
+      port: 8989
+      targetPort: http

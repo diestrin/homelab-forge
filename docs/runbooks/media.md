@@ -22,8 +22,9 @@ Arr UIs are ClusterIP on purpose. Do not add Ingress for them without a new
 high-risk review.
 
 DNS: `media.localpower.diegobarahona.com` uses the same wildcard (or explicit
-record) as `grafana.localpower.diegobarahona.com` and PR previews. If the cert
-stays pending, add the record before blaming Traefik.
+record) as `grafana.localpower.diegobarahona.com` and PR previews. A Traefik
+**DEFAULT CERT** (browser “invalid SSL”) means the Let’s Encrypt HTTP-01
+challenge has not finished — see Troubleshooting.
 
 ## Storage
 
@@ -73,30 +74,160 @@ vault kv put secret/forge/media \
 The ExternalSecret `media-secrets` does not read `jellyfin_api_key`, so the
 wizard can finish before that field exists.
 
-## First-run (operator)
+## Setup guide (first run)
 
-1. Confirm Application `media` is `Synced` / `Healthy` and all six pods are
-   `Running`: `kubectl -n media get pods,ingress,certificate`.
-2. Open Jellyfin, complete the wizard (local admin, libraries pointing at
-   `/data/media/movies` and `/data/media/tv`). Under **Dashboard → Playback**,
-   set hardware acceleration to **Intel QuickSync (QSV)**. Under
-   **Dashboard → Networking**, confirm the public HTTPS URL is
-   `https://media.localpower.diegobarahona.com`.
-3. **Dashboard → API Keys** — create a key, then
-   `vault kv patch secret/forge/media jellyfin_api_key='…'`.
-4. qBittorrent (port-forward): log in `admin` + Vault password. Default save
-   path `/data/torrents`. Categories: `movies` → `/data/torrents/movies`,
-   `tv` → `/data/torrents/tv`. Global share limits are operator taste; set
-   something finite. Do not port-forward the torrent port on the router.
-5. Prowlarr: add indexers, then **Settings → Apps** → add Radarr and Sonarr
-   (`http://radarr:7878`, `http://sonarr:8989`) using the Vault API keys.
-   Sync.
-6. Radarr / Sonarr: root folders as above. Download client qBittorrent at
-   `http://qbittorrent:8080` with the Vault password, category `movies` /
-   `tv`. Enable completed-download handling so imports hardlink (not copy).
-7. Jellyseerr: Jellyfin URL `http://jellyfin:8096` (internal) and the API
-   key from Vault. Add Radarr/Sonarr with their internal URLs and API keys.
-   Sign-in is Jellyfin users.
+Do these in order. Arr UIs stay on port-forwards (separate terminals). Open
+Vault once and leave it running:
+
+```bash
+kubectl -n forge-system port-forward svc/vault 8200:8200
+export VAULT_ADDR=http://127.0.0.1:8200
+export VAULT_TOKEN="$(cat /media/diestrin/data/secrets/vault/root.token)"
+```
+
+Read a field with `vault kv get -field=<name> secret/forge/media` (never paste
+values into git).
+
+### 0. Health
+
+```bash
+kubectl -n forge-system get application media   # Synced / Healthy
+kubectl -n media get pods,certificate           # 6/6 Running; jellyfin-tls Ready
+curl -fsSI https://media.localpower.diegobarahona.com | head -5
+```
+
+If the certificate subject is `CN = TRAEFIK DEFAULT CERT`, wait or see
+Troubleshooting. Reload the browser after it becomes Let’s Encrypt.
+
+### 1. Jellyfin wizard (you are on Libraries)
+
+Still in `https://media.localpower.diegobarahona.com/web/#/wizard/library`:
+
+1. **Add media library → Movies.** Folder **`/data/media/movies`**. Leave
+   English (or your metadata language). Next.
+2. **Add media library → Shows.** Folder **`/data/media/tv`**. Do not add
+   music/photos/books in this MVP.
+3. Finish metadata language if asked.
+4. **Remote Access:** keep remote access enabled. Turn **off** automatic port
+   mapping (UPnP). The public URL is already Traefik + Let’s Encrypt.
+5. Finish the wizard and sign in as the admin you created.
+
+Then in the dashboard (gear):
+
+6. **Playback → Transcoding** (or **Playback**): hardware acceleration
+   **Intel QuickSync (QSV)**. Enable hardware encoding if shown.
+7. **Networking:** published server URL
+   `https://media.localpower.diegobarahona.com` (also set via
+   `JELLYFIN_PublishedServerUrl`).
+8. **API Keys:** create one named `jellyseerr`. Copy it, then:
+
+   ```bash
+   vault kv patch secret/forge/media jellyfin_api_key='paste-here'
+   ```
+
+9. **Users:** one Jellyfin user per person. Do not share the admin account
+   with family clients.
+
+### 2. qBittorrent
+
+```bash
+kubectl -n media port-forward svc/qbittorrent 8080:8080
+```
+
+Open `http://127.0.0.1:8080`. User `admin`. Password:
+
+```bash
+vault kv get -field=qbittorrent_webui_password secret/forge/media
+```
+
+**Tools → Options → Downloads:**
+
+- Default save path: `/data/torrents`
+- Keep incomplete torrents in: `/data/torrents/incomplete`
+- **Categories:** `movies` → save path `/data/torrents/movies`; `tv` →
+  `/data/torrents/tv`
+
+**Connection:** do not change the listen port to a host/UFW mapping. Outbound
+peering is enough.
+
+**BitTorrent:** set a finite share ratio (for example pause at ratio 2) so
+the disk does not seed forever.
+
+### 3. Prowlarr
+
+```bash
+kubectl -n media port-forward svc/prowlarr 9696:9696
+```
+
+`http://127.0.0.1:9696`. First-run auth: pick forms auth and an admin
+password. API key is already injected (`prowlarr_api_key` in Vault) —
+**Settings → General** should show it.
+
+1. **Indexers:** add your torrent indexers (whatever you already have access
+   to). Test each one.
+2. **Settings → Apps → Add:**
+   - Radarr: `http://radarr:7878`, API key
+     `vault kv get -field=radarr_api_key secret/forge/media`
+   - Sonarr: `http://sonarr:8989`, API key
+     `vault kv get -field=sonarr_api_key secret/forge/media`
+3. Sync / save so the indexers appear inside Radarr and Sonarr.
+
+### 4. Radarr (movies)
+
+```bash
+kubectl -n media port-forward svc/radarr 7878:7878
+```
+
+`http://127.0.0.1:7878`. Authentication: set an admin login on first visit if
+prompted. Confirm **Settings → General** API key matches Vault
+`radarr_api_key`.
+
+1. **Settings → Media Management:** add root folder `/data/media/movies`.
+   Enable **Use Hardlinks instead of Copy**.
+2. **Settings → Download Clients → qBittorrent:** host `qbittorrent`, port
+   `8080`, user `admin`, Vault qBittorrent password. Category `movies`.
+3. **Settings → Quality:** start with a 1080p profile; you can tighten later.
+4. Optional: add one movie by name and hit Search to prove the indexer +
+   download client path. It should land in `/data/media/movies` without a
+   second copy under `/data/torrents` (hardlink).
+
+### 5. Sonarr (TV)
+
+```bash
+kubectl -n media port-forward svc/sonarr 8989:8989
+```
+
+Same pattern as Radarr: root folder `/data/media/tv`, hardlinks on, download
+client qBittorrent with category `tv`. API key = Vault `sonarr_api_key`.
+
+### 6. Jellyseerr (family requests)
+
+```bash
+kubectl -n media port-forward svc/jellyseerr 5055:5055
+```
+
+`http://127.0.0.1:5055`.
+
+1. Jellyfin URL **`http://jellyfin:8096`** (cluster DNS, not the public
+   hostname). API key = Vault `jellyfin_api_key`.
+2. Sign in with your Jellyfin admin (or a dedicated request-admin user).
+3. Add **Radarr:** `http://radarr:7878` + `radarr_api_key`. Default root
+   folder `/data/media/movies`, 1080p quality profile.
+4. Add **Sonarr:** `http://sonarr:8989` + `sonarr_api_key`. Root
+   `/data/media/tv`.
+5. Request one title and watch it flow: Jellyseerr → Radarr/Sonarr →
+   qBittorrent → library folder → Jellyfin.
+
+Family members request from Jellyseerr after they have Jellyfin logins.
+Leave Jellyseerr off public Ingress for now.
+
+### 7. Playback smoke test
+
+On a phone or PC, add the server
+`https://media.localpower.diegobarahona.com`. Play something that needs a
+transcode; Dashboard should show **QSV**. Chromecast: Cast from the Android
+app, or install Jellyfin on Google TV / Android TV and use that app instead
+of Cast.
 
 ## Streaming clients
 
@@ -131,6 +262,7 @@ Expect that noise after qBittorrent starts; it is not a new host listener.
 | Symptom | Check |
 | --- | --- |
 | Arr pods `CreateContainerConfigError` | Vault `secret/forge/media` missing fields; ESO `media-secrets` |
+| Traefik DEFAULT CERT / invalid SSL | Let’s Encrypt still pending. `kubectl -n media get challenge,certificate`. HTTP-01 **502** means Traefik cannot reach the ACME solver (NetworkPolicy `allow-acme-http01-from-ingress`) |
 | Jellyfin cert `False` | DNS for `media.localpower.diegobarahona.com`; HTTP-01 on 80 |
 | Duplicate disk use after import | Paths differ across pods; must all be `/data` on one hostPath |
 | Software transcode | `/dev/dri` mount, supplemental groups 44/993, QSV enabled in Dashboard |

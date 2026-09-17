@@ -13,7 +13,7 @@ Design rationale and the failure it is fixing: [`docs/decisions/ADR-011-family-a
 | Job | Schedule | Direction | Does |
 | --- | --- | --- | --- |
 | `generate-occurrences` | Daily 03:30 | Notion → Notion | Materialises the `Pendiente` Agenda rows from the `Rutinas` catalogue, on a rolling horizon |
-| `push-definitions` | Sundays 23:00 | Notion → Habitica | Mirrors routines and approved to-dos as Habitica tasks; deletes a retired routine's mirrors, and (with `PRUNE_HABITICA=1`) any orphaned Family Agile mirror. Live runs are paced at 30s/Habitica call and can take several hours, so the deadline is 12h |
+| `push-definitions` | Sundays 23:00 | Notion → Habitica | Mirrors routines and approved to-dos as Habitica tasks; deletes a retired routine's mirrors, and (with `PRUNE_HABITICA=1`) any orphaned Family Agile mirror. Unchanged weekly mirrors are skipped after one `list_tasks` per member, so a typical week is minutes. Creates/updates are still paced at 30s/Habitica call; the deadline stays 12h for a create-heavy week |
 | `pull-completions` | Hourly, 06:00–22:00 | Habitica → Notion | Records completions, points and colones |
 | `reconcile` | Daily 04:45 | — | Marks yesterday's unfinished **mandatory** work as `Fallada` |
 | `close-cycle` | Fridays 18:00 | Notion → Notion | Settles the 14-day cycle, writes `Corte quincenal`, and deposits each member's net into their `💵 Sobres` via `🔁 Movimientos` |
@@ -76,7 +76,12 @@ after a crash cannot double-credit.
 **One routine, one mirror per person.** `push-definitions` creates a Habitica
 task for every listed `Miembro` (Personal, ADR-28) or every `Elegible` (Pool,
 ADR-33) and stores the ids as a `{member_id: task_id}` JSON map in the routine's
-`Habitica Task ID`. For a Pool routine the single Agenda occurrence stays
+`Habitica Task ID`. A weekly mirror whose live Habitica task already matches
+the catalogue (title, type, notes, difficulty, days, damage flag) is left
+alone -- the job lists each account once and skips the PUT. A stored id that
+is gone from the account is recreated; a Habitica error on one member-mirror
+is logged and the rest of the catalogue still runs. For a Pool routine the
+single Agenda occurrence stays
 unclaimed; the first eligible to tick it claims the row and the losing mirrors
 are deleted so no one else can be credited. Two ticks inside the same hourly
 window: the first one processed wins, the second keeps its Habitica gold and
@@ -134,7 +139,8 @@ still writes the Cortes and just logs that the deposit was skipped. A member
 with no sobres gets the `Ingreso mesada` movement recorded but not split, and a
 warning.
 
-**Habitica paces third-party calls 30s apart**, so runs are slow by design.
+**Habitica paces third-party calls 30s apart**, so writes are slow by design.
+`push-definitions` skips the PUT when a weekly mirror is already current.
 Lower `HABITICA_REQUEST_DELAY` only for local experiments.
 
 **`/api/v3/cron` is never called.** Running it on a user's behalf applies damage

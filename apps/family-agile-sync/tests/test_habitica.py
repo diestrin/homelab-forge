@@ -10,7 +10,16 @@ from datetime import date
 import pytest
 import requests
 
-from family_agile_sync.habitica import build_task_payload
+from family_agile_sync.habitica import (
+    MAX_RETRIES,
+    MIRROR_NOTE,
+    HabiticaClient,
+    HabiticaError,
+    build_task_payload,
+    is_missing_task,
+    payload_matches,
+    stale_mirror_ids,
+)
 
 
 def test_daily_carries_the_repeat_map_and_yesterdaily():
@@ -66,9 +75,42 @@ def test_priority_follows_difficulty():
         assert payload["priority"] == priority
 
 
-# --- stale_mirror_ids: the prune pass's decision -----------------------
+def test_payload_matches_ignores_live_only_fields():
+    payload = build_task_payload(
+        title="Tender la cama", habitica_type="daily", difficulty="Fácil",
+        days=["L"], notes=MIRROR_NOTE, applies_damage=False,
+    )
+    live = {**payload, "id": "abc", "completed": True, "streak": 12, "value": 1.5}
+    assert payload_matches(live, payload)
 
-from family_agile_sync.habitica import MIRROR_NOTE, stale_mirror_ids
+
+def test_payload_matches_detects_a_renamed_daily():
+    payload = build_task_payload(
+        title="Tender la cama", habitica_type="daily", difficulty="Fácil",
+        days=["L"], applies_damage=False,
+    )
+    live = {**payload, "text": "old name"}
+    assert not payload_matches(live, payload)
+
+
+def test_payload_matches_todo_date_prefix():
+    payload = build_task_payload(
+        title="x", habitica_type="todo", difficulty="Fácil", due_date=date(2026, 9, 15),
+    )
+    live = {**payload, "date": "2026-09-15T00:00:00.000Z"}
+    assert payload_matches(live, payload)
+
+
+def test_is_missing_task_only_matches_404():
+    assert is_missing_task(HabiticaError(
+        'PUT /tasks/x -> 404: {"success":false,"error":"NotFound"}'
+    ))
+    assert not is_missing_task(HabiticaError(
+        "PUT /tasks/x failed after 4 attempts: connection dropped"
+    ))
+
+
+# --- stale_mirror_ids: the prune pass's decision -----------------------
 
 
 def _task(tid, notes=MIRROR_NOTE):
@@ -104,7 +146,6 @@ def test_stale_mirror_ids_matches_on_the_note_prefix():
 # --- _request: a dropped connection must be retried, not crash the run -
 
 import family_agile_sync.habitica as habitica_module
-from family_agile_sync.habitica import MAX_RETRIES, HabiticaClient, HabiticaError
 
 
 class _FakeResponse:

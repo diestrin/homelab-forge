@@ -196,7 +196,8 @@ allow_peers = [
 # Do not flag peers connected to these local ports (e.g. inbound SSH / HTTPS)
 ignore_local_ports = [22, 80, 443]
 
-# Empty by default. Media p2p (ADR-014) may SNAT through k3s; if peer alerts
-# flood, the live host allowlists can set e.g. ["k3s"] — that also hides other
-# k3s destinations, so prefer noise unless the operator accepts the trade-off.
+# Empty by default. Matching requires ss -tpn to see the process name, which
+# the user-timer host-watch (NoNewPrivileges) cannot do for other users'
+# sockets — so this list is a no-op on the forge host. Do not run host-watch
+# as root to work around it. See docs/runbooks/media.md.
 ignore_process_substrings = []

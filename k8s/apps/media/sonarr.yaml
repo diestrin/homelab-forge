@@ -31,9 +31,10 @@ spec:
                 /media-root/config/sonarr \
                 /media-root/data/media/tv \
                 /media-root/data/torrents/tv
-              if [ "$(stat -c %u /media-root/data)" != "1000" ]; then
-                chown -R 1000:1000 /media-root
-              fi
+              chown -R 1000:1000 \
+                /media-root/config/sonarr \
+                /media-root/data/media/tv \
+                /media-root/data/torrents/tv
           securityContext:
             runAsUser: 0
           volumeMounts:

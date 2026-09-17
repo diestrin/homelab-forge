@@ -52,8 +52,9 @@ and books) with no paid third-party services. Constraints from the operator:
 - p2p from the home IP is visible to the ISP. VPN egress would require a paid
   provider (free tiers disallow p2p) and was declined.
 - host-watch should see no new host listeners (80/443 stay on Traefik). SNAT'd
-  torrent peers may surface as k3s remote-peer warnings; the media runbook
-  covers live allowlist tuning.
+  torrent peers may surface as remote-peer warnings. The user-timer scanner
+  cannot name k3s sockets, so process-name ignores do not hide them; the
+  media runbook treats that noise as expected.
 - Later phases (custom frontend, Immich, Navidrome, Kavita, Audiobookshelf,
   storage expansion) are out of this ADR's deploy scope and stay on epic #60.
 

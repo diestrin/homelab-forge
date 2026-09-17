@@ -94,9 +94,10 @@ Examples live in `config/`. After install, customize allowlists for your machine
 - Add org substrings under `[peers].allow_org_substrings` when a legitimate
   SaaS shows up once (check the alert detail / ipinfo org).
 - Raise `cpu_percent_threshold` / `cpu_consecutive` if builds keep alerting.
-- `[peers].ignore_process_substrings` skips established-peer checks for matching
-  process names. Leave empty unless SNAT'd p2p through k3s becomes unusable
-  noise (see `docs/runbooks/media.md`).
+- `[peers].ignore_process_substrings` skips established-peer checks when `ss
+  -tpn` reports a matching process. The user-timer install cannot see other
+  users' socket owners, so this list does nothing unless host-watch is run
+  privileged (not the forge default). See `docs/runbooks/media.md`.
 
 ## Uninstall
 

@@ -28,9 +28,7 @@ spec:
             - -c
             - |
               mkdir -p /media-root/config/prowlarr
-              if [ "$(stat -c %u /media-root/config/prowlarr)" != "1000" ]; then
-                chown -R 1000:1000 /media-root/config/prowlarr
-              fi
+              chown -R 1000:1000 /media-root/config/prowlarr
           securityContext:
             runAsUser: 0
           volumeMounts:

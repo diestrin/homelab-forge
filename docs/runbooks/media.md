@@ -119,18 +119,12 @@ wizard can finish before that field exists.
 No new host bind. Traefik still owns 80/443; qBittorrent stays on the pod
 network with outbound-only peering. Do **not** `ufw allow` a torrent port.
 
-If host-watch starts warning on unexpected remote peers attributed to
-`k3s` / `k3s-server` after torrents start, that is SNAT'd p2p. Tune the
-**live** `~/.config/host-watch/allowlists.toml` (not git):
-
-```toml
-[peers]
-ignore_process_substrings = ["k3s"]
-```
-
-That also hides other k3s destinations. Prefer living with the noise unless
-it is unusable. Copy the key from
-`security/host-watch/config/allowlists.example.toml` after this change ships.
+host-watch is a **user** systemd timer (`NoNewPrivileges=true`). Unprivileged
+`ss -tpn` cannot name other users' sockets, so `row["process"]` is empty for
+k3s-SNAT'd torrent peers and `[peers].ignore_process_substrings` does **not**
+match. Leave that list empty here; do not run host-watch as root to make it
+work. Findings are de-duplicated in state, so each new peer IP warns once.
+Expect that noise after qBittorrent starts; it is not a new host listener.
 
 ## Troubleshooting
 

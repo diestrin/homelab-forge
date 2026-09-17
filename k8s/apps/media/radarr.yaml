@@ -31,9 +31,10 @@ spec:
                 /media-root/config/radarr \
                 /media-root/data/media/movies \
                 /media-root/data/torrents/movies
-              if [ "$(stat -c %u /media-root/data)" != "1000" ]; then
-                chown -R 1000:1000 /media-root
-              fi
+              chown -R 1000:1000 \
+                /media-root/config/radarr \
+                /media-root/data/media/movies \
+                /media-root/data/torrents/movies
           securityContext:
             runAsUser: 0
           volumeMounts:

@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prowlarr
+  namespace: media
+  labels:
+    app: prowlarr
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: prowlarr
+  template:
+    metadata:
+      labels:
+        app: prowlarr
+    spec:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      initContainers:
+        - name: prepare-dirs
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /media-root/config/prowlarr
+              if [ "$(stat -c %u /media-root/config/prowlarr)" != "1000" ]; then
+                chown -R 1000:1000 /media-root/config/prowlarr
+              fi
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: media-root
+              mountPath: /media-root
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      containers:
+        - name: prowlarr
+          image: lscr.io/linuxserver/prowlarr:2.6.5
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: media-common
+          env:
+            - name: PROWLARR__AUTH__APIKEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-secrets
+                  key: prowlarr_api_key
+          ports:
+            - name: http
+              containerPort: 9696
+          volumeMounts:
+            - name: media-root
+              mountPath: /config
+              subPath: config/prowlarr
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+      volumes:
+        - name: media-root
+          hostPath:
+            path: /media/diestrin/data/forge/media
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prowlarr
+  namespace: media
+  labels:
+    app: prowlarr
+spec:
+  selector:
+    app: prowlarr
+  ports:
+    - name: http
+      port: 9696
+      targetPort: http

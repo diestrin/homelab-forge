@@ -75,6 +75,7 @@ Slack + Cursor SDK (ADR-009):
 | `monitoring/alertmanager-*` | `secret/forge/ntfy`, `secret/forge/alerts/slack` | Alertmanager → ntfy + Slack ops |
 | `monitoring/grafana-admin` | `secret/forge/grafana` | Grafana admin login |
 | `forge-system/forge-postgres` | `secret/forge/postgres` | Platform Postgres |
+| `media/media-secrets` | `secret/forge/media` | qBittorrent password + Servarr API keys (ADR-014) |
 
 Family Agile sync reads
 `secret/family-agile/notion` (`token`) and `secret/family-agile/habitica`

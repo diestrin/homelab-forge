@@ -382,6 +382,7 @@ def _org_allowed(org: str, cfg: AppConfig) -> bool:
 def check_peers(cfg: AppConfig, state: StateStore) -> list[Finding]:
     findings: list[Finding] = []
     ignore_ports = set(cfg.allowlists.ignore_local_ports)
+    ignore_procs = [s.lower() for s in cfg.allowlists.ignore_process_substrings]
     seen: set[str] = set()
 
     for row in _parse_ss_established():
@@ -390,6 +391,9 @@ def check_peers(cfg: AppConfig, state: StateStore) -> list[Finding]:
         if not peer or _is_localhost(peer):
             continue
         if lport in ignore_ports:
+            continue
+        proc = (row["process"] or "").lower()
+        if proc and any(s in proc for s in ignore_procs):
             continue
         if peer in seen:
             continue

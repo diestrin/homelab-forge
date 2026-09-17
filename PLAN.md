@@ -90,6 +90,7 @@ Highlights:
 | [ADR-007](./docs/decisions/ADR-007-secrets-vault.md) | HashiCorp Vault | Accepted |
 | [ADR-008](./docs/decisions/ADR-008-gitops-argocd.md) | Argo CD GitOps on `main` | Accepted |
 | [ADR-009](./docs/decisions/ADR-009-slack-cursor-factory.md) | Slack intake + Cursor SDK agents | Accepted |
+| [ADR-014](./docs/decisions/ADR-014-media-platform.md) | Jellyfin + arr media stack | Accepted |
 
 ## Accepted answers (formerly open questions)
 

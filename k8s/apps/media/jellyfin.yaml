@@ -1,0 +1,122 @@
+# Shared hostPath: /media/diestrin/data/forge/media  (data disk, ADR-014)
+# iGPU groups on this Ubuntu 24.04 host: video=44, render=993.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jellyfin
+  namespace: media
+  labels:
+    app: jellyfin
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: jellyfin
+  template:
+    metadata:
+      labels:
+        app: jellyfin
+    spec:
+      securityContext:
+        supplementalGroups: [44, 993]
+      initContainers:
+        - name: prepare-dirs
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p \
+                /media-root/config/jellyfin \
+                /media-root/config/radarr \
+                /media-root/config/sonarr \
+                /media-root/config/prowlarr \
+                /media-root/config/qbittorrent \
+                /media-root/config/jellyseerr \
+                /media-root/data/media/movies \
+                /media-root/data/media/tv \
+                /media-root/data/torrents/incomplete \
+                /media-root/data/torrents/movies \
+                /media-root/data/torrents/tv
+              if [ "$(stat -c %u /media-root/data)" != "1000" ]; then
+                chown -R 1000:1000 /media-root
+              fi
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: media-root
+              mountPath: /media-root
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      containers:
+        - name: jellyfin
+          image: lscr.io/linuxserver/jellyfin:10.11.11
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: media-common
+          env:
+            - name: JELLYFIN_PublishedServerUrl
+              value: https://media.localpower.diegobarahona.com
+          ports:
+            - name: http
+              containerPort: 8096
+          volumeMounts:
+            - name: media-root
+              mountPath: /config
+              subPath: config/jellyfin
+            - name: media-root
+              mountPath: /data
+              subPath: data
+            - name: dri
+              mountPath: /dev/dri
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            limits:
+              cpu: "4"
+              memory: 4Gi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+      volumes:
+        - name: media-root
+          hostPath:
+            path: /media/diestrin/data/forge/media
+            type: DirectoryOrCreate
+        - name: dri
+          hostPath:
+            path: /dev/dri
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jellyfin
+  namespace: media
+  labels:
+    app: jellyfin
+spec:
+  selector:
+    app: jellyfin
+  ports:
+    - name: http
+      port: 8096
+      targetPort: http

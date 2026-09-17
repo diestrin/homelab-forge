@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qbittorrent
+  namespace: media
+  labels:
+    app: qbittorrent
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: qbittorrent
+  template:
+    metadata:
+      labels:
+        app: qbittorrent
+    spec:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      terminationGracePeriodSeconds: 60
+      initContainers:
+        - name: prepare-dirs
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p \
+                /media-root/config/qbittorrent \
+                /media-root/data/torrents/incomplete \
+                /media-root/data/torrents/movies \
+                /media-root/data/torrents/tv
+              if [ "$(stat -c %u /media-root/data)" != "1000" ]; then
+                chown -R 1000:1000 /media-root
+              fi
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: media-root
+              mountPath: /media-root
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      containers:
+        - name: qbittorrent
+          image: lscr.io/linuxserver/qbittorrent:5.2.3
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: media-common
+          env:
+            - name: WEBUI_PORT
+              value: "8080"
+            - name: TORRENTING_PORT
+              value: "51413"
+            - name: WEBUI_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: media-secrets
+                  key: qbittorrent_webui_password
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: bittorrent-tcp
+              containerPort: 51413
+              protocol: TCP
+            - name: bittorrent-udp
+              containerPort: 51413
+              protocol: UDP
+          volumeMounts:
+            - name: media-root
+              mountPath: /config
+              subPath: config/qbittorrent
+            - name: media-root
+              mountPath: /data
+              subPath: data
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+      volumes:
+        - name: media-root
+          hostPath:
+            path: /media/diestrin/data/forge/media
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qbittorrent
+  namespace: media
+  labels:
+    app: qbittorrent
+spec:
+  selector:
+    app: qbittorrent
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

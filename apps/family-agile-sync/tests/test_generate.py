@@ -180,8 +180,19 @@ def test_personal_routine_generates_one_row_per_member(wired):
     assert props[s.Agenda.ORIGEN] == {"select": {"name": s.ORIGEN_NOTION}}
     assert props[s.Agenda.TABLA] == {"select": {"name": "Limpieza"}}
     assert props[s.Agenda.INICIA]["date"]["start"] == datetime(
-        2026, 8, 24, 5, 0
+        2026, 8, 24, 5, 0, tzinfo=job.TZ
     ).isoformat()
+
+
+def test_inicia_carries_costa_rica_offset_not_naive_utc(wired):
+    r = _routine(members=("m1",), hora="8:30 PM")
+    notion, _ = wired([r], [])
+
+    _, props = notion.created[0]
+    start = props[s.Agenda.INICIA]["date"]["start"]
+    # A naive/offset-less string is read back by Notion as UTC, which shifted
+    # every timed row six hours from the Hora it was generated from.
+    assert start == "2026-08-24T20:30:00-06:00"
 
 
 @pytest.mark.parametrize("categoria,tabla", [
@@ -211,7 +222,7 @@ def test_minutos_stamps_termina_from_inicia(wired):
     _, props = notion.created[0]
     assert props[s.Agenda.MINUTOS] == {"number": 90}
     assert props[s.Agenda.TERMINA]["date"]["start"] == datetime(
-        2026, 8, 24, 10, 30
+        2026, 8, 24, 10, 30, tzinfo=job.TZ
     ).isoformat()
 
 

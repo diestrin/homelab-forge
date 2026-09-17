@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from .. import notion as n
 from .. import schema as s
@@ -36,6 +37,8 @@ from ..repo import Routine, load_agenda, load_routines
 from ..rules import occurs_on
 
 log = logging.getLogger(__name__)
+
+TZ = ZoneInfo("America/Costa_Rica")
 
 #: Rutinas.Categoría -> Agenda.Tabla. Best-effort tagging for the day board;
 #: no job reads Tabla. Only the unambiguous mapping is kept -- an unmapped
@@ -58,7 +61,11 @@ def _parse_hora(value: str | None) -> time | None:
 
 
 def _inicia(day: date, hora: time | None) -> datetime | date:
-    return datetime.combine(day, hora) if hora is not None else day
+    # A naive datetime serialises without a UTC offset, and Notion reads an
+    # offset-less string as UTC -- every timed row landed six hours off from
+    # the Hora it was generated from. Anchor to the same zone
+    # pull-completions already uses for `Marcado en`.
+    return datetime.combine(day, hora, tzinfo=TZ) if hora is not None else day
 
 
 def _targets(routine: Routine) -> list[str | None]:

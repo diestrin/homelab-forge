@@ -16,6 +16,7 @@
     tree
     vault
     claude-code
+    codex
     # Phase 2: forge on PATH without cd'ing to the repo.
     (pkgs.writeShellScriptBin "forge" ''
       exec /media/diestrin/data/Projects/homelab-forge/forge "$@"

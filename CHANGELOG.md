@@ -22,6 +22,12 @@ All notable changes to this project are documented here. The format follows
 
 - Alertmanager Slack `#forge-alerts` now posts when alerts resolve (ntfy already did).
 
+### Fixed
+
+- Let’s Encrypt HTTP-01 for Jellyfin: allow Traefik (kube-system) to reach
+  cert-manager solver pods in `media`. Without that NetworkPolicy, Traefik served
+  its default self-signed cert.
+
 ## [0.1.0] - 2026-08-07
 
 First tagged release: Phases 0–5 of [`PLAN.md`](./PLAN.md) complete on host

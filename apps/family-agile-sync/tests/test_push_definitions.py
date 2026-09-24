@@ -32,12 +32,14 @@ def _member(pid):
 
 
 def _routine(pid, *, retired=False, mirror=None, members=("luna",),
-             tipo=Kind.OPCIONAL):
+             tipo=Kind.OPCIONAL, recurrencia="Semanal", dias=("L",),
+             habitica_tipo="daily", modalidad=s.MODALIDAD_PERSONAL,
+             elegibles=()):
     return Routine(
         page_id=pid, name=f"routine {pid}", member_ids=list(members),
-        elegibles_ids=[], kind=tipo, modalidad=s.MODALIDAD_PERSONAL, paga=True,
-        difficulty=Difficulty.FACIL, recurrencia="Semanal", dias=["L"],
-        habitica_task_ids=dict(mirror or {}), habitica_tipo="daily",
+        elegibles_ids=list(elegibles), kind=tipo, modalidad=modalidad, paga=True,
+        difficulty=Difficulty.FACIL, recurrencia=recurrencia, dias=list(dias),
+        habitica_task_ids=dict(mirror or {}), habitica_tipo=habitica_tipo,
         retired=retired,
     )
 
@@ -100,7 +102,7 @@ class FakeHabitica:
 @pytest.fixture
 def wired(monkeypatch):
     def go(config, *, routines=(), tareas=(), account_tasks=None, missing_ids=(),
-           fail_creates=(), fail_update_ids=(), fail_list=False):
+           fail_creates=(), fail_update_ids=(), fail_list=False, today=None):
         notion = FakeNotion()
         hab = FakeHabitica(
             account_tasks or [], missing_ids=missing_ids,
@@ -115,7 +117,7 @@ def wired(monkeypatch):
         monkeypatch.setattr(job.n, "NotionClient", lambda *_a, **_k: notion)
         monkeypatch.setattr(job, "habitica_credentials", lambda name: (name, "key"))
         monkeypatch.setattr(job, "HabiticaClient", lambda *a, **k: hab)
-        job.run(config)
+        job.run(config, today=today)
         return notion, hab
 
     return go
@@ -272,3 +274,57 @@ def test_list_tasks_failure_skips_member_without_aborting(wired):
     _, hab = wired(_config(), routines=[r], fail_list=True)
     assert hab.updated == []
     assert hab.created == []
+
+
+# --- weekly-todo mirror: Semanal + 'Habitica tipo' override = todo --------
+
+
+def test_weekly_todo_creates_a_todo_due_on_the_next_matching_weekday(wired):
+    r = _routine("r1", recurrencia="Semanal", dias=["V"], habitica_tipo="todo",
+                 modalidad=s.MODALIDAD_POOL, elegibles=("luna",), members=())
+    _, hab = wired(_config(), routines=[r], today=date(2026, 8, 24))  # a Monday
+    assert len(hab.created) == 1
+    payload = hab.created[0]
+    assert payload["type"] == "todo"
+    assert payload["date"] == "2026-08-28"  # the next Friday
+
+
+def test_weekly_todo_leaves_an_open_mirror_alone(wired):
+    r = _routine("r1", recurrencia="Semanal", dias=["V"], habitica_tipo="todo",
+                 modalidad=s.MODALIDAD_POOL, elegibles=("luna",), members=(),
+                 mirror={"luna": "h-open"})
+    _, hab = wired(_config(), routines=[r], today=date(2026, 8, 24),
+                   account_tasks=[{"id": "h-open", "completed": False}])
+    assert hab.created == []
+    assert hab.updated == []
+
+
+def test_weekly_todo_recreates_once_the_previous_one_is_done(wired):
+    r = _routine("r1", recurrencia="Semanal", dias=["V"], habitica_tipo="todo",
+                 modalidad=s.MODALIDAD_POOL, elegibles=("luna",), members=(),
+                 mirror={"luna": "h-done"})
+    notion, hab = wired(_config(), routines=[r], today=date(2026, 8, 24),
+                        account_tasks=[{"id": "h-done", "completed": True}])
+    assert len(hab.created) == 1
+    assert (r.page_id, {s.Rutinas.HABITICA_TASK_ID: {"rich_text": [
+        {"type": "text", "text": {"content": '{"luna": "new-0"}'}}]}}) in notion.updates
+
+
+def test_weekly_todo_never_applies_damage_even_if_mandatory(wired):
+    r = _routine("r1", recurrencia="Semanal", dias=["V"], habitica_tipo="todo",
+                 modalidad=s.MODALIDAD_POOL, elegibles=("luna",), members=(),
+                 tipo=Kind.MANDATORY)
+    _, hab = wired(_config(), routines=[r], today=date(2026, 8, 24))
+    payload = hab.created[0]
+    assert payload["type"] == "todo"
+    assert "yesterDaily" not in payload
+
+
+def test_semanal_without_the_todo_override_still_mirrors_as_a_habit(wired):
+    """Regression: weekly_todo only kicks in when 'Habitica tipo' is
+    explicitly set to todo -- a plain Opcional Semanal routine keeps
+    mirroring as a Habit, same as before this feature existed."""
+    r = _routine("r1", recurrencia="Semanal", dias=["V"], habitica_tipo=None,
+                 modalidad=s.MODALIDAD_POOL, elegibles=("luna",), members=())
+    _, hab = wired(_config(), routines=[r], today=date(2026, 8, 24))
+    assert hab.created[0]["type"] == "habit"

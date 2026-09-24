@@ -142,7 +142,9 @@ Slack messages include status/severity in the title (firing and resolved), the a
 and a button/title link to Grafana Alerting. Resolved posts use the same webhook;
 the attachment color switches from danger to good. Chart default rules that cannot
 scrape on single-node k3s (`KubeletDown`, `KubeSchedulerDown`, and related) are
-disabled.
+disabled. `KubeCPUQuotaOvercommit` is also disabled: namespace CPU ResourceQuotas are
+burst ceilings whose sum is expected to exceed this NUC's 12 allocatable cores.
+Pod-request overcommit (`KubeCPUOvercommit`) and host saturation (A3) stay enabled.
 
 Factory task-thread Slack (TASK-011) is separate; this stack uses an Incoming Webhook.
 

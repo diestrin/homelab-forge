@@ -1,0 +1,54 @@
+# Two hostnames, one API. Path-style SigV4 is valid on whichever Host the
+# client used. Certificates are separate so the public name can issue even
+# while the LAN name's DNS is still being added.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: garage-public
+  namespace: storage
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - s3.localpower.diegobarahona.com
+      secretName: garage-public-tls
+  rules:
+    - host: s3.localpower.diegobarahona.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: garage
+                port:
+                  number: 3900
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: garage-lan
+  namespace: storage
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - s3.lan.localpower.diegobarahona.com
+      secretName: garage-lan-tls
+  rules:
+    - host: s3.lan.localpower.diegobarahona.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: garage
+                port:
+                  number: 3900

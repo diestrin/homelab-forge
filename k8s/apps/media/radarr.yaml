@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: radarr
+  namespace: media
+  labels:
+    app: radarr
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: radarr
+  template:
+    metadata:
+      labels:
+        app: radarr
+    spec:
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      initContainers:
+        - name: prepare-dirs
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p \
+                /media-root/config/radarr \
+                /media-root/data/media/movies \
+                /media-root/data/torrents/movies
+              chown -R 1000:1000 \
+                /media-root/config/radarr \
+                /media-root/data/media/movies \
+                /media-root/data/torrents/movies
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: media-root
+              mountPath: /media-root
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      containers:
+        - name: radarr
+          image: lscr.io/linuxserver/radarr:5.28.0
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: media-common
+          env:
+            - name: RADARR__AUTH__APIKEY
+              valueFrom:
+                secretKeyRef:
+                  name: media-secrets
+                  key: radarr_api_key
+          ports:
+            - name: http
+              containerPort: 7878
+          volumeMounts:
+            - name: media-root
+              mountPath: /config
+              subPath: config/radarr
+            - name: media-root
+              mountPath: /data
+              subPath: data
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+      volumes:
+        - name: media-root
+          hostPath:
+            path: /media/diestrin/data/forge/media
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: radarr
+  namespace: media
+  labels:
+    app: radarr
+spec:
+  selector:
+    app: radarr
+  ports:
+    - name: http
+      port: 7878
+      targetPort: http

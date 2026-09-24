@@ -1,0 +1,120 @@
+# Shared hostPath: /media/diestrin/data/forge/storage  (data disk, ADR-015)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: garage
+  namespace: storage
+  labels:
+    app: garage
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: garage
+  template:
+    metadata:
+      labels:
+        app: garage
+    spec:
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+        - name: prepare-dirs
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /var/lib/garage/meta /var/lib/garage/data
+              chown -R 1000:1000 /var/lib/garage
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: garage-root
+              mountPath: /var/lib/garage
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      containers:
+        - name: garage
+          image: dxflrs/garage:v2.3.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - /garage
+            - server
+            - --single-node
+          env:
+            - name: GARAGE_ALLOW_WORLD_READABLE_SECRETS
+              value: "true"
+            - name: GARAGE_RPC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: garage-secrets
+                  key: rpc_secret
+            - name: GARAGE_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: garage-secrets
+                  key: admin_token
+          ports:
+            - name: s3
+              containerPort: 3900
+            - name: rpc
+              containerPort: 3901
+          volumeMounts:
+            - name: garage-config
+              mountPath: /etc/garage.toml
+              subPath: garage.toml
+              readOnly: true
+            - name: garage-root
+              mountPath: /var/lib/garage/meta
+              subPath: meta
+            - name: garage-root
+              mountPath: /var/lib/garage/data
+              subPath: data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          readinessProbe:
+            tcpSocket:
+              port: s3
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: s3
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      volumes:
+        - name: garage-config
+          configMap:
+            name: garage-config
+        - name: garage-root
+          hostPath:
+            path: /media/diestrin/data/forge/storage
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: garage
+  namespace: storage
+  labels:
+    app: garage
+spec:
+  selector:
+    app: garage
+  ports:
+    - name: s3
+      port: 3900
+      targetPort: s3

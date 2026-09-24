@@ -8,6 +8,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- S3-compatible object storage (ADR-015): single-node Garage with a public HTTPS
+  endpoint and a LAN HTTPS endpoint on the same API.
+
+- Media platform MVP (ADR-014): Jellyfin with Intel QSV and public HTTPS, plus an
+  internal Prowlarr / Radarr / Sonarr / qBittorrent / Jellyseerr acquisition stack.
+
 - Cluster log aggregation: Grafana Loki (7-day filesystem retention) and a Grafana Alloy
   DaemonSet, queried from Grafana Explore. Loki stays ClusterIP-only.
 
@@ -18,6 +24,8 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 
 - Alertmanager Slack `#forge-alerts` now posts when alerts resolve (ntfy already did).
+- Disabled kube-prometheus-stack `KubeCPUQuotaOvercommit`; namespace CPU quotas are
+  intentional burst ceilings on this single-node NUC.
 
 ## [0.1.0] - 2026-08-07
 

@@ -120,6 +120,7 @@ The worker needs the Vault port-forward from step 3 for AppRole + GitHub App tok
 | GitOps | `kubectl -n forge-system get applications.argoproj.io` | `Synced/Healthy` |
 | Public HTTPS | `curl -fsSI https://localpower.diegobarahona.com` | `HTTP/2 200` |
 | Grafana | `curl -fsSI https://grafana.localpower.diegobarahona.com` | `HTTP/2 200` or `302` |
+| Jellyfin | `curl -fsSI https://media.localpower.diegobarahona.com` | `HTTP/2 200` (after media MVP, ADR-014) |
 | Monitoring | `kubectl -n monitoring get pods` | Prometheus/Grafana/Alertmanager/Loki/Alloy Running |
 | IDS | `systemctl --user status host-watch.timer` | active |
 
@@ -138,12 +139,14 @@ Vault paths used by ExternalSecrets:
 | `secret/forge/ntfy` | ntfy topic URL (Alertmanager webhook) |
 | `secret/forge/alerts/slack` | Slack Incoming Webhook for `#forge-alerts` |
 | `secret/forge/grafana` | Grafana admin credentials |
+| `secret/forge/media` | qBittorrent password + Servarr API keys (ADR-014) |
 
 After reboot: unseal Vault (step 3) before expecting fresh ESO sync or Grafana login.
 The former shell CronJob `forge-node-alert` is superseded by PrometheusRule alerts.
 
 ## Related runbooks
 
+- [media.md](./media.md) — Jellyfin + arr stack first-run (ADR-014).
 - [network-exposure.md](./network-exposure.md) — WAN path, ports, SSH hardening.
 - [vault.md](./vault.md) — init, unseal, policies, ESO.
 - [gitops.md](./gitops.md) — Argo CD flow from `main`.

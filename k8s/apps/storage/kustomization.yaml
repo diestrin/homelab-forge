@@ -1,0 +1,12 @@
+# S3-compatible object storage (ADR-015). Operator runbook: docs/runbooks/storage.md
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: storage
+resources:
+  - namespace.yaml
+  - quota.yaml
+  - configmap.yaml
+  - externalsecret.yaml
+  - networkpolicy.yaml
+  - garage.yaml
+  - ingress.yaml

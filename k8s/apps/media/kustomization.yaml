@@ -1,0 +1,17 @@
+# Media platform (ADR-014). Operator runbook: docs/runbooks/media.md
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: media
+resources:
+  - namespace.yaml
+  - quota.yaml
+  - configmap.yaml
+  - externalsecret.yaml
+  - networkpolicy.yaml
+  - jellyfin.yaml
+  - ingress.yaml
+  - radarr.yaml
+  - sonarr.yaml
+  - prowlarr.yaml
+  - qbittorrent.yaml
+  - jellyseerr.yaml

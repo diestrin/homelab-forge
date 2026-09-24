@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: media-common
+  namespace: media
+data:
+  TZ: America/Costa_Rica
+  PUID: "1000"
+  PGID: "1000"

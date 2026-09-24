@@ -1,9 +1,9 @@
 # Notion -> Habitica. Weekly refresh of the mirrored task definitions.
 #
 # Habitica background tools must wait HABITICA_REQUEST_DELAY (30s) between
-# calls. A full catalogue refresh is ~1100 member-mirrors, so a live run can
-# take ~9h. 3000s (50m) was too short: the 2026-09-07 run died DeadlineExceeded
-# and tripped A4. 12h is the safety net for a create-heavy week.
+# calls. Unchanged weekly mirrors are skipped, so a typical Sunday is minutes.
+# A create-heavy week can still take hours. 3000s (50m) was too short: the
+# 2026-09-07 run died DeadlineExceeded and tripped A4. 12h is the safety net.
 #
 # Sunday 23:00 is after pull-completions' last hourly slot (22:00), so a long
 # run overlaps Monday morning pulls only if it is at the long end — not the

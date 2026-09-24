@@ -11,7 +11,7 @@ import pytest
 
 from family_agile_sync import schema as s
 from family_agile_sync.config import Config
-from family_agile_sync.habitica import MIRROR_NOTE, HabiticaError
+from family_agile_sync.habitica import MIRROR_NOTE, HabiticaError, build_task_payload
 from family_agile_sync.jobs import push_definitions as job
 from family_agile_sync.repo import Member, Routine, Tarea
 from family_agile_sync.rules import Difficulty, Kind
@@ -59,17 +59,25 @@ class FakeNotion:
 
 
 class FakeHabitica:
-    def __init__(self, tasks, *, missing_ids=()):
+    def __init__(self, tasks, *, missing_ids=(), fail_creates=(),
+                 fail_update_ids=(), fail_list=False):
         self._tasks = tasks
         #: task ids that no longer exist on Habitica -- update_task on one of
         #: these raises HabiticaError, as a real 404 would.
         self._missing_ids = set(missing_ids)
+        self._fail_creates = set(fail_creates)
+        self._fail_update_ids = set(fail_update_ids)
+        self._fail_list = fail_list
         self.created, self.updated, self.deleted = [], [], []
 
     def list_tasks(self, task_type=None):
+        if self._fail_list:
+            raise HabiticaError("GET /tasks/user failed after 4 attempts")
         return list(self._tasks)
 
     def create_task(self, payload):
+        if payload.get("text") in self._fail_creates:
+            raise HabiticaError("POST /tasks/user -> 500: boom")
         tid = f"new-{len(self.created)}"
         self.created.append(payload)
         return {"id": tid}
@@ -79,6 +87,10 @@ class FakeHabitica:
             raise HabiticaError(
                 f"PUT /tasks/{task_id} -> 404: "
                 '{"success":false,"error":"NotFound","message":"Tarea no encontrada."}'
+            )
+        if task_id in self._fail_update_ids:
+            raise HabiticaError(
+                f"PUT /tasks/{task_id} failed after 4 attempts: connection dropped"
             )
         self.updated.append((task_id, payload))
         return {"id": task_id}
@@ -90,9 +102,13 @@ class FakeHabitica:
 @pytest.fixture
 def wired(monkeypatch):
     def go(config, *, routines=(), tareas=(), account_tasks=None, missing_ids=(),
-           today=None):
+           fail_creates=(), fail_update_ids=(), fail_list=False, today=None):
         notion = FakeNotion()
-        hab = FakeHabitica(account_tasks or [], missing_ids=missing_ids)
+        hab = FakeHabitica(
+            account_tasks or [], missing_ids=missing_ids,
+            fail_creates=fail_creates, fail_update_ids=fail_update_ids,
+            fail_list=fail_list,
+        )
         monkeypatch.setattr(job, "load_members", lambda *_: [_member("luna")])
         monkeypatch.setattr(job, "load_routines",
                             lambda *_: {r.page_id: r for r in routines})
@@ -109,6 +125,19 @@ def wired(monkeypatch):
 
 def _mirror_task(tid):
     return {"id": tid, "notes": MIRROR_NOTE, "text": tid, "type": "daily"}
+
+
+def _matching_task(tid, routine):
+    """A live Habitica task that already matches what push-definitions would PUT."""
+    payload = build_task_payload(
+        title=routine.name,
+        habitica_type=routine.habitica_tipo or "daily",
+        difficulty=routine.difficulty.value,
+        days=routine.dias,
+        notes=MIRROR_NOTE,
+        applies_damage=False,
+    )
+    return {"id": tid, **payload, "completed": False}
 
 
 # --- retiring a routine's mirror --------------------------------------
@@ -173,13 +202,78 @@ def test_prune_in_dry_run_deletes_nothing(wired):
 
 def test_update_404_on_stale_mirror_recreates_instead_of_crashing(wired):
     r = _routine("r1", mirror={"luna": "gone"})
-    notion, hab = wired(_config(), routines=[r], missing_ids={"gone"})
-    # update_task on "gone" raised; the job fell back to create_task instead
-    # of propagating the HabiticaError and killing the whole run.
+    # Id is still in the account listing (so we attempt an update) but Habitica
+    # 404s -- a race with a delete, or a stale cache. Recreate rather than die.
+    stale = _matching_task("gone", r)
+    stale["text"] = "old name"
+    notion, hab = wired(_config(), routines=[r], account_tasks=[stale],
+                        missing_ids={"gone"})
     assert hab.updated == []
     assert len(hab.created) == 1
     assert (r.page_id, {s.Rutinas.HABITICA_TASK_ID: {"rich_text": [
         {"type": "text", "text": {"content": '{"luna": "new-0"}'}}]}}) in notion.updates
+
+
+def test_stored_id_absent_from_account_recreates_without_update(wired):
+    r = _routine("r1", mirror={"luna": "gone"})
+    notion, hab = wired(_config(), routines=[r], account_tasks=[])
+    assert hab.updated == []
+    assert len(hab.created) == 1
+    assert (r.page_id, {s.Rutinas.HABITICA_TASK_ID: {"rich_text": [
+        {"type": "text", "text": {"content": '{"luna": "new-0"}'}}]}}) in notion.updates
+
+
+def test_unchanged_weekly_mirror_is_not_updated(wired):
+    r = _routine("r1", mirror={"luna": "h-live"})
+    _, hab = wired(_config(), routines=[r],
+                   account_tasks=[_matching_task("h-live", r)])
+    assert hab.updated == []
+    assert hab.created == []
+
+
+def test_changed_weekly_mirror_is_updated(wired):
+    r = _routine("r1", mirror={"luna": "h-live"})
+    live = _matching_task("h-live", r)
+    live["text"] = "old name"
+    _, hab = wired(_config(), routines=[r], account_tasks=[live])
+    assert hab.updated == [("h-live", build_task_payload(
+        title=r.name, habitica_type="daily", difficulty="Fácil",
+        days=["L"], notes=MIRROR_NOTE, applies_damage=False,
+    ))]
+    assert hab.created == []
+
+
+def test_create_failure_on_one_routine_does_not_abort_the_rest(wired):
+    r1 = _routine("r1")
+    r2 = _routine("r2")
+    notion, hab = wired(_config(), routines=[r1, r2],
+                        fail_creates={"routine r1"})
+    assert [p["text"] for p in hab.created] == ["routine r2"]
+    written = {page for page, _ in notion.updates}
+    assert r1.page_id not in written
+    assert r2.page_id in written
+
+
+def test_non_404_update_error_does_not_recreate_or_abort(wired):
+    r1 = _routine("r1", mirror={"luna": "h1"})
+    r2 = _routine("r2", mirror={"luna": "h2"})
+    live1 = _matching_task("h1", r1)
+    live1["text"] = "old"
+    live2 = _matching_task("h2", r2)
+    live2["text"] = "old"
+    _, hab = wired(
+        _config(), routines=[r1, r2], account_tasks=[live1, live2],
+        fail_update_ids={"h1"},
+    )
+    assert hab.created == []
+    assert [tid for tid, _ in hab.updated] == ["h2"]
+
+
+def test_list_tasks_failure_skips_member_without_aborting(wired):
+    r = _routine("r1", mirror={"luna": "h-live"})
+    _, hab = wired(_config(), routines=[r], fail_list=True)
+    assert hab.updated == []
+    assert hab.created == []
 
 
 # --- weekly-todo mirror: Semanal + 'Habitica tipo' override = todo --------

@@ -177,6 +177,56 @@ def build_task_payload(
     return payload
 
 
+def payload_matches(live: dict, payload: dict) -> bool:
+    """True when a live Habitica task already has the fields we would PUT.
+
+    Extra live fields (streak, completed, value, ...) are ignored. Used by
+    push-definitions to skip a no-op update instead of spending another
+    HABITICA_REQUEST_DELAY rewriting an unchanged mirror.
+    """
+    if live.get("text") != payload.get("text"):
+        return False
+    if live.get("type") != payload.get("type"):
+        return False
+    if (live.get("notes") or "") != (payload.get("notes") or ""):
+        return False
+    if float(live.get("priority") or 0) != float(payload.get("priority") or 0):
+        return False
+    if payload.get("type") == "daily":
+        if live.get("frequency") != payload.get("frequency"):
+            return False
+        if int(live.get("everyX") or 1) != int(payload.get("everyX") or 1):
+            return False
+        if bool(live.get("yesterDaily")) != bool(payload.get("yesterDaily")):
+            return False
+        live_repeat = live.get("repeat") or {}
+        want_repeat = payload.get("repeat") or {}
+        for day in _DAY_KEYS.values():
+            if bool(live_repeat.get(day)) != bool(want_repeat.get(day)):
+                return False
+    if payload.get("type") == "habit":
+        if bool(live.get("up")) != bool(payload.get("up")):
+            return False
+        if bool(live.get("down")) != bool(payload.get("down")):
+            return False
+    if payload.get("type") == "todo" and "date" in payload:
+        live_date = str(live.get("date") or "")[:10]
+        if live_date != payload["date"]:
+            return False
+    return True
+
+
+def is_missing_task(exc: BaseException) -> bool:
+    """True when Habitica says the stored mirror id is gone (HTTP 404).
+
+    Other HabiticaError shapes -- exhausted retries, 4xx validation -- must
+    not be treated as "recreate": a dropped response after a successful PUT
+    would then duplicate the task.
+    """
+    msg = str(exc)
+    return " -> 404:" in msg or '"error":"NotFound"' in msg
+
+
 def stale_mirror_ids(
     tasks: list[dict], kept: set[str], note_marker: str = MIRROR_NOTE
 ) -> list[str]:

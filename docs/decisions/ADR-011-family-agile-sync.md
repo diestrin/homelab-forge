@@ -49,9 +49,10 @@ Run a scheduled two-way sync in-cluster as Kubernetes CronJobs.
   never overwrites, letting a parent record directly in Notion.
 - Cron cannot express "every second Friday", so `close-cycle` fires weekly and
   the payday calendar is enforced in code.
-- Habitica asks background tools to pace calls 30s apart, so runs are slow by
-  design. `push-definitions` can take several hours on a full catalogue; its
-  CronJob deadline is 12h and it fires Sunday 23:00 so a long run sits after
+- Habitica asks background tools to pace calls 30s apart, so writes are slow by
+  design. `push-definitions` skips unchanged weekly mirrors after listing each
+  account once; a create-heavy week can still take hours, so its CronJob
+  deadline is 12h and it fires Sunday 23:00 so a long run sits after
   `pull-completions`' last hourly slot.
 - Habitica API tokens grant full account control and live only in Vault.
 - The daily penalty cap is currently inert: because each penalty is half its

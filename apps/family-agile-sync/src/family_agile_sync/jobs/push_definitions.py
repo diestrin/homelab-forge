@@ -22,7 +22,7 @@ from datetime import date
 
 from .. import notion as n
 from .. import schema as s
-from ..config import Config, habitica_credentials
+from ..config import Config, local_today, habitica_credentials
 from ..habitica import (
     MIRROR_NOTE,
     HabiticaClient,
@@ -88,7 +88,7 @@ def run(config: Config) -> int:
     members = {m.page_id: m for m in load_members(client, config.db_miembros)}
     routines = load_routines(client, config.db_rutinas)
     tareas = load_tareas(client, config.db_tareas)
-    today = date.today()
+    today = local_today()
 
     clients: dict[str, HabiticaClient | None] = {}
     task_cache: dict[str, dict[str, dict] | None] = {}

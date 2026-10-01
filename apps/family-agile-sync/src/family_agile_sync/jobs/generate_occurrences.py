@@ -32,7 +32,7 @@ from zoneinfo import ZoneInfo
 
 from .. import notion as n
 from .. import schema as s
-from ..config import Config
+from ..config import Config, local_today
 from ..repo import Routine, load_agenda, load_routines
 from ..rules import occurs_on
 
@@ -102,7 +102,7 @@ def _row_props(routine: Routine, day: date, member_id: str | None) -> dict:
 
 
 def run(config: Config, today: date | None = None) -> int:
-    today = today or date.today()
+    today = today or local_today()
     last_day = today + timedelta(days=config.generate_horizon_days - 1)
 
     client = n.NotionClient(config.notion_token)

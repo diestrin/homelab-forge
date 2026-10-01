@@ -8,7 +8,18 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
+
+#: The household's clock. The container runs in UTC, so a bare date.today()
+#: rolls over to tomorrow at 18:00 Costa Rica time -- every job must ask this
+#: instead.
+TZ = ZoneInfo("America/Costa_Rica")
+
+
+def local_today() -> date:
+    """Today's date in Costa Rica, whatever the container's timezone."""
+    return datetime.now(TZ).date()
 
 
 def _require(name: str) -> str:

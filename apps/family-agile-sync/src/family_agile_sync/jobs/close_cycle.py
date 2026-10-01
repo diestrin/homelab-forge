@@ -20,7 +20,7 @@ from datetime import date
 
 from .. import notion as n
 from .. import schema as s
-from ..config import Config
+from ..config import Config, local_today
 from ..repo import (
     load_agenda,
     load_cortes_for_cycle,
@@ -37,7 +37,7 @@ log = logging.getLogger(__name__)
 
 
 def run(config: Config, today: date | None = None) -> int:
-    today = today or date.today()
+    today = today or local_today()
     start, end = cycle_bounds(today, config.anchor_friday)
     label = cycle_label(today, config.anchor_friday)
 

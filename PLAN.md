@@ -92,6 +92,7 @@ Highlights:
 | [ADR-009](./docs/decisions/ADR-009-slack-cursor-factory.md) | Slack intake + Cursor SDK agents | Accepted |
 | [ADR-014](./docs/decisions/ADR-014-media-platform.md) | Jellyfin + arr media stack | Accepted |
 | [ADR-015](./docs/decisions/ADR-015-s3-storage.md) | Garage S3, public and LAN URLs | Accepted |
+| [ADR-016](./docs/decisions/ADR-016-obico-printer-monitoring.md) | Self-hosted Obico printer monitoring | Proposed |
 
 ## Accepted answers (formerly open questions)
 

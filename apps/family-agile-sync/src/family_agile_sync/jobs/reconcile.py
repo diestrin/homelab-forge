@@ -21,7 +21,7 @@ from datetime import date, timedelta
 
 from .. import notion as n
 from .. import schema as s
-from ..config import Config
+from ..config import Config, local_today
 from ..repo import load_agenda, load_members, load_routines
 from ..rules import Kind, signed_points
 
@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 
 
 def run(config: Config, target_day: date | None = None) -> int:
-    day = target_day or (date.today() - timedelta(days=1))
+    day = target_day or (local_today() - timedelta(days=1))
     client = n.NotionClient(config.notion_token)
     members = {m.page_id: m for m in load_members(client, config.db_miembros)}
     routines = load_routines(client, config.db_rutinas)

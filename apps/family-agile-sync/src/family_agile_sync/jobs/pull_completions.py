@@ -26,7 +26,7 @@ from zoneinfo import ZoneInfo
 
 from .. import notion as n
 from .. import schema as s
-from ..config import Config, habitica_credentials
+from ..config import Config, local_today, habitica_credentials
 from ..habitica import HabiticaClient
 from ..repo import Member, Routine, Tarea, load_agenda, load_members, load_routines, load_tareas
 from ..rules import points_earned, signed_points
@@ -80,7 +80,7 @@ def _tarea_agenda_props(
 
 
 def run(config: Config, today: date | None = None) -> int:
-    today = today or date.today()
+    today = today or local_today()
     client = n.NotionClient(config.notion_token)
     members = {m.page_id: m for m in load_members(client, config.db_miembros)}
     routines = load_routines(client, config.db_rutinas)

@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: DeterminateSystems/nix-installer-action@v22
+      - uses: DeterminateSystems/nix-installer-action@v23
       # Eval-only: building the full Home Manager closure on every run is
       # wasteful on hosted runners; evaluation catches config/module errors.
       - name: Evaluate flake checks

@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Obico printer monitoring, cluster-internal (ADR-016): the upstream signed Helm
+  chart through Argo CD, a database on `forge-postgres`, Vault-backed secrets,
+  and CI that verifies and renders the pinned chart. No public route yet.
+
 - S3-compatible object storage (ADR-015): single-node Garage with a public HTTPS
   endpoint and a LAN HTTPS endpoint on the same API.
 

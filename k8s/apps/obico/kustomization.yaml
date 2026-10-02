@@ -1,0 +1,11 @@
+# Obico printer monitoring (ADR-016). Operator runbook: docs/runbooks/obico.md
+# The Obico workloads come from the upstream Helm chart. Argo CD Application
+# `obico` renders it with helm/values.yaml and syncs this directory alongside.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: obico
+resources:
+  - namespace.yaml
+  - quota.yaml
+  - networkpolicy.yaml
+  - externalsecret.yaml

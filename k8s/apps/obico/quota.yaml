@@ -1,0 +1,35 @@
+# Steady state is about 0.9 CPU / 2.3Gi requested and 4.2 CPU / 5.5Gi limits.
+# ml-api and redis roll with the default RollingUpdate (one surge pod each);
+# web uses Recreate. Limits leave room for both surges at once.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: obico-quota
+  namespace: obico
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "8"
+    limits.memory: 10Gi
+    pods: "10"
+---
+# The chart's collectstatic and migrate init containers set no resources, so
+# these defaults apply to them. Keep the default memory limit at 512Mi or more.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: obico-limits
+  namespace: obico
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: "1"
+        memory: 1Gi
+      defaultRequest:
+        cpu: 50m
+        memory: 128Mi
+      max:
+        cpu: "2"
+        memory: 2Gi

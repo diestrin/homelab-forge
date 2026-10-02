@@ -114,18 +114,14 @@ Still in `https://media.localpower.diegobarahona.com/web/#/wizard/library`:
 
 Then in the dashboard (gear):
 
-6. **Playback → Transcoding** (or **Playback**): hardware acceleration
+1. **Playback → Transcoding** (or **Playback**): hardware acceleration
    **Intel QuickSync (QSV)**. Enable hardware encoding if shown.
-7. **Networking:** published server URL
+2. **Networking:** published server URL
    `https://media.localpower.diegobarahona.com` (also set via
    `JELLYFIN_PublishedServerUrl`).
-8. **API Keys:** create one named `jellyseerr`. Copy it, then:
-
-   ```bash
-   vault kv patch secret/forge/media jellyfin_api_key='paste-here'
-   ```
-
-9. **Users:** one Jellyfin user per person. Do not share the admin account
+3. **API Keys:** create one named `jellyseerr`. Copy it, then run
+   `vault kv patch secret/forge/media jellyfin_api_key='paste-here'`.
+4. **Users:** one Jellyfin user per person. Do not share the admin account
    with family clients.
 
 ### 2. qBittorrent

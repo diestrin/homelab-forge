@@ -144,8 +144,20 @@ Tick the bootstrap boxes on #73. #74 must not merge before they are done.
 | Media (snapshots, timelapses, G-code) | PVC `obico/obico-media` under `/media/diestrin/data/forge/k3s/local-path/` |
 | Celery beat schedule | PVC `obico/obico-data` (disposable) |
 
-The chart marks both PVCs `helm.sh/resource-policy: keep`. Argo CD treats that
-as `Delete=false`, so deleting the Application leaves them in place.
+`local-path` volumes use `reclaimPolicy: Delete`: removing a PVC removes its
+data on disk. Two settings keep a cascading delete of the Argo CD Application
+from doing that:
+
+- The chart marks both PVCs `helm.sh/resource-policy: keep`, which Argo CD
+  treats as `Delete=false`.
+- The `obico` Namespace carries `argocd.argoproj.io/sync-options:
+  Delete=false,Prune=false`. Deleting a Namespace deletes every PVC in it, so
+  the PVC setting alone is not enough.
+
+Deleting the Application therefore removes the workloads but leaves the
+Namespace, both PVCs and the media. To tear Obico down for good, take a database
+dump and copy the media directory first. Then delete the PVCs or the Namespace
+by hand.
 
 Database dump:
 

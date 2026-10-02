@@ -245,8 +245,10 @@ Traefik.
 - `obico` now depends on `forge-postgres` (512Mi limit, manual backups). Revisit
   its limits if connections or memory climb.
 - `local-path` PVs use `reclaimPolicy: Delete`. The chart marks its PVCs
-  `helm.sh/resource-policy: keep` (Argo CD: `Delete=false`), so deleting the
-  app leaves them. Deleting a PVC by hand still deletes its media.
+  `helm.sh/resource-policy: keep` (Argo CD: `Delete=false`), and the `obico`
+  Namespace carries `Delete=false,Prune=false`, because deleting the Namespace
+  would delete the PVCs too. Deleting the app leaves the media. Deleting a PVC
+  or the Namespace by hand still deletes it.
 - The chart is young (`0.2.x` line, July 2026). Pinning plus CI rendering
   catches breakage at bump time. Dependabot covers Actions only, so bumps are
   manual.

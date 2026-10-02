@@ -1,6 +1,11 @@
+# Argo CD never deletes or prunes this Namespace. Deleting it would take the
+# media PVCs with it (local-path reclaimPolicy Delete), even though the chart
+# marks the PVCs helm.sh/resource-policy: keep. Teardown: docs/runbooks/obico.md.
 apiVersion: v1
 kind: Namespace
 metadata:
   name: obico
   labels:
     forge.homelab/plane: apps
+  annotations:
+    argocd.argoproj.io/sync-options: Delete=false,Prune=false

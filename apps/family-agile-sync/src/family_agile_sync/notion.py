@@ -28,6 +28,22 @@ class NotionError(RuntimeError):
     pass
 
 
+def _repeatable(method: str, path: str) -> bool:
+    """POST /pages creates a row. A timeout or 5xx can mean Notion already
+    committed it, so repeating that call would duplicate credits."""
+    return not (method == "POST" and path == "/pages")
+
+
+def _retry_after_seconds(response: requests.Response, fallback: int) -> int:
+    raw = response.headers.get("Retry-After")
+    if not raw:
+        return fallback
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return fallback
+
+
 class NotionClient:
     def __init__(self, token: str, session: requests.Session | None = None) -> None:
         self._headers = {
@@ -45,10 +61,9 @@ class NotionClient:
                     method, url, headers=self._headers, timeout=30, **kwargs
                 )
             except requests.exceptions.RequestException as exc:
-                # A gateway timeout never produces a status code. Same policy
-                # as HabiticaClient: retry, because a short Notion blip should
-                # not fail the hourly pull.
-                if attempt < MAX_RETRIES:
+                # A gateway timeout never produces a status code. Retry reads
+                # and idempotent updates; never repeat a page create.
+                if _repeatable(method, path) and attempt < MAX_RETRIES:
                     backoff = 2**attempt
                     log.warning(
                         "notion connection error on %s (%s), retrying in %ss",
@@ -56,17 +71,23 @@ class NotionClient:
                     )
                     time.sleep(backoff)
                     continue
-                raise NotionError(
-                    f"{method} {path} failed after {MAX_RETRIES} attempts: {exc}"
-                ) from exc
+                raise NotionError(f"{method} {path} failed: {exc}") from exc
 
             if response.status_code == 429:
-                wait = int(response.headers.get("Retry-After", 2**attempt))
+                if attempt >= MAX_RETRIES:
+                    raise NotionError(
+                        f"{method} {path} -> 429 after {MAX_RETRIES} attempts"
+                    )
+                wait = _retry_after_seconds(response, 2**attempt)
                 log.warning("notion rate limited on %s, waiting %ss", path, wait)
                 time.sleep(wait)
                 continue
 
-            if response.status_code >= 500 and attempt < MAX_RETRIES:
+            if (
+                response.status_code >= 500
+                and _repeatable(method, path)
+                and attempt < MAX_RETRIES
+            ):
                 backoff = 2**attempt
                 log.warning(
                     "notion %s on %s, retrying in %ss",

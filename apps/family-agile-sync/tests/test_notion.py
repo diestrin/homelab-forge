@@ -71,9 +71,64 @@ def test_request_gives_up_after_exhausting_retries_on_timeouts(monkeypatch):
     session = _FlakySession(
         [requests.exceptions.ReadTimeout("read timed out")] * MAX_RETRIES
     )
-    with pytest.raises(NotionError, match="failed after"):
+    with pytest.raises(NotionError, match="failed:"):
         _client(session)._request("POST", "/databases/db/query")
     assert session.calls == MAX_RETRIES
+
+
+def test_create_page_is_not_retried_after_a_timeout(monkeypatch):
+    monkeypatch.setattr(notion_module.time, "sleep", lambda _s: None)
+    session = _FlakySession([
+        requests.exceptions.ReadTimeout("read timed out"),
+        _FakeResponse(200, {"id": "page"}),
+    ])
+    with pytest.raises(NotionError, match="POST /pages failed"):
+        _client(session)._request("POST", "/pages", json={})
+    assert session.calls == 1
+
+
+def test_create_page_is_not_retried_after_a_gateway_error(monkeypatch):
+    monkeypatch.setattr(notion_module.time, "sleep", lambda _s: None)
+    session = _FlakySession([
+        _FakeResponse(504, text="gateway"),
+        _FakeResponse(200, {"id": "page"}),
+    ])
+    with pytest.raises(NotionError, match="504"):
+        _client(session)._request("POST", "/pages", json={})
+    assert session.calls == 1
+
+
+def test_request_retries_a_rate_limit(monkeypatch):
+    slept = []
+    monkeypatch.setattr(notion_module.time, "sleep", slept.append)
+    session = _FlakySession([
+        _FakeResponse(429, headers={"Retry-After": "7"}),
+        _FakeResponse(200, {"ok": True}),
+    ])
+    assert _client(session)._request("POST", "/databases/db/query") == {"ok": True}
+    assert slept == [7]
+
+
+def test_rate_limit_does_not_sleep_after_the_final_attempt(monkeypatch):
+    slept = []
+    monkeypatch.setattr(notion_module.time, "sleep", slept.append)
+    session = _FlakySession(
+        [_FakeResponse(429, headers={"Retry-After": "30"})] * MAX_RETRIES
+    )
+    with pytest.raises(NotionError, match="429"):
+        _client(session)._request("POST", "/databases/db/query")
+    assert slept == [30] * (MAX_RETRIES - 1)
+
+
+def test_unparseable_retry_after_uses_backoff(monkeypatch):
+    slept = []
+    monkeypatch.setattr(notion_module.time, "sleep", slept.append)
+    session = _FlakySession([
+        _FakeResponse(429, headers={"Retry-After": "Wed, 21 Oct 2015 07:28:00 GMT"}),
+        _FakeResponse(200, {"ok": True}),
+    ])
+    assert _client(session)._request("POST", "/databases/db/query") == {"ok": True}
+    assert slept == [2]
 
 
 def test_request_does_not_retry_a_client_error(monkeypatch):

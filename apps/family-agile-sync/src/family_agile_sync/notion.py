@@ -11,6 +11,7 @@ number, select or relation.
 from __future__ import annotations
 
 import logging
+import time
 from datetime import date, datetime
 from typing import Any, Iterator
 
@@ -20,10 +21,27 @@ log = logging.getLogger(__name__)
 
 BASE_URL = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
+MAX_RETRIES = 4
 
 
 class NotionError(RuntimeError):
     pass
+
+
+def _repeatable(method: str, path: str) -> bool:
+    """POST /pages creates a row. A timeout or 5xx can mean Notion already
+    committed it, so repeating that call would duplicate credits."""
+    return not (method == "POST" and path == "/pages")
+
+
+def _retry_after_seconds(response: requests.Response, fallback: int) -> int:
+    raw = response.headers.get("Retry-After")
+    if not raw:
+        return fallback
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return fallback
 
 
 class NotionClient:
@@ -36,14 +54,55 @@ class NotionClient:
         self._session = session or requests.Session()
 
     def _request(self, method: str, path: str, **kwargs: Any) -> dict:
-        response = self._session.request(
-            method, f"{BASE_URL}{path}", headers=self._headers, timeout=30, **kwargs
-        )
-        if not response.ok:
-            raise NotionError(
-                f"{method} {path} -> {response.status_code}: {response.text[:300]}"
-            )
-        return response.json()
+        url = f"{BASE_URL}{path}"
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                response = self._session.request(
+                    method, url, headers=self._headers, timeout=30, **kwargs
+                )
+            except requests.exceptions.RequestException as exc:
+                # A gateway timeout never produces a status code. Retry reads
+                # and idempotent updates; never repeat a page create.
+                if _repeatable(method, path) and attempt < MAX_RETRIES:
+                    backoff = 2**attempt
+                    log.warning(
+                        "notion connection error on %s (%s), retrying in %ss",
+                        path, exc, backoff,
+                    )
+                    time.sleep(backoff)
+                    continue
+                raise NotionError(f"{method} {path} failed: {exc}") from exc
+
+            if response.status_code == 429:
+                if attempt >= MAX_RETRIES:
+                    raise NotionError(
+                        f"{method} {path} -> 429 after {MAX_RETRIES} attempts"
+                    )
+                wait = _retry_after_seconds(response, 2**attempt)
+                log.warning("notion rate limited on %s, waiting %ss", path, wait)
+                time.sleep(wait)
+                continue
+
+            if (
+                response.status_code >= 500
+                and _repeatable(method, path)
+                and attempt < MAX_RETRIES
+            ):
+                backoff = 2**attempt
+                log.warning(
+                    "notion %s on %s, retrying in %ss",
+                    response.status_code, path, backoff,
+                )
+                time.sleep(backoff)
+                continue
+
+            if not response.ok:
+                raise NotionError(
+                    f"{method} {path} -> {response.status_code}: {response.text[:300]}"
+                )
+            return response.json()
+
+        raise NotionError(f"{method} {path} failed after {MAX_RETRIES} attempts")
 
     def query(self, database_id: str, filter_: dict | None = None) -> Iterator[dict]:
         """Yield every page of a database, following pagination."""

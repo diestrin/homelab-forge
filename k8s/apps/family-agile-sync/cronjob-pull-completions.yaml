@@ -18,6 +18,10 @@ spec:
   jobTemplate:
     spec:
       backoffLimit: 2
+      # kube_job_failed stays set until this object is gone. History limits
+      # keep a failed run indefinitely, so drop finished Jobs after 12h.
+      # Logs stay in Loki.
+      ttlSecondsAfterFinished: 43200
       activeDeadlineSeconds: 3000
       template:
         metadata:

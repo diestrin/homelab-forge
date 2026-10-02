@@ -4,7 +4,7 @@
 - Date: 2026-10-02 (proposed 2026-10-01)
 - Related: ADR-003 (k3s / Traefik / Let's Encrypt), ADR-005 (host-watch),
   ADR-007 (Vault), ADR-008 (GitOps), ADR-014 / ADR-015 (app patterns),
-  GitHub #72 (epic) / #73 / #74 / #75
+  GitHub #72 (epic) / #73 / #74 / #75 / #77
 
 ## Context
 
@@ -82,9 +82,11 @@ listeners or UFW holes, data on the data disk, no paid services.
    points it at the WAN address (HTTP-01 via Traefik, ADR-003). Printers, the
    browser and the mobile app all use this one URL. Obico stores a single Django
    Site domain and embeds it in timelapse and notification links, so a second
-   `.lan.` name (as Garage uses) would break links. Home devices already reach
-   the forge's public names through the router, so the LAN needs no DNS
-   override.
+   `.lan.` name (as Garage uses) would break links. For now, home devices reach
+   the name through the router's hairpin NAT, the same way they reach the
+   forge's other public names. #74 checks that path from a printer host. If
+   it is unreliable, home printers lose status, controls and alerts. Resolving
+   the same name to the forge host on the LAN is follow-up #77.
 6. **Admin is never public.** A second Ingress on `/admin` routes through a
    Traefik `ipAllowList` Middleware that admits nothing (`127.0.0.1/32`), so the
    edge returns 403. Admin work goes through `kubectl port-forward`. As a second
@@ -114,6 +116,8 @@ listeners or UFW holes, data on the data disk, no paid services.
     | Snapshot feed (Basic streaming) | Yes | Yes, through Traefik |
     | Live video (Premium, WebRTC) | Yes | Best effort; fails behind symmetric NAT (common on mobile data) |
     | Printer UI tunnel | Off | Off |
+
+    The LAN column assumes home devices can reach the public name (decision 5).
 
 12. **NetworkPolicy:** default-deny; DNS; same-namespace; Traefik (`kube-system`)
     → `web:3334` only; `web` and `tasks` egress to `forge-postgres:5432` and
@@ -155,8 +159,8 @@ cannot merge before the seeded admin is gone.
 ### 0. Operator prep (no PR)
 
 - Public DNS: `obico.localpower.diegobarahona.com` → the same DDNS target as the
-  other forge names. Home devices reach it through the router like the other
-  public names.
+  other forge names. Home devices reach it through the router's hairpin NAT
+  for now; a LAN DNS override for the same name is #77.
 - Vault (after unseal). The DB password is hex so it is URL-safe in `DATABASE_URL`:
 
   ```bash
@@ -269,4 +273,4 @@ Traefik.
 | Printer locations | All at home |
 | Users | Two people, sharing one household account (decision 6) |
 | Live video away from home | Best effort is acceptable; no TURN |
-| LAN resolution | Home devices reach the forge's public URLs through the router; no LAN DNS override |
+| LAN resolution | Home devices reach the forge's public URLs through the router's hairpin NAT. A same-name LAN DNS override is deferred to #77 |

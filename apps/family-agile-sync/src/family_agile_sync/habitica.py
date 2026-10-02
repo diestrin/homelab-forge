@@ -152,8 +152,9 @@ def build_task_payload(
     never be able to cost a child money for simply not happening.
 
     ``due_date`` only applies to ``habitica_type == "todo"``: a Tareas To-Do
-    uses it for ``Fecha límite``, and a non-weekly Rutina (ADR-26) uses it for
-    the occurrence date the sync itself computed.
+    uses it for ``Fecha límite``, and a non-weekly or weekly_todo Rutina
+    (ADR-26; see push_definitions.run) uses it for the occurrence date the
+    sync itself computed.
     """
     priority = {"Fácil": 1, "Intermedia": 1.5, "Compleja": 2}.get(difficulty, 1)
     payload: dict[str, Any] = {

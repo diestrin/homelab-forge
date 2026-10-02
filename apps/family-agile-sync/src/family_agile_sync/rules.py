@@ -464,6 +464,28 @@ def current_todo_occurrence(
     )
 
 
+def next_weekly_occurrence(dias: list[str] | None, today: date) -> date:
+    """The next date on or after ``today`` whose weekday is listed in ``dias``.
+
+    Used when a Semanal routine's ``Habitica tipo`` override is ``todo``: a
+    weekly cadence has no period start to anchor on the way Quincenal/
+    Mensual/Trimestral do (ADR-26), so the mirror is simply due on the
+    closest upcoming matching weekday and recreated for the next one once it
+    is done. A routine with more than one day in ``Días`` only ever gets one
+    live mirror at a time; a second occurrence in the same week is not
+    picked up until the first is done and the sync runs again (see
+    push_definitions), so this is only a good fit for a single weekday.
+    """
+    codes = {c for c in (dias or []) if c in WEEKDAY_CODES}
+    if not codes:
+        raise ValueError("a weekly to-do requires at least one weekday in Días")
+    for offset in range(7):
+        candidate = today + timedelta(days=offset)
+        if weekday_code(candidate) in codes:
+            return candidate
+    raise AssertionError("unreachable: every weekday is checked within 7 days")
+
+
 # --------------------------------------------------------------------------
 # Occurrence calendar (ADR-27): does a routine fall on a given day?
 # --------------------------------------------------------------------------

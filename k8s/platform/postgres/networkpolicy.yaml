@@ -30,3 +30,15 @@ spec:
       ports:
         - protocol: TCP
           port: 5432
+    # Obico web pod: server, tasks, and the migrate init container (ADR-016).
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: obico
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: obico
+              app.kubernetes.io/component: web
+      ports:
+        - protocol: TCP
+          port: 5432

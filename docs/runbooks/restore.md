@@ -16,6 +16,8 @@ One-page recovery notes. Backups are mostly manual until later automation.
 | Project data | `/media/diestrin/data/Projects/` | Data disk; largest restore surface |
 | k3s data + local-path PVCs | `/media/diestrin/data/forge/k3s/` | Reinstall via `k8s/bootstrap/install-k3s.sh` |
 | Vault unseal + root token | `/media/diestrin/data/secrets/vault/init.json` | Offline backup mandatory; never git |
+| Obico database | `obico` database on `forge-postgres` | `pg_dump` in [`obico.md`](./obico.md); dump before chart upgrades |
+| Obico media | PVC `obico/obico-media` under `/media/diestrin/data/forge/k3s/local-path/` | Snapshots, timelapses, G-code (ADR-016) |
 | Argo CD | re-apply bootstrap + root Application | Syncs `k8s/` from `main` |
 
 ## Break-glass

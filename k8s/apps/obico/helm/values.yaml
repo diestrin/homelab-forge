@@ -1,0 +1,42 @@
+# Values for the upstream Obico chart (ADR-016), rendered by Argo CD
+# Application `obico` in k8s/overlays/root/applications.yaml. That file pins
+# the chart version; keep these image tags and OBICO_CHART_VERSION in
+# .github/workflows/ci.yml on the same CalVer.
+image:
+  web:
+    tag: "2026.7.11"
+  mlApi:
+    cpu:
+      tag: "2026.7.11"
+
+obico:
+  siteUsesHttps: true
+  csrfTrustedOrigins:
+    - https://obico.localpower.diegobarahona.com
+  # DJANGO_SECRET_KEY comes from ExternalSecret obico-secrets. Never let the
+  # chart generate it: Argo renders with `helm template`, which would rotate
+  # the key on every sync.
+  existingSecret: obico-secrets
+  extraEnv:
+    ACCOUNT_ALLOW_SIGN_UP: "False"
+    # Django admin is meant for kubectl port-forward only. #74 also blocks
+    # /admin at Traefik, which does not depend on client-IP forwarding.
+    ADMIN_IP_WHITELIST: '["127.0.0.1"]'
+    # Printer UI tunnel off (ADR-016 decision 10).
+    OCTOPRINT_TUNNEL_PORT_RANGE: "0-0"
+    TZ: America/Costa_Rica
+
+database:
+  existingSecret: obico-db
+  existingSecretKey: DATABASE_URL
+
+# The public route lives in k8s/apps/obico (added by #74), not in the chart.
+ingress:
+  enabled: false
+
+persistence:
+  data:
+    size: 1Gi
+  media:
+    # local-path does not enforce this; it is a planning number.
+    size: 50Gi

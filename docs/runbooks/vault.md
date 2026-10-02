@@ -77,6 +77,7 @@ Slack + Cursor SDK (ADR-009):
 | `forge-system/forge-postgres` | `secret/forge/postgres` | Platform Postgres |
 | `media/media-secrets` | `secret/forge/media` | qBittorrent password + Servarr API keys (ADR-014) |
 | `storage/garage-secrets` | `secret/forge/garage` | Garage RPC secret + admin token (ADR-015) |
+| `obico/obico-secrets`, `obico/obico-db` | `secret/forge/obico` | Django secret key + database URL (ADR-016) |
 
 Family Agile sync reads
 `secret/family-agile/notion` (`token`) and `secret/family-agile/habitica`

@@ -88,6 +88,29 @@ jobs:
             > /dev/null
           echo "helm template alloy OK"
 
+      # Upstream signs the chart with cosign-installer@v3 (cosign v2); verify
+      # with the same major so the legacy signature format matches.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Verify and validate the Obico chart
+        env:
+          # Keep in sync with Application obico in k8s/overlays/root/applications.yaml.
+          OBICO_CHART: ghcr.io/thespaghettidetective/charts/obico
+          OBICO_CHART_VERSION: "2026.7.11"
+        run: |
+          set -euo pipefail
+          cosign verify "${OBICO_CHART}:${OBICO_CHART_VERSION}" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-regexp '^https://github.com/TheSpaghettiDetective/obico-server/' \
+            > /dev/null
+          echo "cosign verify obico ${OBICO_CHART_VERSION} OK"
+          helm template obico "oci://${OBICO_CHART}" \
+            --version "${OBICO_CHART_VERSION}" \
+            -f k8s/apps/obico/helm/values.yaml \
+            --namespace obico \
+            | ./kubeconform -strict -ignore-missing-schemas -summary
+
       - name: Validate preview templates
         run: |
           set -euo pipefail

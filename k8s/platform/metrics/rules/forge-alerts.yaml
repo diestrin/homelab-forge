@@ -56,7 +56,7 @@ spec:
       rules:
         - alert: ForgeArgoAppUnhealthy
           expr: |
-            argocd_app_info{health_status=~"Degraded|Missing|Unknown",name=~"forge-site|family-agile-sync|forge-root"} == 1
+            argocd_app_info{health_status=~"Degraded|Missing|Unknown",name=~"forge-site|family-agile-sync|forge-root|obico"} == 1
           for: 15m
           labels:
             severity: critical
@@ -67,7 +67,7 @@ spec:
 
         - alert: ForgeArgoAppOutOfSync
           expr: |
-            argocd_app_info{sync_status="OutOfSync",name=~"forge-site|family-agile-sync|forge-root"} == 1
+            argocd_app_info{sync_status="OutOfSync",name=~"forge-site|family-agile-sync|forge-root|obico"} == 1
           for: 30m
           labels:
             severity: warning
@@ -81,7 +81,7 @@ spec:
       rules:
         - alert: ForgePodCrashLooping
           expr: |
-            kube_pod_container_status_waiting_reason{reason=~"CrashLoopBackOff|ImagePullBackOff",namespace=~"forge-demo|forge-system|family-agile|forge-agents"} == 1
+            kube_pod_container_status_waiting_reason{reason=~"CrashLoopBackOff|ImagePullBackOff",namespace=~"forge-demo|forge-system|family-agile|forge-agents|obico"} == 1
           for: 10m
           labels:
             severity: warning
@@ -93,12 +93,12 @@ spec:
         - alert: ForgeDeploymentNotReady
           expr: |
             (
-              kube_deployment_spec_replicas{namespace=~"forge-demo|forge-system|family-agile|forge-agents"} > 0
+              kube_deployment_spec_replicas{namespace=~"forge-demo|forge-system|family-agile|forge-agents|obico"} > 0
             )
             and
             (
-              kube_deployment_status_replicas_available{namespace=~"forge-demo|forge-system|family-agile|forge-agents"}
-              != kube_deployment_spec_replicas{namespace=~"forge-demo|forge-system|family-agile|forge-agents"}
+              kube_deployment_status_replicas_available{namespace=~"forge-demo|forge-system|family-agile|forge-agents|obico"}
+              != kube_deployment_spec_replicas{namespace=~"forge-demo|forge-system|family-agile|forge-agents|obico"}
             )
           for: 15m
           labels:

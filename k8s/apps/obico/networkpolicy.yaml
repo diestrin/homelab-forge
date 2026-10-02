@@ -1,0 +1,94 @@
+# Default-deny (ADR-016). DNS; same-namespace (web <-> redis <-> ml-api). The
+# web pod (server, tasks, and the migrate init container) reaches forge-postgres
+# and HTTPS for notifications. ml-api and redis get DNS only.
+# No ingress from Traefik yet: #74 adds kube-system -> web:3334 and the ACME
+# HTTP-01 solver rule together with the public Ingress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: obico
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: obico
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-same-namespace
+  namespace: obico
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector: {}
+  egress:
+    - to:
+        - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-web-egress-postgres
+  namespace: obico
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: obico
+      app.kubernetes.io/component: web
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: forge-system
+          podSelector:
+            matchLabels:
+              app: forge-postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# Notifications (Apprise -> ntfy, Telegram, etc.) are HTTPS.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-web-egress-https
+  namespace: obico
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: obico
+      app.kubernetes.io/component: web
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: TCP
+          port: 443

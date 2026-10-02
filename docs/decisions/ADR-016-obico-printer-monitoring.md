@@ -177,10 +177,10 @@ cannot merge before the seeded admin is gone.
 - `k8s/apps/obico/`: kustomization, namespace, quota and LimitRange,
   NetworkPolicies (no Traefik ingress rule yet), ExternalSecrets, `helm/values.yaml`,
   README.
-- `k8s/overlays/root/applications.yaml`: Application `obico` (chart + `$values`
-  ref + `k8s/apps/obico` path), plus the declarative OCI Helm repository that
-  Argo CD needs for `ghcr.io/thespaghettidetective/charts` (`enableOCI`, no
-  credentials). Check the exact form against Argo CD v3.5.
+- `k8s/overlays/root/applications.yaml`: Application `obico` with two sources:
+  the chart, and this repo as both the `$values` ref and the `k8s/apps/obico`
+  path. Argo CD v3.5 pulls a public OCI chart from a `repoURL` without
+  `oci://` and needs no repository Secret.
 - `k8s/platform/postgres/networkpolicy.yaml`: allow from namespace `obico`.
 - CI: `helm template` the pinned chart with our values, pipe to kubeconform,
   and `cosign verify` the chart signature.
@@ -237,14 +237,16 @@ Traefik.
 - No new host listener, UFW rule or router forward. Traefik keeps 80/443 and
   printer agents connect outbound, so host-watch allowlists do not change.
 - Footprint about 0.9 CPU / 2.3 GiB requested, 4.2 CPU / 5.5 GiB limits. Quota:
-  `requests.cpu: 2`, `requests.memory: 4Gi`, `limits.cpu: 6`,
-  `limits.memory: 8Gi`, `pods: 10`.
+  `requests.cpu: 2`, `requests.memory: 4Gi`, `limits.cpu: 8`,
+  `limits.memory: 10Gi`, `pods: 10`, which leaves room for the ml-api and
+  redis surge pods during a rolling update.
 - Single node. If the NUC is down, prints keep running but nobody watches them
   and AI auto-pause cannot fire.
 - `obico` now depends on `forge-postgres` (512Mi limit, manual backups). Revisit
   its limits if connections or memory climb.
-- `local-path` PVs use `reclaimPolicy: Delete`. Deleting the Argo app or the
-  PVCs deletes media, so back up before any teardown.
+- `local-path` PVs use `reclaimPolicy: Delete`. The chart marks its PVCs
+  `helm.sh/resource-policy: keep` (Argo CD: `Delete=false`), so deleting the
+  app leaves them. Deleting a PVC by hand still deletes its media.
 - The chart is young (`0.2.x` line, July 2026). Pinning plus CI rendering
   catches breakage at bump time. Dependabot covers Actions only, so bumps are
   manual.

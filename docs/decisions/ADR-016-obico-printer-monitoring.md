@@ -1,7 +1,7 @@
 # ADR-016: Self-hosted Obico for 3D printer monitoring
 
-- Status: Proposed
-- Date: 2026-10-01
+- Status: Accepted
+- Date: 2026-10-02 (proposed 2026-10-01)
 - Related: ADR-003 (k3s / Traefik / Let's Encrypt), ADR-005 (host-watch),
   ADR-007 (Vault), ADR-008 (GitOps), ADR-014 / ADR-015 (app patterns),
   GitHub #72 (epic) / #73 / #74 / #75
@@ -82,8 +82,9 @@ listeners or UFW holes, data on the data disk, no paid services.
    points it at the WAN address (HTTP-01 via Traefik, ADR-003). Printers, the
    browser and the mobile app all use this one URL. Obico stores a single Django
    Site domain and embeds it in timelapse and notification links, so a second
-   `.lan.` name (as Garage uses) would break links. On the LAN, rely on router
-   hairpin NAT, or override the *same* name on the LAN resolver.
+   `.lan.` name (as Garage uses) would break links. Home devices already reach
+   the forge's public names through the router, so the LAN needs no DNS
+   override.
 6. **Admin is never public.** A second Ingress on `/admin` routes through a
    Traefik `ipAllowList` Middleware that admits nothing (`127.0.0.1/32`), so the
    edge returns 403. Admin work goes through `kubectl port-forward`. As a second
@@ -153,10 +154,9 @@ cannot merge before the seeded admin is gone.
 
 ### 0. Operator prep (no PR)
 
-- Settle LAN resolution (the one open answer below). Move this ADR to Accepted.
 - Public DNS: `obico.localpower.diegobarahona.com` → the same DDNS target as the
-  other forge names. LAN: confirm hairpin NAT works, or add a resolver override
-  for that name. Keep the LAN address out of git.
+  other forge names. Home devices reach it through the router like the other
+  public names.
 - Vault (after unseal). The DB password is hex so it is URL-safe in `DATABASE_URL`:
 
   ```bash
@@ -269,4 +269,4 @@ Traefik.
 | Printer locations | All at home |
 | Users | Two people, sharing one household account (decision 6) |
 | Live video away from home | Best effort is acceptable; no TURN |
-| LAN resolution | **Open:** router hairpin NAT, or a LAN resolver override for `obico.localpower.diegobarahona.com`. Must be settled before #74 merges |
+| LAN resolution | Home devices reach the forge's public URLs through the router; no LAN DNS override |

@@ -3,7 +3,8 @@
 - Status: Proposed
 - Date: 2026-10-01
 - Related: ADR-003 (k3s / Traefik / Let's Encrypt), ADR-005 (host-watch),
-  ADR-007 (Vault), ADR-008 (GitOps), ADR-014 / ADR-015 (app patterns)
+  ADR-007 (Vault), ADR-008 (GitOps), ADR-014 / ADR-015 (app patterns),
+  GitHub #72 (epic) / #73 / #74 / #75
 
 ## Context
 
@@ -87,7 +88,10 @@ listeners or UFW holes, data on the data disk, no paid services.
    Traefik `ipAllowList` Middleware that admits nothing (`127.0.0.1/32`), so the
    edge returns 403. Admin work goes through `kubectl port-forward`. As a second
    layer, set `ADMIN_IP_WHITELIST='["127.0.0.1"]'`. Sign-up stays off
-   (`ACCOUNT_ALLOW_SIGN_UP=False`); the admin creates accounts.
+   (`ACCOUNT_ALLOW_SIGN_UP=False`); the admin creates accounts. Obico gives
+   each printer exactly one owner (`Printer.user`), so one shared **household**
+   account owns all printers and both people log in to it. The personal
+   superuser owns no printers.
 7. **Secrets in Vault `secret/forge/obico`** (`django_secret_key`, `db_password`,
    later SMTP or Telegram tokens), synced with ExternalSecrets into
    `obico-secrets` (chart `obico.existingSecret`) and `obico-db`. Never use the
@@ -143,12 +147,13 @@ persistence:
 
 ## Rollout
 
-Each step is its own GitHub issue (`task` label). Steps 1 and 2 are separate PRs
-so that the public Ingress cannot merge before the seeded admin is gone.
+Tracked in #72: steps 1–3 are #73, #74 and #75, and step 0 is the operator
+checklist on #73. Steps 1 and 2 are separate PRs so that the public Ingress
+cannot merge before the seeded admin is gone.
 
 ### 0. Operator prep (no PR)
 
-- Answer the open questions below. Move this ADR to Accepted.
+- Settle LAN resolution (the one open answer below). Move this ADR to Accepted.
 - Public DNS: `obico.localpower.diegobarahona.com` → the same DDNS target as the
   other forge names. LAN: confirm hairpin NAT works, or add a resolver override
   for that name. Keep the LAN address out of git.
@@ -199,9 +204,10 @@ Traefik.
 
 ### 3. Printers and notifications (no PR, runbook updates only)
 
-- On each printer host, install `moonraker-obico` or `octoprint-obico` with
-  server `https://obico.localpower.diegobarahona.com`, then link it with the
-  6-digit code.
+- Create the household account in Django admin (over port-forward).
+- On each printer host, install `moonraker-obico` with server
+  `https://obico.localpower.diegobarahona.com`, then link it to the household
+  account with the 6-digit code.
 - Add an Apprise ntfy URL in Obico notification settings and send a test.
 - In the Obico mobile app, tap the wrench on the login screen and set the
   server URL.
@@ -255,15 +261,12 @@ Traefik.
 - **Tailscale or Cloudflare Tunnel.** A non-goal in `PLAN.md`; the direct
   Traefik path already exists.
 
-## Open questions (operator)
+## Operator answers (2026-10-02)
 
-1. **Printer software.** Klipper/Moonraker or OctoPrint on each printer?
-   Upstream documents only those two. A Bambu or stock Prusa printer would need
-   OctoPrint on a separate board, or is out of scope.
-2. **Printer locations.** All at home, or some elsewhere? Remote printers work
-   (outbound HTTPS only); this just sets expectations for live video.
-3. **LAN resolution.** Does the router hairpin, or can the LAN resolver override
-   `obico.localpower.diegobarahona.com`?
-4. **Accounts.** Only the operator, or family too?
-5. **Live video away from home.** Is "best effort" acceptable, or is TURN a
-   requirement?
+| Question | Answer |
+| --- | --- |
+| Printer software | Klipper/Moonraker on every printer, so `moonraker-obico` only |
+| Printer locations | All at home |
+| Users | Two people, sharing one household account (decision 6) |
+| Live video away from home | Best effort is acceptable; no TURN |
+| LAN resolution | **Open:** router hairpin NAT, or a LAN resolver override for `obico.localpower.diegobarahona.com`. Must be settled before #74 merges |

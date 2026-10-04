@@ -120,7 +120,8 @@ listeners or UFW holes, data on the data disk, no paid services.
     The LAN column assumes home devices can reach the public name (decision 5).
 
 12. **NetworkPolicy:** default-deny; DNS; same-namespace; Traefik (`kube-system`)
-    → `web:3334` only; `web` and `tasks` egress to `forge-postgres:5432` and
+    → `web:3334` and → the cert-manager HTTP-01 solver on 8089 (the #65 fix for
+    media); `web` and `tasks` egress to `forge-postgres:5432` and
     TCP 443 (ntfy and other notifiers); `ml-api` gets DNS only (model is baked
     in). `forge-postgres`'s policy gains an ingress rule from namespace `obico`.
 13. **Monitoring:** add `obico` to the A4–A7 alert selectors in
@@ -199,7 +200,8 @@ Then, over `kubectl -n obico port-forward svc/obico-web 3334`:
 
 - `k8s/apps/obico/ingress.yaml`: TLS Ingress for `/`, plus the `/admin` deny
   Ingress and Middleware.
-- NetworkPolicy: allow `kube-system` → `web:3334`.
+- NetworkPolicy: allow `kube-system` → `web:3334` and → the ACME HTTP-01
+  solver pods on 8089.
 - The PR description carries a checkbox confirming step 1's admin rotation.
 
 Done when: the certificate is Ready; `/admin/` returns 403 from the LAN and from

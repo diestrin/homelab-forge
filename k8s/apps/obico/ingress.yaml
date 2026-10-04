@@ -1,0 +1,71 @@
+# Public route for Obico (ADR-016, #74): one hostname for printers, browsers
+# and the mobile app. Traefik proxies the websockets natively.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: obico
+  namespace: obico
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - obico.localpower.diegobarahona.com
+      secretName: obico-tls
+  rules:
+    - host: obico.localpower.diegobarahona.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: obico-web
+                port:
+                  number: 3334
+---
+# Django admin is never public (ADR-016 decision 6). This longer path outranks
+# `/`, and its Middleware admits no client, so Traefik answers 403 itself.
+# It reuses obico-tls without the cert-manager annotation (one Certificate).
+# The tls block is required: without it the HTTPS router for /admin is not
+# TLS-enabled and HTTPS requests fall through to `/`.
+# Operators reach the admin with kubectl port-forward (docs/runbooks/obico.md).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: obico-admin-deny
+  namespace: obico
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.middlewares: obico-admin-deny@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - obico.localpower.diegobarahona.com
+      secretName: obico-tls
+  rules:
+    - host: obico.localpower.diegobarahona.com
+      http:
+        paths:
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service:
+                name: obico-web
+                port:
+                  number: 3334
+---
+# Admits only loopback, which never reaches Traefik through ServiceLB, so every
+# request is rejected with 403. Traefik 3.x (k3s v1.36): traefik.io/v1alpha1.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: admin-deny
+  namespace: obico
+spec:
+  ipAllowList:
+    sourceRange:
+      - 127.0.0.1/32

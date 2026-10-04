@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Obico public endpoint (ADR-016): `https://obico.localpower.diegobarahona.com`
+  with Let's Encrypt. `/admin` is denied at Traefik (Middleware `admin-deny`), and
+  NetworkPolicies let Traefik reach the web pod and the ACME solver.
+
 - Obico printer monitoring, cluster-internal (ADR-016): the upstream signed Helm
   chart through Argo CD, a database on `forge-postgres`, Vault-backed secrets,
   and CI that verifies and renders the pinned chart. No public route yet.

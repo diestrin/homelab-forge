@@ -1,8 +1,8 @@
 # Default-deny (ADR-016). DNS; same-namespace (web <-> redis <-> ml-api). The
 # web pod (server, tasks, and the migrate init container) reaches forge-postgres
 # and HTTPS for notifications. ml-api and redis get DNS only.
-# No ingress from Traefik yet: #74 adds kube-system -> web:3334 and the ACME
-# HTTP-01 solver rule together with the public Ingress.
+# Traefik (kube-system) reaches web:3334 for the public Ingress, and the
+# cert-manager HTTP-01 solver pods for Let's Encrypt.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -92,3 +92,47 @@ spec:
     - ports:
         - protocol: TCP
           port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-web-from-ingress
+  namespace: obico
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: obico
+      app.kubernetes.io/component: web
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: TCP
+          port: 3334
+---
+# cert-manager HTTP-01 solver pods are not part of the chart; without this,
+# Traefik gets 502 on /.well-known/acme-challenge and Let's Encrypt never
+# issues (same fix as media, #65).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-acme-http01-from-ingress
+  namespace: obico
+spec:
+  podSelector:
+    matchLabels:
+      acme.cert-manager.io/http01-solver: "true"
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: TCP
+          port: 8089

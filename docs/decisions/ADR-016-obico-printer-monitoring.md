@@ -94,7 +94,10 @@ listeners or UFW holes, data on the data disk, no paid services.
    (`ACCOUNT_ALLOW_SIGN_UP=False`); the admin creates accounts. Obico gives
    each printer exactly one owner (`Printer.user`), so one shared **household**
    account owns all printers and both people log in to it. The personal
-   superuser owns no printers.
+   superuser owns no printers. The `server` container deletes the seeded
+   `root@example.com` before Daphne starts, on every start (`web.command`). The
+   pod is not Ready until then, so even an empty-database rebuild never serves
+   that account on the public Ingress.
 7. **Secrets in Vault `secret/forge/obico`** (`django_secret_key`, `db_password`,
    later SMTP or Telegram tokens), synced with ExternalSecrets into
    `obico-secrets` (chart `obico.existingSecret`) and `obico-db`. Never use the
@@ -120,7 +123,8 @@ listeners or UFW holes, data on the data disk, no paid services.
     The LAN column assumes home devices can reach the public name (decision 5).
 
 12. **NetworkPolicy:** default-deny; DNS; same-namespace; Traefik (`kube-system`)
-    → `web:3334` only; `web` and `tasks` egress to `forge-postgres:5432` and
+    → `web:3334` and → the cert-manager HTTP-01 solver on 8089 (the #65 fix for
+    media); `web` and `tasks` egress to `forge-postgres:5432` and
     TCP 443 (ntfy and other notifiers); `ml-api` gets DNS only (model is baked
     in). `forge-postgres`'s policy gains an ingress rule from namespace `obico`.
 13. **Monitoring:** add `obico` to the A4–A7 alert selectors in
@@ -199,7 +203,8 @@ Then, over `kubectl -n obico port-forward svc/obico-web 3334`:
 
 - `k8s/apps/obico/ingress.yaml`: TLS Ingress for `/`, plus the `/admin` deny
   Ingress and Middleware.
-- NetworkPolicy: allow `kube-system` → `web:3334`.
+- NetworkPolicy: allow `kube-system` → `web:3334` and → the ACME HTTP-01
+  solver pods on 8089.
 - The PR description carries a checkbox confirming step 1's admin rotation.
 
 Done when: the certificate is Ready; `/admin/` returns 403 from the LAN and from

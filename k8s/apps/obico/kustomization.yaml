@@ -9,3 +9,4 @@ resources:
   - quota.yaml
   - networkpolicy.yaml
   - externalsecret.yaml
+  - ingress.yaml

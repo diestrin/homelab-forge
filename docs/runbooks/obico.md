@@ -6,12 +6,12 @@ media on `local-path` PVCs on the data disk.
 
 | Who | URL |
 | --- | --- |
-| Printers, browsers, mobile app | `https://obico.localpower.diegobarahona.com` (from #74) |
+| Printers, browsers, mobile app | `https://obico.localpower.diegobarahona.com` |
 | Operator (admin, bootstrap) | `kubectl -n obico port-forward svc/obico-web 3334` → `http://localhost:3334` |
 | Pods in the cluster | `http://obico-web.obico.svc:3334` |
 
-Until #74 merges there is no Ingress. Obico is reachable only through
-port-forward.
+Django admin (`/admin/`) is blocked at Traefik on the public name. It is only
+reachable through port-forward.
 
 ## Before merge
 
@@ -69,11 +69,14 @@ Expect `obico-web` (containers `server` and `tasks`), `obico-ml-api` and
 `obico-redis` Ready, both ExternalSecrets `SecretSynced`, both PVCs Bound, and
 `200` from each `/hc/` check. The readiness probes use the same endpoints.
 
-## Bootstrap (once, before #74)
+## Bootstrap (once)
 
 Upstream migration `0002` creates the superuser `root@example.com` with the
-published password `supersecret`. Replace it before anything is public. Use
-`manage.py`, which avoids logging in with the default account at all.
+published password `supersecret`. The `server` container deletes that account
+on every start, before Daphne listens (`web.command` in `helm/values.yaml`).
+Until then the pod is not Ready, so Traefik never routes to it. Look for
+`seed superuser rows deleted:` in `kubectl -n obico logs deploy/obico-web -c server`.
+The steps below use `manage.py`, so nobody signs in with the default account.
 
 1. Create your own superuser. It prompts for an email and a password:
 
@@ -81,10 +84,10 @@ published password `supersecret`. Replace it before anything is public. Use
    kubectl -n obico exec -it deploy/obico-web -c server -- python manage.py createsuperuser
    ```
 
-2. Delete the seeded account. Rename the seeded `localhost:3334` Site to the
-   public name: Obico builds notification and timelapse links from it, and
-   requests on any other host (port-forward included) fall back to the first
-   Site.
+2. Rename the seeded `localhost:3334` Site to the public name: Obico builds
+   notification and timelapse links from it, and requests on any other host
+   (port-forward included) fall back to the first Site. The snippet also
+   repeats the seed-account delete, which is a no-op once the pod has started.
 
    ```bash
    kubectl -n obico exec -i deploy/obico-web -c server -- python manage.py shell <<'PY'
@@ -121,9 +124,60 @@ published password `supersecret`. Replace it before anything is public. Use
    Open `http://localhost:3334/admin/` and log in with the new superuser. A 403
    means `ADMIN_IP_WHITELIST` does not see port-forward traffic as
    `127.0.0.1`. In that case, remove it from `helm/values.yaml`; the Traefik
-   block in #74 is the primary control.
+   block (Public endpoint, below) is the primary control.
 
-Tick the bootstrap boxes on #73. #74 must not merge before they are done.
+On a rebuild with an **empty** `obico` database, migration `0002` recreates
+`root@example.com`. The `server` container deletes it before the pod turns
+Ready, so the public Ingress never serves it. Still run steps 1–3 to create your
+superuser and rename the Site.
+
+## Public endpoint
+
+Ingress `obico` publishes `/` with a Let's Encrypt certificate (`obico-tls`). A
+second Ingress, `obico-admin-deny`, sends `/admin` through the Traefik
+Middleware `admin-deny`, which admits no client, so Traefik returns 403.
+Django's `ADMIN_IP_WHITELIST` is a second layer behind it.
+
+```bash
+kubectl -n obico get ingress,certificate
+kubectl -n obico get middleware.traefik.io admin-deny
+```
+
+Expect both Ingresses, the Middleware, and Certificate `obico-tls` Ready. HTTP-01
+issuance takes a minute or two.
+
+Then run these from the LAN, and again from mobile data:
+
+```bash
+curl -s https://obico.localpower.diegobarahona.com/admin/; echo    # Forbidden
+curl -s http://obico.localpower.diegobarahona.com/admin/; echo     # Forbidden
+curl -s -o /dev/null -w '%{http_code}\n' https://obico.localpower.diegobarahona.com/hc/   # 200
+```
+
+The `/admin/` body must be Traefik's plain-text `Forbidden`. An HTML 403 page
+comes from Django: it means the edge rule is not applied and only the whitelist
+stopped the request. Fix the Middleware before relying on it.
+
+From each printer host, run the `/hc/` check too. It shows whether the printers
+reach the public name over the router's hairpin NAT. If it fails, do #77 (LAN
+DNS override) before linking printers (#75).
+
+Websockets carry everything between Obico, the printers and browsers. Check that
+Traefik passes the upgrade through:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' --http1.1 \
+  -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
+  -H 'Sec-WebSocket-Version: 13' -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" \
+  https://obico.localpower.diegobarahona.com/ws/dev/   # 403
+```
+
+`403` is Obico refusing a printer handshake without a printer token, which
+proves the upgrade reached Daphne. `502` or `504` means Traefik cannot reach the
+web pod, and `400` means the upgrade headers were lost. A long-lived session is
+confirmed in #75, when a linked printer stays online.
+
+Last, sign in at `https://obico.localpower.diegobarahona.com` from mobile data.
 
 ## Upgrades
 
@@ -184,6 +238,10 @@ change.
 | 500 on every page after the Site rename | More than one Site, or cached lookups: list Sites, then restart `obico-web` |
 | Admin 403 over port-forward | `ADMIN_IP_WHITELIST`; see Bootstrap step 4 |
 | Timelapses never appear | `tasks` container OOM during ffmpeg; the chart limit is 2Gi |
+| Certificate stays `False`, browser shows Traefik's default cert | DNS for the public name; `obico/allow-acme-http01-from-ingress` (Traefik must reach the solver pod on 8089) |
+| 502 or 504 on every page | `obico/allow-web-from-ingress` (Traefik → `web:3334`); `obico-web` Ready |
+| `/admin/` shows Django's login page or an HTML 403 | Middleware not applied: `kubectl -n obico get middleware.traefik.io admin-deny`, the `router.middlewares` annotation (`obico-admin-deny@kubernetescrd`), Traefik logs |
+| Printer host cannot reach the public name at home | Router hairpin NAT; do #77 |
 
 ## Related
 

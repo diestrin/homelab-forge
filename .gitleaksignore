@@ -1,0 +1,7 @@
+# gitleaks false positives, one fingerprint per line (commit:file:rule:line).
+# Add an entry only for a value that is provably not a secret, and say why.
+
+# RFC 6455's sample Sec-WebSocket-Key ("the sample nonce", base64) in the Obico
+# runbook's websocket check, on PR #83's commit 67cce7f. The runbook now
+# generates a nonce with openssl instead.
+67cce7fc7c57d621b97a83420ff40d1adacb8c9e:docs/runbooks/obico.md:generic-api-key:171

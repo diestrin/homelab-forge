@@ -168,7 +168,7 @@ Traefik passes the upgrade through:
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' --http1.1 \
   -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
-  -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+  -H 'Sec-WebSocket-Version: 13' -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" \
   https://obico.localpower.diegobarahona.com/ws/dev/   # 403
 ```
 

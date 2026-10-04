@@ -72,8 +72,11 @@ Expect `obico-web` (containers `server` and `tasks`), `obico-ml-api` and
 ## Bootstrap (once)
 
 Upstream migration `0002` creates the superuser `root@example.com` with the
-published password `supersecret`. Replace it before anything is public. Use
-`manage.py`, which avoids logging in with the default account at all.
+published password `supersecret`. The `server` container deletes that account
+on every start, before Daphne listens (`web.command` in `helm/values.yaml`).
+Until then the pod is not Ready, so Traefik never routes to it. Look for
+`seed superuser rows deleted:` in `kubectl -n obico logs deploy/obico-web -c server`.
+The steps below use `manage.py`, so nobody signs in with the default account.
 
 1. Create your own superuser. It prompts for an email and a password:
 
@@ -81,10 +84,10 @@ published password `supersecret`. Replace it before anything is public. Use
    kubectl -n obico exec -it deploy/obico-web -c server -- python manage.py createsuperuser
    ```
 
-2. Delete the seeded account. Rename the seeded `localhost:3334` Site to the
-   public name: Obico builds notification and timelapse links from it, and
-   requests on any other host (port-forward included) fall back to the first
-   Site.
+2. Rename the seeded `localhost:3334` Site to the public name: Obico builds
+   notification and timelapse links from it, and requests on any other host
+   (port-forward included) fall back to the first Site. The snippet also
+   repeats the seed-account delete, which is a no-op once the pod has started.
 
    ```bash
    kubectl -n obico exec -i deploy/obico-web -c server -- python manage.py shell <<'PY'
@@ -124,10 +127,9 @@ published password `supersecret`. Replace it before anything is public. Use
    block (Public endpoint, below) is the primary control.
 
 On a rebuild with an **empty** `obico` database, migration `0002` recreates
-`root@example.com`. The Ingress is already in git, so that account can log in
-through the normal sign-in page (the admin stays blocked). Run steps 1–3 as soon
-as `obico-web` is Ready. Restoring a database dump instead avoids this, because
-the migration has already run.
+`root@example.com`. The `server` container deletes it before the pod turns
+Ready, so the public Ingress never serves it. Still run steps 1–3 to create your
+superuser and rename the Site.
 
 ## Public endpoint
 
@@ -159,6 +161,21 @@ stopped the request. Fix the Middleware before relying on it.
 From each printer host, run the `/hc/` check too. It shows whether the printers
 reach the public name over the router's hairpin NAT. If it fails, do #77 (LAN
 DNS override) before linking printers (#75).
+
+Websockets carry everything between Obico, the printers and browsers. Check that
+Traefik passes the upgrade through:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' --http1.1 \
+  -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
+  -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+  https://obico.localpower.diegobarahona.com/ws/dev/   # 403
+```
+
+`403` is Obico refusing a printer handshake without a printer token, which
+proves the upgrade reached Daphne. `502` or `504` means Traefik cannot reach the
+web pod, and `400` means the upgrade headers were lost. A long-lived session is
+confirmed in #75, when a linked printer stays online.
 
 Last, sign in at `https://obico.localpower.diegobarahona.com` from mobile data.
 

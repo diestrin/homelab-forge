@@ -30,6 +30,21 @@ database:
   existingSecret: obico-db
   existingSecretKey: DATABASE_URL
 
+web:
+  # Migration 0002 seeds the superuser root@example.com with a published
+  # password. Delete it before Daphne listens: the pod is not Ready, and so not
+  # routed by Traefik, until this has run, so an empty-database rebuild never
+  # serves that account on the public Ingress. Idempotent. `set -e` stops the
+  # container instead of serving if it fails. Keep the daphne line in step with
+  # the chart's default web.command when upgrading.
+  command:
+    - sh
+    - -c
+    - |
+      set -e
+      python manage.py shell -c "from app.models import User; print('seed superuser rows deleted:', User.objects.filter(email='root@example.com').delete()[0])"
+      exec daphne -b 0.0.0.0 -p 3334 config.routing:application
+
 # The public route lives in k8s/apps/obico (added by #74), not in the chart.
 ingress:
   enabled: false

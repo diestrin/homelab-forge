@@ -94,7 +94,10 @@ listeners or UFW holes, data on the data disk, no paid services.
    (`ACCOUNT_ALLOW_SIGN_UP=False`); the admin creates accounts. Obico gives
    each printer exactly one owner (`Printer.user`), so one shared **household**
    account owns all printers and both people log in to it. The personal
-   superuser owns no printers.
+   superuser owns no printers. The `server` container deletes the seeded
+   `root@example.com` before Daphne starts, on every start (`web.command`). The
+   pod is not Ready until then, so even an empty-database rebuild never serves
+   that account on the public Ingress.
 7. **Secrets in Vault `secret/forge/obico`** (`django_secret_key`, `db_password`,
    later SMTP or Telegram tokens), synced with ExternalSecrets into
    `obico-secrets` (chart `obico.existingSecret`) and `obico-db`. Never use the

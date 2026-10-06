@@ -35,9 +35,30 @@
             "claude-code"
           ];
         overlays = [
-          (_final: _prev: {
-            inherit (import nixpkgs-unstable { inherit system; }) codex;
-          })
+          (
+            _final: _prev:
+            let
+              unstablePkgs = import nixpkgs-unstable {
+                inherit system;
+                config.allowUnfreePredicate = pkg: nixpkgs.lib.getName pkg == "claude-code";
+              };
+            in
+            {
+              inherit (unstablePkgs) codex;
+              # nixpkgs can lag Anthropic releases; pin the official manifest so
+              # Home Manager installs the current release reproducibly.
+              claude-code = unstablePkgs.claude-code.override {
+                manifest = {
+                  version = "2.1.292";
+                  platforms.linux-x64 = {
+                    binary = "claude.zst";
+                    checksum = "28509427a53a5c15bd94d022d39013cc4b867a8e6305497f48162dcf91576326";
+                    size = 88133859;
+                  };
+                };
+              };
+            }
+          )
         ];
       };
     in

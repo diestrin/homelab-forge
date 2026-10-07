@@ -55,6 +55,9 @@ class Agenda:
     AJUSTADO = "Ajustado"
     MOTIVO = "Motivo del ajuste"
     TABLA = "Tabla"
+    #: Ocurrencia (default, empty) vs Sesión de trabajo: a block of time
+    #: planned to work on a Tarea or Proyecto. Sessions never pay (ADR-58).
+    TIPO_ENTRADA = "Tipo de entrada"
 
 
 class Tareas:
@@ -67,6 +70,9 @@ class Tareas:
     ASIGNADA_POR = "Asignada por"
     HABITICA_TASK_ID = "Habitica Task ID"
     FECHA_LIMITE = "Fecha límite"
+    #: Explicit opt-in to the points economy (ADR-55). Without it a Tarea is
+    #: plain backlog: never mirrored to Habitica, never paid.
+    ECONOMIA = "Economía"
 
 
 class Corte:
@@ -130,6 +136,8 @@ ESTADO_FALLADA = "Fallada"
 ORIGEN_HABITICA = "Habitica"
 ORIGEN_NOTION = "Notion"
 ORIGEN_MANUAL = "Manual"
+
+TIPO_ENTRADA_SESION = "Sesión de trabajo"
 
 MODALIDAD_PERSONAL = "Personal"
 MODALIDAD_POOL = "Pool"

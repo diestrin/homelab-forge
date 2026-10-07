@@ -456,7 +456,7 @@ def _push_tareas(
             if tarea.member_id:
                 kept[tarea.member_id].add(tarea.habitica_task_id)
             continue
-        if not tarea.aprobada or tarea.difficulty is None:
+        if not tarea.pays:  # Economía + Aprobada + Dificultad (ADR-55)
             continue
         if tarea.member_id is None:
             log.info("tarea %r has no Miembro; mirror skipped", tarea.title)

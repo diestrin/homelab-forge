@@ -39,7 +39,7 @@ def routine(page_id="r1", *, paga=True, difficulty=Difficulty.INTERMEDIA,
 
 
 def row(page_id="a1", *, rutina_ids=("r1",), tarea_ids=(), estado="Hecha", day=D,
-        origen=None, points_applied=None, adjusted=False):
+        origen=None, points_applied=None, adjusted=False, tipo_entrada=None):
     return AgendaRow(
         page_id=page_id,
         title=f"row {page_id}",
@@ -51,10 +51,12 @@ def row(page_id="a1", *, rutina_ids=("r1",), tarea_ids=(), estado="Hecha", day=D
         origen=origen,
         points_applied=points_applied,
         adjusted=adjusted,
+        tipo_entrada=tipo_entrada,
     )
 
 
-def tarea(page_id="t1", *, difficulty=Difficulty.INTERMEDIA, aprobada=True):
+def tarea(page_id="t1", *, difficulty=Difficulty.INTERMEDIA, aprobada=True,
+          economia=True):
     return Tarea(
         page_id=page_id,
         title=f"tarea {page_id}",
@@ -63,6 +65,7 @@ def tarea(page_id="t1", *, difficulty=Difficulty.INTERMEDIA, aprobada=True):
         aprobada=aprobada,
         habitica_task_id="hd1",
         estado=None,
+        economia=economia,
     )
 
 
@@ -198,3 +201,42 @@ def test_parse_task_ids_tolerates_empty_and_legacy_values():
     assert _parse_task_ids("legacy-single-id") == {}  # pre-map value -> recreated
     assert _parse_task_ids('["a", "b"]') == {}
     assert _parse_task_ids('{"m1": "abc", "": "x", "m2": ""}') == {"m1": "abc"}
+
+
+# --- Work sessions (ADR-58): many Agenda rows per Tarea, none of them pay --
+
+
+def test_work_session_for_an_approved_tarea_never_pays():
+    tareas = {"t1": tarea(difficulty=Difficulty.COMPLEJA)}
+    sessions = [
+        row(f"s{i}", rutina_ids=(), tarea_ids=("t1",), estado="Hecha",
+            tipo_entrada="Sesión de trabajo")
+        for i in range(3)
+    ]
+    completion = row("c1", rutina_ids=(), tarea_ids=("t1",), estado="Hecha",
+                     origen="Habitica")
+    events = to_events(sessions + [completion], {}, tareas)
+    assert len(events) == 1
+    assert events[0].points == 25
+
+
+def test_row_without_tipo_de_entrada_keeps_paying_as_before():
+    tareas = {"t1": tarea()}
+    events = to_events([row(rutina_ids=(), tarea_ids=("t1",))], {}, tareas)
+    assert len(events) == 1
+
+
+# --- Economía is the explicit switch (ADR-55) ------------------------------
+
+
+def test_approved_tarea_outside_the_economy_never_pays():
+    """Aprobada + Dificultad set by accident on a backlog task: still nothing."""
+    tareas = {"t1": tarea(economia=False)}
+    assert to_events([row(rutina_ids=(), tarea_ids=("t1",))], {}, tareas) == []
+
+
+def test_pays_requires_all_three_switches():
+    assert tarea().pays
+    assert not tarea(economia=False).pays
+    assert not tarea(aprobada=False).pays
+    assert not tarea(difficulty=None).pays

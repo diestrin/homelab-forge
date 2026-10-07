@@ -95,7 +95,7 @@ child's account.
 **`PRUNE_HABITICA=1` reconciles an account to the catalogue.** After the mirror
 pass, `push-definitions` lists each member's tasks and deletes any whose
 `notes` mark it as a Family Agile mirror (`"Family Agile — no editar
-manualmente"`) that no active routine or approved tarea still points to. A task
+manualmente"`) that no active routine or paying tarea still points to. A task
 without that marker -- something a child made for themselves -- is never
 touched. Off by default; it is destructive, so it runs only when the flag is
 set. Use it for a one-off cleanup after a big catalogue change, or after
@@ -108,6 +108,14 @@ it on the spot, links it back via `Tarea`, and marks the Tarea `Estado =
 Hecha` in the same pass. A Tarea only pays once: `push-definitions` mirrors it
 exactly once (a `Habitica Task ID` already set is never re-pushed), and
 `pull-completions` skips a Tarea whose `Estado` is already `Hecha`.
+
+**A Tarea pays only when `Economía`, `Aprobada` and `Dificultad` are all set
+(ADR-55).** The Tareas database must have an `Economía` checkbox; without it
+`load_tareas` logs a warning and no tarea pays. Rolling out: add the column,
+then tick it on every tarea that should keep paying -- until then their
+completions are not credited, and with `PRUNE_HABITICA=1` their existing
+mirrors are removed (their `Habitica Task ID` is cleared, so ticking
+`Economía` again re-mirrors them).
 
 **Non-weekly Rutinas (ADR-26) mirror as a `todo`, recreated by the sync
 itself.** Quincenal/Mensual/Trimestral routines don't get a repeating Habitica

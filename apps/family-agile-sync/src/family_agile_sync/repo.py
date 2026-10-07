@@ -234,17 +234,30 @@ class Tarea:
     aprobada: bool
     habitica_task_id: str | None
     estado: str | None
+    economia: bool = False
+
+    @property
+    def pays(self) -> bool:
+        """In the economy (ADR-55) AND approved with a difficulty (ADR-10).
+
+        ``Economía`` is the explicit switch: Aprobada/Dificultad alone are
+        easy to set by accident on a backlog task, so they are not enough.
+        """
+        return self.economia and self.aprobada and self.difficulty is not None
 
 
 def load_tareas(client: n.NotionClient, database_id: str) -> dict[str, Tarea]:
     """Every to-do in the catalogue, indexed by its Notion page id.
 
-    Only a Tarea with a Dificultad and ``Aprobada = sí`` ever pays -- the
-    anti-inflation rule: a To-Do created straight in Habitica, with no mirror
-    row here, is worth gold but zero colones.
+    Only a Tarea in the ``Economía`` with a Dificultad and ``Aprobada = sí``
+    ever pays -- the anti-inflation rule: a To-Do created straight in Habitica,
+    with no mirror row here, is worth gold but zero colones.
     """
     tareas: dict[str, Tarea] = {}
+    missing_economia = False
     for page in client.query(database_id):
+        if s.Tareas.ECONOMIA not in page.get("properties", {}):
+            missing_economia = True
         member_ids = n.read_relation_ids(page, s.Tareas.MIEMBRO)
         tareas[page["id"]] = Tarea(
             page_id=page["id"],
@@ -254,6 +267,12 @@ def load_tareas(client: n.NotionClient, database_id: str) -> dict[str, Tarea]:
             aprobada=n.read_checkbox(page, s.Tareas.APROBADA),
             habitica_task_id=n.read_text(page, s.Tareas.HABITICA_TASK_ID) or None,
             estado=n.read_select(page, s.Tareas.ESTADO),
+            economia=n.read_checkbox(page, s.Tareas.ECONOMIA),
+        )
+    if missing_economia:
+        log.warning(
+            "Tareas database has no %r checkbox; no tarea will pay until it "
+            "is added (ADR-55)", s.Tareas.ECONOMIA,
         )
     return tareas
 
@@ -275,6 +294,16 @@ class AgendaRow:
     origen: str | None
     points_applied: float | None
     adjusted: bool
+    tipo_entrada: str | None = None
+
+    @property
+    def is_work_session(self) -> bool:
+        """A planned block of time to work on a Tarea/Proyecto, not a completion.
+
+        A Tarea can have many sessions in Agenda; only its completion is a
+        ledger event, so sessions never reach the money rules (ADR-58).
+        """
+        return self.tipo_entrada == s.TIPO_ENTRADA_SESION
 
     @property
     def is_manual(self) -> bool:
@@ -323,6 +352,7 @@ def load_agenda(
                 origen=n.read_select(page, s.Agenda.ORIGEN),
                 points_applied=n.read_number(page, s.Agenda.PUNTOS_APLICADOS),
                 adjusted=n.read_checkbox(page, s.Agenda.AJUSTADO),
+                tipo_entrada=n.read_select(page, s.Agenda.TIPO_ENTRADA),
             )
         )
     return rows
@@ -362,6 +392,8 @@ def to_events(
     for row in rows:
         if row.day is None:
             continue
+        if row.is_work_session:
+            continue
 
         routine = row.routine(routines)
         if routine is not None:
@@ -387,7 +419,7 @@ def to_events(
 
         tarea = row.tarea(tareas)
         if tarea is not None:
-            if not tarea.aprobada or tarea.difficulty is None:
+            if not tarea.pays:
                 continue
             events.append(
                 Event(

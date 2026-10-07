@@ -128,9 +128,11 @@ def run(config: Config, today: date | None = None) -> int:
             if tid in mirror and mirror[tid][1] == member.page_id
         }
         # Tareas whose mirror To-Do this member ticked, not yet credited.
+        # Only a Tarea that pays is credited, so Agenda matches the Corte.
         hit_tareas = [
             t for t in tareas.values()
-            if t.member_id == member.page_id
+            if t.pays
+            and t.member_id == member.page_id
             and t.habitica_task_id in completed_ids
             and t.estado != s.ESTADO_HECHA
         ]

@@ -436,6 +436,24 @@ def _prune_orphan_mirrors(
             log.info("pruned %d orphan mirror(s) from %s", len(orphans), member.name)
 
 
+def _forget_pruned_mirror(
+    client: n.NotionClient, tarea: Tarea, config: Config
+) -> None:
+    """Clear the Task ID of a non-paying, unfinished Tarea whose mirror the
+    prune pass is about to delete, so it is re-mirrored if it pays again."""
+    if not (config.prune_habitica and tarea.habitica_task_id):
+        return
+    if tarea.estado == s.ESTADO_HECHA:
+        return
+    if config.dry_run:
+        log.info("[dry-run] clear Habitica Task ID of %r", tarea.title)
+        return
+    try:
+        client.update_page(tarea.page_id, {s.Tareas.HABITICA_TASK_ID: n.w_text("")})
+    except n.NotionError as exc:
+        log.warning("could not clear Habitica Task ID of %r (%s)", tarea.title, exc)
+
+
 def _push_tareas(
     client: n.NotionClient,
     members: dict[str, Member],
@@ -448,15 +466,19 @@ def _push_tareas(
     """Mirror newly-approved Tareas as one-shot Habitica To-Dos.
 
     Only ever created once (step 2 of the Tareas flow): a Tarea that already
-    has a Habitica Task ID is never re-pushed or updated here.
+    has a Habitica Task ID is never re-pushed or updated here. An existing
+    mirror is only kept while the Tarea still pays; once it leaves the economy
+    its mirror is an orphan for PRUNE_HABITICA to remove (ADR-55), and its
+    Task ID is cleared so the Tarea gets a fresh mirror if it pays again.
     """
     pushed = 0
     for tarea in tareas.values():
+        if not tarea.pays:  # Economía + Aprobada + Dificultad (ADR-55)
+            _forget_pruned_mirror(client, tarea, config)
+            continue
         if tarea.habitica_task_id:
             if tarea.member_id:
                 kept[tarea.member_id].add(tarea.habitica_task_id)
-            continue
-        if not tarea.aprobada or tarea.difficulty is None:
             continue
         if tarea.member_id is None:
             log.info("tarea %r has no Miembro; mirror skipped", tarea.title)

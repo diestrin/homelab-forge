@@ -9,6 +9,7 @@ from datetime import date
 
 import pytest
 
+from family_agile_sync import notion as n
 from family_agile_sync import schema as s
 from family_agile_sync.config import Config
 from family_agile_sync.habitica import MIRROR_NOTE, HabiticaError, build_task_payload
@@ -44,10 +45,11 @@ def _routine(pid, *, retired=False, mirror=None, members=("luna",),
     )
 
 
-def _tarea(pid, *, member, habitica_task_id):
+def _tarea(pid, *, member, habitica_task_id, economia=True):
     return Tarea(page_id=pid, title=pid, member_id=member,
                  difficulty=Difficulty.FACIL, aprobada=True,
-                 habitica_task_id=habitica_task_id, estado=None)
+                 habitica_task_id=habitica_task_id, estado=None,
+                 economia=economia)
 
 
 class FakeNotion:
@@ -187,6 +189,22 @@ def test_prune_deletes_only_marked_orphans(wired):
     _, hab = wired(_config(prune_habitica=True), routines=[r], tareas=[t],
                    account_tasks=account)
     assert hab.deleted == ["h-orphan"]
+
+
+def test_prune_removes_mirror_of_tarea_that_left_the_economy(wired):
+    t = _tarea("t1", member="luna", habitica_task_id="h-tarea", economia=False)
+    notion, hab = wired(_config(prune_habitica=True), tareas=[t],
+                        account_tasks=[_mirror_task("h-tarea")])
+    assert hab.deleted == ["h-tarea"]
+    # Task ID cleared so the tarea is re-mirrored if Economía comes back on.
+    assert ("t1", {s.Tareas.HABITICA_TASK_ID: n.w_text("")}) in notion.updates
+
+
+def test_tarea_outside_the_economy_keeps_task_id_without_prune(wired):
+    t = _tarea("t1", member="luna", habitica_task_id="h-tarea", economia=False)
+    notion, hab = wired(_config(prune_habitica=False), tareas=[t])
+    assert hab.deleted == []
+    assert notion.updates == []
 
 
 def test_prune_in_dry_run_deletes_nothing(wired):

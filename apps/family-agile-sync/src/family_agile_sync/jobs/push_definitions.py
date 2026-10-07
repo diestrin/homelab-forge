@@ -448,15 +448,17 @@ def _push_tareas(
     """Mirror newly-approved Tareas as one-shot Habitica To-Dos.
 
     Only ever created once (step 2 of the Tareas flow): a Tarea that already
-    has a Habitica Task ID is never re-pushed or updated here.
+    has a Habitica Task ID is never re-pushed or updated here. An existing
+    mirror is only kept while the Tarea still pays; once it leaves the economy
+    its mirror is an orphan for PRUNE_HABITICA to remove (ADR-55).
     """
     pushed = 0
     for tarea in tareas.values():
+        if not tarea.pays:  # Economía + Aprobada + Dificultad (ADR-55)
+            continue
         if tarea.habitica_task_id:
             if tarea.member_id:
                 kept[tarea.member_id].add(tarea.habitica_task_id)
-            continue
-        if not tarea.pays:  # Economía + Aprobada + Dificultad (ADR-55)
             continue
         if tarea.member_id is None:
             log.info("tarea %r has no Miembro; mirror skipped", tarea.title)

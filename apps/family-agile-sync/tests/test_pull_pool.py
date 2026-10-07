@@ -50,10 +50,11 @@ def _row(pid="a1", *, members, rutina, estado=s.ESTADO_PENDIENTE):
 
 
 def _tarea(pid="t1", *, member, habitica_task_id, difficulty=Difficulty.INTERMEDIA,
-           estado=None, aprobada=True):
+           estado=None, aprobada=True, economia=True):
     return Tarea(
         page_id=pid, title=pid, member_id=member, difficulty=difficulty,
         aprobada=aprobada, habitica_task_id=habitica_task_id, estado=estado,
+        economia=economia,
     )
 
 
@@ -190,6 +191,15 @@ def test_tarea_already_hecha_is_not_recredited(wired):
     st = wired([m1], [], [], {"M1": ["td1"]}, tareas=[t])
     assert st["result"] == 0
     assert st["notion"].created == []
+
+
+def test_tarea_outside_the_economy_is_not_credited(wired):
+    m1 = _member("m1")
+    t = _tarea(member="m1", habitica_task_id="td1", economia=False)
+    st = wired([m1], [], [], {"M1": ["td1"]}, tareas=[t])
+    assert st["result"] == 0
+    assert st["notion"].created == []
+    assert st["notion"].updates == []
 
 
 def test_tarea_for_a_different_member_is_not_credited(wired):

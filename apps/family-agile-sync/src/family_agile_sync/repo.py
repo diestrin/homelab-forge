@@ -249,12 +249,15 @@ class Tarea:
 def load_tareas(client: n.NotionClient, database_id: str) -> dict[str, Tarea]:
     """Every to-do in the catalogue, indexed by its Notion page id.
 
-    Only a Tarea with a Dificultad and ``Aprobada = sí`` ever pays -- the
-    anti-inflation rule: a To-Do created straight in Habitica, with no mirror
-    row here, is worth gold but zero colones.
+    Only a Tarea in the ``Economía`` with a Dificultad and ``Aprobada = sí``
+    ever pays -- the anti-inflation rule: a To-Do created straight in Habitica,
+    with no mirror row here, is worth gold but zero colones.
     """
     tareas: dict[str, Tarea] = {}
+    missing_economia = False
     for page in client.query(database_id):
+        if s.Tareas.ECONOMIA not in page.get("properties", {}):
+            missing_economia = True
         member_ids = n.read_relation_ids(page, s.Tareas.MIEMBRO)
         tareas[page["id"]] = Tarea(
             page_id=page["id"],
@@ -265,6 +268,11 @@ def load_tareas(client: n.NotionClient, database_id: str) -> dict[str, Tarea]:
             habitica_task_id=n.read_text(page, s.Tareas.HABITICA_TASK_ID) or None,
             estado=n.read_select(page, s.Tareas.ESTADO),
             economia=n.read_checkbox(page, s.Tareas.ECONOMIA),
+        )
+    if missing_economia:
+        log.warning(
+            "Tareas database has no %r checkbox; no tarea will pay until it "
+            "is added (ADR-55)", s.Tareas.ECONOMIA,
         )
     return tareas
 

@@ -11,6 +11,7 @@ from family_agile_sync.repo import (
     Routine,
     Tarea,
     _parse_task_ids,
+    load_tareas,
     to_events,
 )
 from family_agile_sync.rules import Difficulty, Kind, Outcome
@@ -240,3 +241,25 @@ def test_pays_requires_all_three_switches():
     assert not tarea(economia=False).pays
     assert not tarea(aprobada=False).pays
     assert not tarea(difficulty=None).pays
+
+
+class _FakeTareasDb:
+    def __init__(self, pages):
+        self.pages = pages
+
+    def query(self, database_id):
+        return self.pages
+
+
+def test_load_tareas_warns_when_economia_column_is_missing(caplog):
+    page = {"id": "t1", "properties": {"Aprobada": {"checkbox": True}}}
+    tareas = load_tareas(_FakeTareasDb([page]), "ta")
+    assert tareas["t1"].economia is False
+    assert "Economía" in caplog.text
+
+
+def test_load_tareas_reads_economia_without_warning(caplog):
+    page = {"id": "t1", "properties": {"Economía": {"checkbox": True}}}
+    tareas = load_tareas(_FakeTareasDb([page]), "ta")
+    assert tareas["t1"].economia is True
+    assert caplog.text == ""

@@ -114,7 +114,8 @@ exactly once (a `Habitica Task ID` already set is never re-pushed), and
 `load_tareas` logs a warning and no tarea pays. Rolling out: add the column,
 then tick it on every tarea that should keep paying -- until then their
 completions are not credited, and with `PRUNE_HABITICA=1` their existing
-mirrors are removed.
+mirrors are removed (their `Habitica Task ID` is cleared, so ticking
+`Economía` again re-mirrors them).
 
 **Non-weekly Rutinas (ADR-26) mirror as a `todo`, recreated by the sync
 itself.** Quincenal/Mensual/Trimestral routines don't get a repeating Habitica

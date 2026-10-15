@@ -135,6 +135,9 @@ class Routine:
     #: a bar with real length instead of a zero-width point. None -> the
     #: generated row carries no Termina, same as today.
     minutos: float | None = None
+    #: Rutinas.Proyecto page ids; copied onto each generated Agenda row
+    #: (ADR-66). Empty -> the row carries no Proyecto, same as before.
+    proyecto_ids: tuple[str, ...] = ()
 
     @property
     def is_pool(self) -> bool:
@@ -210,6 +213,7 @@ def load_routines(client: n.NotionClient, database_id: str) -> dict[str, Routine
             hora=n.read_text(page, s.Rutinas.HORA) or None,
             categoria=n.read_select(page, s.Rutinas.CATEGORIA),
             minutos=n.read_number(page, s.Rutinas.MINUTOS),
+            proyecto_ids=tuple(n.read_relation_ids(page, s.Rutinas.PROYECTO)),
         )
     return routines
 

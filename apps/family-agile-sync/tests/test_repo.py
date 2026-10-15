@@ -11,6 +11,7 @@ from family_agile_sync.repo import (
     Routine,
     Tarea,
     _parse_task_ids,
+    load_routines,
     load_tareas,
     to_events,
 )
@@ -263,3 +264,21 @@ def test_load_tareas_reads_economia_without_warning(caplog):
     tareas = load_tareas(_FakeTareasDb([page]), "ta")
     assert tareas["t1"].economia is True
     assert caplog.text == ""
+
+
+def test_load_routines_reads_proyecto_relation():
+    page = {"id": "r1", "properties": {
+        "Nombre": {"title": [{"plain_text": "Leer"}]},
+        "Proyecto": {"relation": [{"id": "p1"}, {"id": "p2"}]},
+    }}
+    routines = load_routines(_FakeTareasDb([page]), "r")
+    assert routines["r1"].proyecto_ids == ("p1", "p2")
+
+
+def test_load_routines_without_proyecto_yields_empty_tuple():
+    page = {"id": "r1", "properties": {
+        "Nombre": {"title": [{"plain_text": "Barrer"}]},
+        "Proyecto": {"relation": []},
+    }}
+    routines = load_routines(_FakeTareasDb([page]), "r")
+    assert routines["r1"].proyecto_ids == ()

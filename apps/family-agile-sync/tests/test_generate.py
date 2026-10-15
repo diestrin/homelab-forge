@@ -123,14 +123,15 @@ def _cfg(*, dry_run=False, horizon=1):
 
 def _routine(pid="R", *, modalidad="Personal", members=(), dias=("L",),
              recurrencia="Semanal", vigente_desde=None, dia_del_mes=None,
-             hora="5:00 AM", categoria="Casa", retired=False, minutos=None):
+             hora="5:00 AM", categoria="Casa", retired=False, minutos=None,
+             proyectos=()):
     return Routine(
         page_id=pid, name=f"routine {pid}", member_ids=list(members),
         elegibles_ids=[], kind=Kind.OPCIONAL, modalidad=modalidad, paga=True,
         difficulty=Difficulty.FACIL, recurrencia=recurrencia, dias=list(dias),
         habitica_task_ids={}, habitica_tipo="daily", retired=retired,
         vigente_desde=vigente_desde, dia_del_mes=dia_del_mes, hora=hora,
-        categoria=categoria, minutos=minutos,
+        categoria=categoria, minutos=minutos, proyecto_ids=tuple(proyectos),
     )
 
 
@@ -241,6 +242,22 @@ def test_minutos_without_parseable_hora_leaves_termina_unset(wired):
 
     _, props = notion.created[0]
     assert s.Agenda.TERMINA not in props
+
+
+def test_proyecto_is_copied_from_the_rutina(wired):
+    r = _routine(members=("m1",), proyectos=("P1",))
+    notion, _ = wired([r], [])
+
+    _, props = notion.created[0]
+    assert props[s.Agenda.PROYECTO] == {"relation": [{"id": "P1"}]}
+
+
+def test_no_proyecto_leaves_agenda_proyecto_unset(wired):
+    r = _routine(members=("m1",))
+    notion, _ = wired([r], [])
+
+    _, props = notion.created[0]
+    assert s.Agenda.PROYECTO not in props
 
 
 def test_pool_routine_generates_one_unclaimed_row(wired):

@@ -34,6 +34,7 @@ class Rutinas:
     HABITICA_TIPO = "Habitica tipo"
     VIGENTE_DESDE = "Vigente desde"
     VIGENTE_HASTA = "Vigente hasta"
+    PROYECTO = "Proyecto"
 
 
 class Agenda:
@@ -58,6 +59,10 @@ class Agenda:
     #: Ocurrencia (default, empty) vs Sesión de trabajo: a block of time
     #: planned to work on a Tarea or Proyecto. Sessions never pay (ADR-58).
     TIPO_ENTRADA = "Tipo de entrada"
+    #: Two-way pair of Proyectos."Ocurrencias (Agenda)" (ADR-66). The occurrence
+    #: generator copies the Rutina's Proyecto here so each project page can
+    #: list its Agenda rows.
+    PROYECTO = "Proyecto"
 
 
 class Tareas:

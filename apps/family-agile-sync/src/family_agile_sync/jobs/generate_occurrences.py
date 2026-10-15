@@ -87,6 +87,10 @@ def _row_props(routine: Routine, day: date, member_id: str | None) -> dict:
         s.Agenda.INICIA: n.w_date(inicia),
         s.Agenda.ORIGEN: n.w_select(s.ORIGEN_NOTION),
     }
+    if routine.proyecto_ids:
+        # ADR-66: link the occurrence to the Rutina's Proyecto so it shows in
+        # the Agenda tab of the project page and counts toward its Progreso.
+        props[s.Agenda.PROYECTO] = n.w_relation(list(routine.proyecto_ids))
     tabla = _TABLA_BY_CATEGORIA.get(routine.categoria or "")
     if tabla:
         props[s.Agenda.TABLA] = n.w_select(tabla)

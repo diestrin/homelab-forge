@@ -13,13 +13,16 @@ Upstream publishes no container image and is installed with
 provides MCP with OAuth 2.1 and an admin dashboard on port 3131.
 
 `forge-postgres` is `postgres:16-alpine` without pgvector, which GBrain's Postgres
-engine requires. GBrain's default engine, PGLite, needs nothing external.
+engine requires. Swapping its image to Debian would risk the other databases on it
+(file ownership, text-sort order), so GBrain gets its own instance.
 
 ## Decision
 
 1. Build our own image from `apps/gbrain/` (CI: `gbrain-image.yml`, GHCR).
-2. Run one replica (Recreate) in namespace `gbrain` using **PGLite**, keyless
-   (`--no-embedding`), data on the data disk at `/media/diestrin/data/forge/gbrain`.
+2. Run one gbrain replica (Recreate) in namespace `gbrain`, keyless
+   (`--no-embedding`), against a **dedicated `pgvector/pgvector:0.8.0-pg16`**
+   Deployment (`gbrain-postgres`) with data on the data disk at
+   `/media/diestrin/data/forge/gbrain-pg`. Only gbrain may reach it (NetworkPolicy).
 3. Expose through Traefik at `gbrain.localpower.diegobarahona.com` with
    cert-manager TLS. Auth is GBrain's own OAuth/bearer tokens; owner credential
    `GBRAIN_ADMIN_BOOTSTRAP_TOKEN` comes from Vault `secret/forge/gbrain`.
@@ -27,8 +30,7 @@ engine requires. GBrain's default engine, PGLite, needs nothing external.
 
 ## Consequences
 
-- PGLite is single-writer, so no scale-out and no concurrent CLI use on the same files.
-- Moving to Postgres later needs a pgvector-capable instance
-  (`gbrain migrate --to postgres`); a follow-up ADR if wanted.
+- A second Postgres to back up and patch; it is not covered by forge-postgres backups.
+- Embeddings can be enabled later without a migration.
 - Semantic search/synthesis later needs API keys in Vault and an egress review.
 - Public reachability is intentional; revisit with an IP allowlist if desired.

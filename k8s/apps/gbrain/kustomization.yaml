@@ -7,5 +7,6 @@ resources:
   - quota.yaml
   - externalsecret.yaml
   - networkpolicy.yaml
+  - postgres.yaml
   - deployment.yaml
   - ingress.yaml

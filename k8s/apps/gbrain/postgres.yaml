@@ -1,0 +1,76 @@
+# Dedicated Postgres + pgvector for gbrain (ADR-017). Separate from the shared
+# forge-postgres so its Alpine image and data are untouched.
+# Data: /media/diestrin/data/forge/gbrain-pg (data disk).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gbrain-postgres
+  namespace: gbrain
+  labels:
+    app: gbrain-postgres
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: gbrain-postgres
+  template:
+    metadata:
+      labels:
+        app: gbrain-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:0.8.0-pg16
+          ports:
+            - name: pg
+              containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: gbrain
+            - name: POSTGRES_DB
+              value: gbrain
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: gbrain-secrets
+                  key: postgres_password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "gbrain", "-d", "gbrain"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "gbrain", "-d", "gbrain"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+      volumes:
+        - name: data
+          hostPath:
+            path: /media/diestrin/data/forge/gbrain-pg
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gbrain-postgres
+  namespace: gbrain
+  labels:
+    app: gbrain-postgres
+spec:
+  selector:
+    app: gbrain-postgres
+  ports:
+    - name: pg
+      port: 5432
+      targetPort: pg

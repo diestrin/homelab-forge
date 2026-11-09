@@ -7,7 +7,9 @@
 2. Seed the owner token in Vault (never commit it):
 
    ```bash
-   vault kv put secret/forge/gbrain admin_token="$(openssl rand -hex 32)"
+   vault kv put secret/forge/gbrain \
+     admin_token="$(openssl rand -hex 32)" \
+     postgres_password="$(openssl rand -hex 24)"
    ```
 
 3. Argo CD syncs Application `gbrain`. Check:
@@ -36,5 +38,6 @@ Then register the OAuth client / grant per upstream `docs/mcp/ADMIN.md`.
 
 ## Backup and teardown
 
-Brain data lives in `/media/diestrin/data/forge/gbrain`; include it in backups.
-The Namespace is never pruned by Argo; delete manually only after copying that directory.
+Brain data lives in Postgres at `/media/diestrin/data/forge/gbrain-pg`; include it in backups
+(or `kubectl -n gbrain exec deploy/gbrain-postgres -- pg_dump -U gbrain gbrain > gbrain.sql`).
+The Namespace is never pruned by Argo; delete manually only after backing up.

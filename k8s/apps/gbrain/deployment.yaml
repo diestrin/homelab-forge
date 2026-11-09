@@ -1,5 +1,5 @@
-# Single replica, Recreate: PGLite is single-writer (ADR-017).
-# Brain data: /media/diestrin/data/forge/gbrain (data disk).
+# Single replica, Recreate. Brain lives in gbrain-postgres (pgvector); /data
+# holds only gbrain's config and local state (ADR-017).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -44,6 +44,13 @@ spec:
               value: https://gbrain.localpower.diegobarahona.com
             - name: GBRAIN_HTTP_TRUST_PROXY
               value: "1"
+            - name: PG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: gbrain-secrets
+                  key: postgres_password
+            - name: GBRAIN_DATABASE_URL
+              value: postgresql://gbrain:$(PG_PASSWORD)@gbrain-postgres:5432/gbrain
             - name: GBRAIN_ADMIN_BOOTSTRAP_TOKEN
               valueFrom:
                 secretKeyRef:

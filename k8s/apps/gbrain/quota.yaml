@@ -1,3 +1,4 @@
+# Headroom for the cert-manager HTTP-01 solver pod (limits.cpu 100m) on top of gbrain + postgres.
 apiVersion: v1
 kind: ResourceQuota
 metadata:
@@ -7,6 +8,6 @@ spec:
   hard:
     requests.cpu: "1"
     requests.memory: 1Gi
-    limits.cpu: "3"
-    limits.memory: 4Gi
-    pods: "4"
+    limits.cpu: "4"
+    limits.memory: 5Gi
+    pods: "6"

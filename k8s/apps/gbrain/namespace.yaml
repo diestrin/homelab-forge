@@ -1,0 +1,9 @@
+# Argo CD never prunes this Namespace: it holds the brain (ADR-017).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gbrain
+  labels:
+    forge.homelab/plane: apps
+  annotations:
+    argocd.argoproj.io/sync-options: Delete=false,Prune=false

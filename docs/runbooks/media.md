@@ -258,6 +258,7 @@ Expect that noise after qBittorrent starts; it is not a new host listener.
 | Symptom | Check |
 | --- | --- |
 | Arr pods `CreateContainerConfigError` | Vault `secret/forge/media` missing fields; ESO `media-secrets` |
+| Prowlarr/Radarr/Sonarr CrashLoop / probe 400 | Servarr host filtering rejects kubelet’s pod-IP Host header. Probes must send `Host: localhost` |
 | Traefik DEFAULT CERT / invalid SSL | Let’s Encrypt still pending. `kubectl -n media get challenge,certificate`. HTTP-01 **502** means Traefik cannot reach the ACME solver (NetworkPolicy `allow-acme-http01-from-ingress`) |
 | Jellyfin cert `False` | DNS for `media.localpower.diegobarahona.com`; HTTP-01 on 80 |
 | Duplicate disk use after import | Paths differ across pods; must all be `/data` on one hostPath |

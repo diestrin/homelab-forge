@@ -108,6 +108,7 @@ is not on an Ingress.
 | Symptom | Check |
 | --- | --- |
 | Pod `CreateContainerConfigError` | Vault `secret/forge/garage` missing `rpc_secret` or `admin_token`; ESO `garage-secrets` |
+| Traefik DEFAULT CERT / invalid SSL | Let’s Encrypt still pending. `kubectl -n storage get challenge,certificate`. HTTP-01 **502** means Traefik cannot reach the ACME solver (NetworkPolicy `allow-acme-http01-from-ingress`) |
 | Public cert `False` | DNS for `s3.localpower.diegobarahona.com`; HTTP-01 on port 80 |
 | LAN cert `False` | Public DNS for `s3.lan.localpower.diegobarahona.com` must also reach this host for issuance |
 | LAN URL slow or fails at home | LAN resolver still sends that name to the WAN address; add the split-horizon record |

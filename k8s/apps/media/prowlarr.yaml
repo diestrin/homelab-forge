@@ -68,16 +68,24 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
+          # Servarr host filtering only allows localhost/pod name; kubelet
+          # probes use the pod IP Host header and get 400 without this.
           readinessProbe:
             httpGet:
               path: /ping
               port: http
+              httpHeaders:
+                - name: Host
+                  value: localhost
             initialDelaySeconds: 20
             periodSeconds: 15
           livenessProbe:
             httpGet:
               path: /ping
               port: http
+              httpHeaders:
+                - name: Host
+                  value: localhost
             initialDelaySeconds: 60
             periodSeconds: 30
       volumes:

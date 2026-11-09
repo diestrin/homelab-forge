@@ -47,3 +47,26 @@ spec:
     - ports:
         - protocol: TCP
           port: 3900
+---
+# cert-manager HTTP-01 solver pods are not app=garage; without this, Traefik
+# gets 502 on /.well-known/acme-challenge and Let's Encrypt never issues
+# (same class of bug as media/jellyfin — ADR-014 follow-up).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-acme-http01-from-ingress
+  namespace: storage
+spec:
+  podSelector:
+    matchLabels:
+      acme.cert-manager.io/http01-solver: "true"
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: TCP
+          port: 8089

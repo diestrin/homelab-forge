@@ -37,6 +37,11 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- Prowlarr CrashLoopBackOff: kubelet HTTP probes now send `Host: localhost` so
+  Servarr ASP.NET host filtering accepts `/ping` (same on Radarr/Sonarr).
+- Let’s Encrypt HTTP-01 for Garage: allow Traefik to reach cert-manager solver
+  pods in `storage` (same pattern as media/obico/gbrain).
+
 - Let’s Encrypt HTTP-01 for Jellyfin: allow Traefik (kube-system) to reach
   cert-manager solver pods in `media`. Without that NetworkPolicy, Traefik served
   its default self-signed cert.

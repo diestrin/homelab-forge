@@ -1,0 +1,88 @@
+# Single replica, Recreate: PGLite is single-writer (ADR-017).
+# Brain data: /media/diestrin/data/forge/gbrain (data disk).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gbrain
+  namespace: gbrain
+  labels:
+    app: gbrain
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: gbrain
+  template:
+    metadata:
+      labels:
+        app: gbrain
+    spec:
+      securityContext:
+        fsGroup: 1000
+      initContainers:
+        - name: prepare-dirs
+          image: busybox:1.37.0
+          command: ["sh", "-c", "chown -R 1000:1000 /data"]
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 64Mi}
+      containers:
+        - name: gbrain
+          image: ghcr.io/diestrin/homelab-forge/gbrain:main
+          imagePullPolicy: Always
+          env:
+            - name: GBRAIN_HOME
+              value: /data
+            - name: GBRAIN_PUBLIC_URL
+              value: https://gbrain.localpower.diegobarahona.com
+            - name: GBRAIN_HTTP_TRUST_PROXY
+              value: "1"
+            - name: GBRAIN_ADMIN_BOOTSTRAP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: gbrain-secrets
+                  key: admin_token
+          ports:
+            - name: http
+              containerPort: 3131
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "2", memory: 2Gi}
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+      volumes:
+        - name: data
+          hostPath:
+            path: /media/diestrin/data/forge/gbrain
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gbrain
+  namespace: gbrain
+  labels:
+    app: gbrain
+spec:
+  selector:
+    app: gbrain
+  ports:
+    - name: http
+      port: 3131
+      targetPort: http

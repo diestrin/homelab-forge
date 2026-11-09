@@ -76,6 +76,26 @@ spec:
       prune: true
       selfHeal: true
 ---
+# GBrain personal memory MCP server (ADR-017).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gbrain
+  namespace: forge-system
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/diestrin/homelab-forge.git
+    targetRevision: main
+    path: k8s/apps/gbrain
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gbrain
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+---
 # Obico printer monitoring (ADR-016). Upstream Helm chart from a public OCI
 # registry: repoURL has no oci:// prefix and needs no repository Secret. The git
 # source is both the $values ref and the forge manifests in k8s/apps/obico.

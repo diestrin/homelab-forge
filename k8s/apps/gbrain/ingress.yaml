@@ -1,0 +1,26 @@
+# MCP + OAuth endpoints (ADR-017). Auth is gbrain's own OAuth 2.1 / bearer tokens.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gbrain
+  namespace: gbrain
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - gbrain.localpower.diegobarahona.com
+      secretName: gbrain-tls
+  rules:
+    - host: gbrain.localpower.diegobarahona.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gbrain
+                port:
+                  number: 3131

@@ -24,8 +24,8 @@
 Owner login link (token read from the cluster secret, not printed to logs):
 
 ```bash
-kubectl -n gbrain exec deploy/gbrain -- sh -c \
-  'gbrain mcp admin login-link --url "$GBRAIN_PUBLIC_URL/mcp" --admin-token-file /dev/stdin <<<"$GBRAIN_ADMIN_BOOTSTRAP_TOKEN"'
+kubectl -n gbrain exec deploy/gbrain -- bash -c \
+  'gbrain mcp admin login-link --url "$GBRAIN_PUBLIC_URL/mcp" --admin-token-file <(printf %s "$GBRAIN_ADMIN_BOOTSTRAP_TOKEN")'
 ```
 
 Claude Code:

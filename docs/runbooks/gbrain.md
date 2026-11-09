@@ -21,11 +21,12 @@
 
 ## Connect clients
 
-Owner login link (token read from the cluster secret, not printed to logs):
+Owner login link. gbrain requires the token in a private (0600) regular file, so the
+command writes a temp file in the pod and removes it afterwards:
 
 ```bash
 kubectl -n gbrain exec deploy/gbrain -- bash -c \
-  'gbrain mcp admin login-link --url "$GBRAIN_PUBLIC_URL/mcp" --admin-token-file <(printf %s "$GBRAIN_ADMIN_BOOTSTRAP_TOKEN")'
+  'umask 077; f=$(mktemp); printf %s "$GBRAIN_ADMIN_BOOTSTRAP_TOKEN" > "$f"; gbrain mcp admin login-link --url "$GBRAIN_PUBLIC_URL/mcp" --admin-token-file "$f"; rm -f "$f"'
 ```
 
 Claude Code:

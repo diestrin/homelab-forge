@@ -215,7 +215,12 @@ def w_relation(page_ids: list[str]) -> dict:
     return {"relation": [{"id": pid} for pid in page_ids]}
 
 
-def w_date(value: date | datetime | None) -> dict:
+def w_date(
+    value: date | datetime | None, end: date | datetime | None = None
+) -> dict:
     if value is None:
         return {"date": None}
-    return {"date": {"start": value.isoformat()}}
+    body = {"start": value.isoformat()}
+    if end is not None:
+        body["end"] = end.isoformat()
+    return {"date": body}

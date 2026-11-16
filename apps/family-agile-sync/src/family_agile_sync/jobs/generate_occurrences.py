@@ -101,7 +101,12 @@ def _row_props(routine: Routine, day: date, member_id: str | None) -> dict:
     # member pages.
     if routine.minutos is not None and isinstance(inicia, datetime):
         props[s.Agenda.MINUTOS] = n.w_number(routine.minutos)
-        props[s.Agenda.TERMINA] = n.w_date(inicia + timedelta(minutes=routine.minutos))
+        termina = inicia + timedelta(minutes=routine.minutos)
+        props[s.Agenda.TERMINA] = n.w_date(termina)
+        # Notion Calendar draws an event from a single date property's own
+        # range and cannot read `Termina`, so the end must live in `Inicia`
+        # too or every block collapses to the default length.
+        props[s.Agenda.INICIA] = n.w_date(inicia, termina)
     return props
 
 

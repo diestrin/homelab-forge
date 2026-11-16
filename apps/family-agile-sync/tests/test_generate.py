@@ -227,6 +227,16 @@ def test_minutos_stamps_termina_from_inicia(wired):
     ).isoformat()
 
 
+def test_inicia_carries_the_end_so_notion_calendar_shows_the_duration(wired):
+    r = _routine(members=("m1",), categoria="Horario", hora="9:00 AM", minutos=90)
+    notion, _ = wired([r], [])
+
+    _, props = notion.created[0]
+    inicia = props[s.Agenda.INICIA]["date"]
+    assert inicia["end"] == props[s.Agenda.TERMINA]["date"]["start"]
+    assert inicia["end"] != inicia["start"]
+
+
 def test_no_minutos_leaves_termina_unset(wired):
     r = _routine(members=("m1",), categoria="Horario", hora="9:00 AM")
     notion, _ = wired([r], [])

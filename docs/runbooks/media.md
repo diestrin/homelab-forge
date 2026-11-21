@@ -275,6 +275,7 @@ Expect that noise after qBittorrent starts; it is not a new host listener.
 | Software transcode | `/dev/dri` mount, supplemental groups 44/993, QSV enabled in Dashboard |
 | Indexer works in Prowlarr but not Radarr | Prowlarr app sync; NetworkPolicy egress 80/443 |
 | Indexer test fails on a Cloudflare check | Indexer proxy set to `http://flaresolverr:8191`; `kubectl -n media get pod -l app=flaresolverr` Running |
+| Radarr says it cannot connect to qBittorrent | Host `qbittorrent`, port `8080`, user `admin`, Vault `qbittorrent_webui_password`. An empty login makes qBittorrent 5.2 return 401, which Radarr shows on the Host field |
 | Stuck downloads | qBittorrent categories vs Radarr/Sonarr category names; completed-download handling |
 | Chromecast fails | Client and Chromecast using the public HTTPS URL; cert valid |
 

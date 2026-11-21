@@ -13,5 +13,6 @@ resources:
   - radarr.yaml
   - sonarr.yaml
   - prowlarr.yaml
+  - flaresolverr.yaml
   - qbittorrent.yaml
   - jellyseerr.yaml

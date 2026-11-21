@@ -168,6 +168,16 @@ password. API key is already injected (`prowlarr_api_key` in Vault) —
      `vault kv get -field=sonarr_api_key secret/forge/media`
 3. Sync / save so the indexers appear inside Radarr and Sonarr.
 
+Cloudflare-protected indexers fail the test until they use the in-cluster
+FlareSolverr proxy (`http://flaresolverr:8191`, ClusterIP only):
+
+1. **Settings → Indexers → Indexer Proxies → Add → FlareSolverr.**
+   Host `http://flaresolverr:8191`. Test, then save.
+2. Edit the indexer that failed and select that proxy. Test again.
+
+FlareSolverr only clears the browser check. An indexer you cannot log into,
+or one that is down, still fails.
+
 ### 4. Radarr (movies)
 
 ```bash
@@ -264,6 +274,7 @@ Expect that noise after qBittorrent starts; it is not a new host listener.
 | Duplicate disk use after import | Paths differ across pods; must all be `/data` on one hostPath |
 | Software transcode | `/dev/dri` mount, supplemental groups 44/993, QSV enabled in Dashboard |
 | Indexer works in Prowlarr but not Radarr | Prowlarr app sync; NetworkPolicy egress 80/443 |
+| Indexer test fails on a Cloudflare check | Indexer proxy set to `http://flaresolverr:8191`; `kubectl -n media get pod -l app=flaresolverr` Running |
 | Stuck downloads | qBittorrent categories vs Radarr/Sonarr category names; completed-download handling |
 | Chromecast fails | Client and Chromecast using the public HTTPS URL; cert valid |
 

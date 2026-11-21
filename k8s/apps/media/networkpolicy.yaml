@@ -106,6 +106,7 @@ spec:
           - sonarr
           - prowlarr
           - jellyseerr
+          - flaresolverr
   policyTypes:
     - Egress
   egress:

@@ -39,6 +39,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Fixed
 
+- Radarr can add qBittorrent 5.2. The 5.28 image treated qBittorrent's empty
+  HTTP 204 login as a failure and reported "Unable to connect" on the host
+  field. The image is now 7.0.3.
 - Prowlarr CrashLoopBackOff: kubelet HTTP probes now send `Host: localhost` so
   Servarr ASP.NET host filtering accepts `/ping` (same on Radarr/Sonarr).
 - Let’s Encrypt HTTP-01 for Garage: allow Traefik to reach cert-manager solver

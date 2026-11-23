@@ -35,6 +35,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- qBittorrent image is 5.3.0. Radarr 7.0.3 already accepts the 5.2 login
+  response, so the 5.2.3 pin is no longer required.
 - Alertmanager Slack `#forge-alerts` now posts when alerts resolve (ntfy already did).
 - Disabled kube-prometheus-stack `KubeCPUQuotaOvercommit`; namespace CPU quotas are
   intentional burst ceilings on this single-node NUC.

@@ -35,6 +35,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- qBittorrent image is 5.3.0. Radarr 7.0.3 already accepts the 5.2 login
+  response, so the 5.2.3 pin is no longer required.
 - Request app is Seerr v3.5.2. The public URL is unchanged. The workload is
   `seerr`, and the existing `config/jellyseerr` directory is migrated on first
   boot. The Ingress object and TLS secret keep the name `jellyseerr`.

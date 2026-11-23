@@ -71,12 +71,12 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-jellyseerr-from-ingress
+  name: allow-seerr-from-ingress
   namespace: media
 spec:
   podSelector:
     matchLabels:
-      app: jellyseerr
+      app: seerr
   policyTypes:
     - Ingress
   ingress:
@@ -125,7 +125,7 @@ spec:
           - radarr
           - sonarr
           - prowlarr
-          - jellyseerr
+          - seerr
           - flaresolverr
   policyTypes:
     - Egress

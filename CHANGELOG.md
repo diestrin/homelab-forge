@@ -35,6 +35,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Request app is Seerr v3.5.2. The public URL is unchanged. The workload is
+  `seerr`, and the existing `config/jellyseerr` directory is migrated on first
+  boot. The Ingress object and TLS secret keep the name `jellyseerr`.
 - Alertmanager Slack `#forge-alerts` now posts when alerts resolve (ntfy already did).
 - Disabled kube-prometheus-stack `KubeCPUQuotaOvercommit`; namespace CPU quotas are
   intentional burst ceilings on this single-node NUC.

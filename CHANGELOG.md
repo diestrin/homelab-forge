@@ -35,6 +35,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- qBittorrent image is 5.3.0. Radarr 7.0.3 already accepts the 5.2 login
+  response, so the 5.2.3 pin is no longer required.
 - Jellyfin image is 12.4 (`12.4ubu2604-ls60`). Linuxserver does not publish a
   bare `12.4` tag. 12.0 migrates the database; restore `config/jellyfin` to
   roll back.

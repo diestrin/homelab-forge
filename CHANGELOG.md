@@ -21,6 +21,8 @@ All notable changes to this project are documented here. The format follows
 
 - Media platform MVP (ADR-014): Jellyfin with Intel QSV and public HTTPS, plus an
   internal Prowlarr / Radarr / Sonarr / qBittorrent / Jellyseerr acquisition stack.
+- Jellyseerr on `https://requests.localpower.diegobarahona.com`. Arr UIs stay
+  ClusterIP.
 - Cluster-internal FlareSolverr (`media` namespace) so Prowlarr can use it as
   an indexer proxy. No Ingress.
 

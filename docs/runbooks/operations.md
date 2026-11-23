@@ -121,6 +121,7 @@ The worker needs the Vault port-forward from step 3 for AppRole + GitHub App tok
 | Public HTTPS | `curl -fsSI https://localpower.diegobarahona.com` | `HTTP/2 200` |
 | Grafana | `curl -fsSI https://grafana.localpower.diegobarahona.com` | `HTTP/2 200` or `302` |
 | Jellyfin | `curl -fsSI https://media.localpower.diegobarahona.com` | `HTTP/2 200` (after media MVP, ADR-014) |
+| Jellyseerr | `curl -fsSI https://requests.localpower.diegobarahona.com` | `HTTP/2 200` or `307` |
 | Monitoring | `kubectl -n monitoring get pods` | Prometheus/Grafana/Alertmanager/Loki/Alloy Running |
 | IDS | `systemctl --user status host-watch.timer` | active |
 

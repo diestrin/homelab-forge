@@ -23,3 +23,30 @@ spec:
                 name: jellyfin
                 port:
                   number: 8096
+---
+# Family request UI. Arr apps stay ClusterIP (ADR-014).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jellyseerr
+  namespace: media
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - requests.localpower.diegobarahona.com
+      secretName: jellyseerr-tls
+  rules:
+    - host: requests.localpower.diegobarahona.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jellyseerr
+                port:
+                  number: 5055

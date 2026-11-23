@@ -1,4 +1,4 @@
-# Default-deny; DNS; same-namespace; Traefik → Jellyfin only; HTTPS/HTTP
+# Default-deny; DNS; same-namespace; Traefik → Jellyfin and Jellyseerr; HTTPS/HTTP
 # metadata for the apps; unrestricted egress for qBittorrent p2p (ADR-014).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -67,6 +67,26 @@ spec:
       ports:
         - protocol: TCP
           port: 8096
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-jellyseerr-from-ingress
+  namespace: media
+spec:
+  podSelector:
+    matchLabels:
+      app: jellyseerr
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: TCP
+          port: 5055
 ---
 # cert-manager HTTP-01 solver pods are not app=jellyfin; without this, Traefik
 # gets 502 on /.well-known/acme-challenge and Let's Encrypt never issues.

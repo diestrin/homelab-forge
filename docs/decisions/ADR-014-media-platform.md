@@ -32,8 +32,9 @@ and books) with no paid third-party services. Constraints from the operator:
    sidecar). No inbound BitTorrent port on the host firewall.
 3. **GitOps on k3s.** Manifests live under `k8s/apps/media/`. Merge to `main`
    → Argo CD Application `media` syncs (ADR-008). No `kubectl apply` of the
-   app. Public Ingress is Jellyfin only
-   (`media.localpower.diegobarahona.com`). Arr UIs stay ClusterIP.
+   app. Public Ingress is Jellyfin
+   (`media.localpower.diegobarahona.com`) and Jellyseerr
+   (`requests.localpower.diegobarahona.com`). Arr UIs stay ClusterIP.
 4. **Storage.** One hostPath tree on the data disk so downloads and the library
    share a filesystem (atomic hardlink imports). Layout is TRaSH-style
    `/data/media/{movies,tv}` + `/data/torrents/{movies,tv}`.

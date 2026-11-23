@@ -12,7 +12,7 @@ Do not `kubectl apply` these manifests.
 | Service | How to reach it |
 | --- | --- |
 | Jellyfin (public) | `https://media.localpower.diegobarahona.com` |
-| Jellyseerr | `kubectl -n media port-forward svc/jellyseerr 5055:5055` → `http://127.0.0.1:5055` |
+| Jellyseerr (public) | `https://requests.localpower.diegobarahona.com` |
 | Radarr | `kubectl -n media port-forward svc/radarr 7878:7878` |
 | Sonarr | `kubectl -n media port-forward svc/sonarr 8989:8989` |
 | Prowlarr | `kubectl -n media port-forward svc/prowlarr 9696:9696` |
@@ -21,7 +21,8 @@ Do not `kubectl apply` these manifests.
 Arr UIs are ClusterIP on purpose. Do not add Ingress for them without a new
 high-risk review.
 
-DNS: `media.localpower.diegobarahona.com` uses the same wildcard (or explicit
+DNS: `media.localpower.diegobarahona.com` and
+`requests.localpower.diegobarahona.com` use the same wildcard (or explicit
 record) as `grafana.localpower.diegobarahona.com` and PR previews. A Traefik
 **DEFAULT CERT** (browser “invalid SSL”) means the Let’s Encrypt HTTP-01
 challenge has not finished — see Troubleshooting.
@@ -208,24 +209,22 @@ client qBittorrent with category `tv`. API key = Vault `sonarr_api_key`.
 
 ### 6. Jellyseerr (family requests)
 
-```bash
-kubectl -n media port-forward svc/jellyseerr 5055:5055
-```
-
-`http://127.0.0.1:5055`.
+Open `https://requests.localpower.diegobarahona.com`.
 
 1. Jellyfin URL **`http://jellyfin:8096`** (cluster DNS, not the public
    hostname). API key = Vault `jellyfin_api_key`.
 2. Sign in with your Jellyfin admin (or a dedicated request-admin user).
-3. Add **Radarr:** `http://radarr:7878` + `radarr_api_key`. Default root
+3. In Jellyseerr settings, set the application URL to
+   `https://requests.localpower.diegobarahona.com` so invite links use HTTPS.
+4. Add **Radarr:** `http://radarr:7878` + `radarr_api_key`. Default root
    folder `/data/media/movies`, 1080p quality profile.
-4. Add **Sonarr:** `http://sonarr:8989` + `sonarr_api_key`. Root
+5. Add **Sonarr:** `http://sonarr:8989` + `sonarr_api_key`. Root
    `/data/media/tv`.
-5. Request one title and watch it flow: Jellyseerr → Radarr/Sonarr →
+6. Request one title and watch it flow: Jellyseerr → Radarr/Sonarr →
    qBittorrent → library folder → Jellyfin.
 
-Family members request from Jellyseerr after they have Jellyfin logins.
-Leave Jellyseerr off public Ingress for now.
+Family members request from that HTTPS URL after they have Jellyfin logins.
+Radarr, Sonarr, Prowlarr, and qBittorrent stay on port-forward.
 
 ### 7. Playback smoke test
 
@@ -271,6 +270,7 @@ Expect that noise after qBittorrent starts; it is not a new host listener.
 | Prowlarr/Radarr/Sonarr CrashLoop / probe 400 | Servarr host filtering rejects kubelet’s pod-IP Host header. Probes must send `Host: localhost` |
 | Traefik DEFAULT CERT / invalid SSL | Let’s Encrypt still pending. `kubectl -n media get challenge,certificate`. HTTP-01 **502** means Traefik cannot reach the ACME solver (NetworkPolicy `allow-acme-http01-from-ingress`) |
 | Jellyfin cert `False` | DNS for `media.localpower.diegobarahona.com`; HTTP-01 on 80 |
+| Jellyseerr cert `False` | DNS for `requests.localpower.diegobarahona.com`; NetworkPolicy `allow-jellyseerr-from-ingress` |
 | Duplicate disk use after import | Paths differ across pods; must all be `/data` on one hostPath |
 | Software transcode | `/dev/dri` mount, supplemental groups 44/993, QSV enabled in Dashboard |
 | Indexer works in Prowlarr but not Radarr | Prowlarr app sync; NetworkPolicy egress 80/443 |

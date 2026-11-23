@@ -35,6 +35,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Prowlarr image is 3.1.0. Probes still send `Host: localhost`, and the API
+  key still comes from Vault.
 - Alertmanager Slack `#forge-alerts` now posts when alerts resolve (ntfy already did).
 - Disabled kube-prometheus-stack `KubeCPUQuotaOvercommit`; namespace CPU quotas are
   intentional burst ceilings on this single-node NUC.

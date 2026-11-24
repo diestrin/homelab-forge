@@ -1,6 +1,6 @@
 # Media platform (Phase 1 MVP)
 
-Movies and TV on the forge: **Jellyfin** for playback, **Jellyseerr** for
+Movies and TV on the forge: **Jellyfin** for playback, **Seerr** for
 requests, **Prowlarr / Radarr / Sonarr / qBittorrent** for acquisition.
 Decisions: [ADR-014](../decisions/ADR-014-media-platform.md). Epic: GitHub #60.
 
@@ -12,7 +12,7 @@ Do not `kubectl apply` these manifests.
 | Service | How to reach it |
 | --- | --- |
 | Jellyfin (public) | `https://media.localpower.diegobarahona.com` |
-| Jellyseerr (public) | `https://requests.localpower.diegobarahona.com` |
+| Seerr (public) | `https://requests.localpower.diegobarahona.com` |
 | Radarr | `kubectl -n media port-forward svc/radarr 7878:7878` |
 | Sonarr | `kubectl -n media port-forward svc/sonarr 8989:8989` |
 | Prowlarr | `kubectl -n media port-forward svc/prowlarr 9696:9696` |
@@ -57,7 +57,7 @@ Path `secret/forge/media` (KV v2; ESO key `forge/media`):
 | `radarr_api_key` | `RADARR__AUTH__APIKEY` (≥ 20 chars) |
 | `sonarr_api_key` | `SONARR__AUTH__APIKEY` |
 | `prowlarr_api_key` | `PROWLARR__AUTH__APIKEY` |
-| `jellyfin_api_key` | Created in Jellyfin after the wizard; store here for Jellyseerr |
+| `jellyfin_api_key` | Created in Jellyfin after the wizard; store here for Seerr |
 
 Create or rotate (never commit values):
 
@@ -207,20 +207,23 @@ kubectl -n media port-forward svc/sonarr 8989:8989
 Same pattern as Radarr: root folder `/data/media/tv`, hardlinks on, download
 client qBittorrent with category `tv`. API key = Vault `sonarr_api_key`.
 
-### 6. Jellyseerr (family requests)
+### 6. Seerr (family requests)
 
 Open `https://requests.localpower.diegobarahona.com`.
+
+The on-disk config directory is still `config/jellyseerr`. Seerr migrates
+those files on first boot. Do not rename that directory.
 
 1. Jellyfin URL **`http://jellyfin:8096`** (cluster DNS, not the public
    hostname). API key = Vault `jellyfin_api_key`.
 2. Sign in with your Jellyfin admin (or a dedicated request-admin user).
-3. In Jellyseerr settings, set the application URL to
+3. In Seerr settings, set the application URL to
    `https://requests.localpower.diegobarahona.com` so invite links use HTTPS.
 4. Add **Radarr:** `http://radarr:7878` + `radarr_api_key`. Default root
    folder `/data/media/movies`, 1080p quality profile.
 5. Add **Sonarr:** `http://sonarr:8989` + `sonarr_api_key`. Root
    `/data/media/tv`.
-6. Request one title and watch it flow: Jellyseerr → Radarr/Sonarr →
+6. Request one title and watch it flow: Seerr → Radarr/Sonarr →
    qBittorrent → library folder → Jellyfin.
 
 Family members request from that HTTPS URL after they have Jellyfin logins.
@@ -270,7 +273,7 @@ Expect that noise after qBittorrent starts; it is not a new host listener.
 | Prowlarr/Radarr/Sonarr CrashLoop / probe 400 | Servarr host filtering rejects kubelet’s pod-IP Host header. Probes must send `Host: localhost` |
 | Traefik DEFAULT CERT / invalid SSL | Let’s Encrypt still pending. `kubectl -n media get challenge,certificate`. HTTP-01 **502** means Traefik cannot reach the ACME solver (NetworkPolicy `allow-acme-http01-from-ingress`) |
 | Jellyfin cert `False` | DNS for `media.localpower.diegobarahona.com`; HTTP-01 on 80 |
-| Jellyseerr cert `False` | DNS for `requests.localpower.diegobarahona.com`; NetworkPolicy `allow-jellyseerr-from-ingress` |
+| Seerr cert `False` | DNS for `requests.localpower.diegobarahona.com`; NetworkPolicy `allow-seerr-from-ingress`. The TLS secret is still named `jellyseerr-tls` |
 | Duplicate disk use after import | Paths differ across pods; must all be `/data` on one hostPath |
 | Software transcode | `/dev/dri` mount, supplemental groups 44/993, QSV enabled in Dashboard |
 | Indexer works in Prowlarr but not Radarr | Prowlarr app sync; NetworkPolicy egress 80/443 |

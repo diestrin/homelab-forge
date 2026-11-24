@@ -24,7 +24,9 @@ spec:
                 port:
                   number: 8096
 ---
-# Family request UI. Arr apps stay ClusterIP (ADR-014).
+# Family request UI. Object name and TLS secret stay jellyseerr so the
+# existing certificate is not reissued. The Service behind it is seerr.
+# Arr apps stay ClusterIP (ADR-014).
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -47,6 +49,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: jellyseerr
+                name: seerr
                 port:
                   number: 5055

@@ -37,6 +37,8 @@ All notable changes to this project are documented here. The format follows
 
 - qBittorrent image is 5.3.0. Radarr 7.0.3 already accepts the 5.2 login
   response, so the 5.2.3 pin is no longer required.
+- Prowlarr image is 3.1.0. Probes still send `Host: localhost`, and the API
+  key still comes from Vault.
 - Jellyfin image is 12.4 (`12.4ubu2604-ls60`). Linuxserver does not publish a
   bare `12.4` tag. 12.0 migrates the database; restore `config/jellyfin` to
   roll back.

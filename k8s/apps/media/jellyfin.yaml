@@ -50,7 +50,7 @@ spec:
               memory: 64Mi
       containers:
         - name: jellyfin
-          image: lscr.io/linuxserver/jellyfin:10.11.11
+          image: lscr.io/linuxserver/jellyfin:12.4ubu2604-ls60
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

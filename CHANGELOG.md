@@ -42,6 +42,9 @@ All notable changes to this project are documented here. The format follows
 - Request app is Seerr v3.5.2. The public URL is unchanged. The workload is
   `seerr`, and the existing `config/jellyseerr` directory is migrated on first
   boot. The Ingress object and TLS secret keep the name `jellyseerr`.
+- Jellyfin image is 12.4 (`12.4ubu2604-ls60`). Linuxserver does not publish a
+  bare `12.4` tag. 12.0 migrates the database; restore `config/jellyfin` to
+  roll back.
 - Alertmanager Slack `#forge-alerts` now posts when alerts resolve (ntfy already did).
 - Disabled kube-prometheus-stack `KubeCPUQuotaOvercommit`; namespace CPU quotas are
   intentional burst ceilings on this single-node NUC.

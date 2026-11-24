@@ -43,7 +43,7 @@ spec:
               memory: 64Mi
       containers:
         - name: prowlarr
-          image: lscr.io/linuxserver/prowlarr:2.6.5
+          image: lscr.io/linuxserver/prowlarr:3.1.0
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

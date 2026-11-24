@@ -26,14 +26,14 @@ and books) with no paid third-party services. Constraints from the operator:
    hardware transcoding is paywalled. Jellyfin's API also keeps a custom
    frontend (Pelagica, JellyNext, Aurora, or a `jellyfin-web` fork) as a later
    phase without replacing the server.
-2. **Acquisition: Prowlarr + Radarr + Sonarr + qBittorrent + Jellyseerr.**
-   Standard arr-stack. Jellyseerr is the family request catalog and uses
+2. **Acquisition: Prowlarr + Radarr + Sonarr + qBittorrent + Seerr.**
+   Standard arr-stack. Seerr is the family request catalog and uses
    Jellyfin accounts. qBittorrent egress is direct from the home IP (no VPN
    sidecar). No inbound BitTorrent port on the host firewall.
 3. **GitOps on k3s.** Manifests live under `k8s/apps/media/`. Merge to `main`
    → Argo CD Application `media` syncs (ADR-008). No `kubectl apply` of the
    app. Public Ingress is Jellyfin
-   (`media.localpower.diegobarahona.com`) and Jellyseerr
+   (`media.localpower.diegobarahona.com`) and Seerr
    (`requests.localpower.diegobarahona.com`). Arr UIs stay ClusterIP.
 4. **Storage.** One hostPath tree on the data disk so downloads and the library
    share a filesystem (atomic hardlink imports). Layout is TRaSH-style
@@ -43,7 +43,7 @@ and books) with no paid third-party services. Constraints from the operator:
 6. **Secrets.** qBittorrent WebUI password and Servarr API keys live in Vault
    `secret/forge/media` and are injected with ExternalSecrets (ADR-007).
    Jellyfin's own API key is created at first-run (wizard) and copied into
-   Vault afterwards for Jellyseerr.
+   Vault afterwards for Seerr.
 
 ## Consequences
 
@@ -66,3 +66,12 @@ and books) with no paid third-party services. Constraints from the operator:
 - **Usenet.** Deferred; needs a paid indexer. p2p is the MVP path.
 - **hostNetwork qBittorrent + inbound peer port.** Faster swarming, but opens
   a host listener and an UFW hole. Declined for MVP.
+
+## Amendment (2026-11-23)
+
+The request app is **Seerr v3.5.2**. Jellyseerr 2.7.3 was the last release
+before Overseerr and Jellyseerr merged into Seerr on 2026-02-10. The public
+URL is unchanged. The workload is named `seerr`. The on-disk directory stays
+`config/jellyseerr` so the first boot migrates the existing files. The Ingress
+object and its TLS secret keep the name `jellyseerr` so the certificate is
+not reissued.
